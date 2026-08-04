@@ -36,6 +36,12 @@
        extension strictly needs, but a missing reference is a build failure on the user's machine
        and an unused one costs nothing.
 
+       Six references that the HTML SDK lists are deliberately absent: CloudServiceBase, FileScan,
+       Mobile30.CloudIntegration, TestDataManagement, Shared.Authorization and
+       Shared.Authorization.Abstractions do not ship with every Tosca 24 install (confirmed missing on
+       one), and nothing here uses them. If your install lacks another, delete its Reference — an
+       unresolved one is only a warning unless the code actually needs it.
+
        CI does not build this project (it cannot: no Tricentis DLLs on a runner). Only
        AppPercyTosca.Core.sln is built and tested there, which is why every piece of logic that can
        live in the Core does. -->
@@ -64,9 +70,6 @@
     <Reference Include="Tricentis.Automation.ChromeEngine">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.ChromeEngine.dll</HintPath>
     </Reference>
-    <Reference Include="Tricentis.Automation.CloudServiceBase">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.CloudServiceBase.dll</HintPath>
-    </Reference>
     <Reference Include="Tricentis.Automation.DatabaseEngine">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.DatabaseEngine.dll</HintPath>
     </Reference>
@@ -90,9 +93,6 @@
     </Reference>
     <Reference Include="Tricentis.Automation.FileEngine">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.FileEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="Tricentis.Automation.FileScan">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.FileScan.dll</HintPath>
     </Reference>
     <Reference Include="Tricentis.Automation.HostEngine">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.HostEngine.dll</HintPath>
@@ -165,9 +165,6 @@
     </Reference>
     <Reference Include="Tricentis.Automation.Mobile30.Abstractions">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.Mobile30.Abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="Tricentis.Automation.Mobile30.CloudIntegration">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.Mobile30.CloudIntegration.dll</HintPath>
     </Reference>
     <Reference Include="Tricentis.Automation.Mobile30.Infrastructure">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.Mobile30.Infrastructure.dll</HintPath>
@@ -319,9 +316,6 @@
     <Reference Include="Tricentis.Automation.TableCompare">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.TableCompare.dll</HintPath>
     </Reference>
-    <Reference Include="Tricentis.Automation.TestDataManagement">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.TestDataManagement.dll</HintPath>
-    </Reference>
     <Reference Include="Tricentis.Automation.TextStreamEngine">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Automation.TextStreamEngine.dll</HintPath>
     </Reference>
@@ -447,12 +441,6 @@
     </Reference>
     <Reference Include="Tricentis.ServiceDiscovery.DataContract">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.ServiceDiscovery.DataContract.dll</HintPath>
-    </Reference>
-    <Reference Include="Tricentis.Shared.Authorization">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Shared.Authorization.dll</HintPath>
-    </Reference>
-    <Reference Include="Tricentis.Shared.Authorization.Abstractions">
-      <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\Tricentis.Shared.Authorization.Abstractions.dll</HintPath>
     </Reference>
     <Reference Include="TricentisHtmlEngineExtensionHelper">
       <HintPath>C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\TBox\TricentisHtmlEngineExtensionHelper.dll</HintPath>

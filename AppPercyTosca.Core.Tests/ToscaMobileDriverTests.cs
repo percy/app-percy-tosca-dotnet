@@ -31,13 +31,20 @@ namespace AppPercyTosca.Core.Tests
         public string? Buffer(string name) =>
             Buffers.TryGetValue(name, out string? value) ? value : null;
 
-        public string? CaptureScreenshot(string directory, string fileName)
+        /// <summary>
+        /// Where the file lands is the shim's business on Tosca — the mobile engine's own task reads
+        /// its destination from module parameters — so the stub picks a directory the same way a
+        /// module would.
+        /// </summary>
+        public string Directory_ { get; set; } = Path.GetTempPath();
+
+        public string? CaptureScreenshot()
         {
             if (ReportPathWithoutWriting != null) return ReportPathWithoutWriting;
             if (ScreenshotBase64 == null) return null;
 
-            Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, fileName);
+            Directory.CreateDirectory(Directory_);
+            string path = Path.Combine(Directory_, $"percy-stub-{Guid.NewGuid()}.png");
             File.WriteAllBytes(path, Convert.FromBase64String(ScreenshotBase64));
             Captured.Add(path);
             return path;
@@ -336,6 +343,7 @@ namespace AppPercyTosca.Core.Tests
             try
             {
                 StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+                tosca.Directory_ = tempDir;
 
                 Assert.Equal(StubMobileDriver.ValidPngBase64, Build(tosca).GetScreenshotBase64());
 
@@ -359,6 +367,9 @@ namespace AppPercyTosca.Core.Tests
                 () => Build(tosca).GetScreenshotBase64());
             Assert.Contains("did not produce a screenshot", error.Message);
             Assert.Contains("Mobile Engine 3.0 server", error.Message);
+            // Names the two module rows the engine's task needs, since a missing one is the likeliest
+            // cause and nothing else in the log would say so.
+            Assert.Contains("Directory and Filename", error.Message);
         }
 
         [Fact]
@@ -419,7 +430,8 @@ namespace AppPercyTosca.Core.Tests
             try
             {
                 StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                string path = tosca.CaptureScreenshot(tempDir, "scratch.png")!;
+                tosca.Directory_ = tempDir;
+                string path = tosca.CaptureScreenshot()!;
                 tosca.ReportPathWithoutWriting = path;
                 File.SetUnixFileMode(tempDir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 
@@ -472,6 +484,7 @@ namespace AppPercyTosca.Core.Tests
             try
             {
                 StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+                tosca.Directory_ = tempDir;
                 tosca.Tcps["ScreenResolution"] = "1080x2340";
                 StubHttpMessageHandler handler = new StubHttpMessageHandler()
                     .On("/percy/healthcheck", "{\"success\":true,\"build\":{\"id\":\"b\",\"url\":\"u\"}}")

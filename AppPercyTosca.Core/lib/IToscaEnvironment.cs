@@ -40,11 +40,16 @@ namespace AppPercyTosca.Core
         /// Captures the device screen to a PNG and returns its full path, or null when the mobile
         /// engine would not produce one.
         ///
-        /// Implemented by delegating to the mobile engine's own <c>Mobile30PrintScreen</c> task —
-        /// the same route Tosca's built-in PrintScreen uses for mobile — because there is no
-        /// in-process driver to ask directly.
+        /// Implemented by delegating to the mobile engine's own <c>Mobile30PrintScreen</c> task — the
+        /// same route Tosca's built-in PrintScreen uses for mobile — because there is no in-process
+        /// driver to ask directly.
+        ///
+        /// The destination is deliberately not a parameter here. That task reads its own
+        /// <c>Directory</c> and <c>Filename</c> from the test action it is handed, so on Tosca the
+        /// path is decided by the module rather than chosen by this SDK, and only the shim can know
+        /// it. The caller just wants the bytes.
         /// </summary>
-        string? CaptureScreenshot(string directory, string fileName);
+        string? CaptureScreenshot();
 
         /// <summary>
         /// Whether raw Appium commands can be sent through this session. False on Tosca: the

@@ -136,16 +136,14 @@ namespace AppPercyTosca.Core
         /// </summary>
         public string GetScreenshotBase64()
         {
-            string directory = Env.TempDir();
-            Directory.CreateDirectory(directory);
-            string fileName = $"percy-tosca-{Guid.NewGuid()}.png";
-
-            string? path = _tosca.CaptureScreenshot(directory, fileName);
+            string? path = _tosca.CaptureScreenshot();
             if (string.IsNullOrWhiteSpace(path))
             {
                 throw new PercyException(
                     "The Tosca mobile engine did not produce a screenshot. Check that the test is " +
-                    "steering a mobile device and that the Mobile Engine 3.0 server is running.");
+                    "steering a mobile device, that the Mobile Engine 3.0 server is running, and that " +
+                    "the Percy module has Directory and Filename parameters pointing at a writable " +
+                    "folder — the engine's screenshot task reads its destination from those.");
             }
             if (!File.Exists(path))
             {

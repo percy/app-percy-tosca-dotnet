@@ -112,7 +112,15 @@ older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 | `OsVersion` | OS version |
 | `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Worth setting on App Percy — see below |
 | `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
+| `Directory`, `Filename` | **Required for App Percy.** Any writable folder and file name, e.g. `C:\Percy\tmp` and `percy.png` |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
+
+`Directory` and `Filename` look like an odd thing to put in a test sheet, and they are — but they are
+unavoidable. App Percy captures by delegating to Tosca's own mobile screenshot task, and that task
+reads its destination from the test action's `Directory` and `Filename` parameters. There is no way to
+supply them on your behalf: doing so would mean implementing `ISpecialExecutionTaskTestAction`, an
+interface with ~35 members over undocumented Tricentis types. Two rows is the cheaper trade. The file
+is read and deleted immediately. **Percy on Automate needs neither.**
 
 On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
 `DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.

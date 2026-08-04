@@ -30,7 +30,9 @@ namespace AppPercyTosca.Core
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
             "FreezeAnimatedImage", "FreezeImageByXpaths", "PercyCSS",
             "IgnoreRegionSelectors", "ConsiderRegionSelectors",
-            "SessionIdBuffer", "Diagnose", "Options"
+            "SessionIdBuffer", "Diagnose", "Options",
+            // Read by Tosca's own screenshot task off the same test action, not by the builders below.
+            "Directory", "Filename"
         };
 
         /// <summary>

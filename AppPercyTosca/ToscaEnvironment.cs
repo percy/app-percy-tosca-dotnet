@@ -106,25 +106,41 @@ namespace AppPercyTosca
         /// Captures the screen by running the mobile engine's own screenshot task against this step's
         /// test action, then returns where it wrote the file.
         ///
-        /// The task takes its destination from the test action's <c>Directory</c> and
-        /// <c>Filename</c> parameters, which a Percy module does not have — so the values are pushed
-        /// in via a wrapper around the test action that answers those two names itself and delegates
-        /// everything else. That is the whole reason <see cref="ScreenshotTestAction"/> exists.
+        /// That task reads its destination from the test action's own <c>Directory</c> and
+        /// <c>Filename</c> parameters — so the Percy module carries those two rows and the *same* test
+        /// action is handed straight through. An earlier attempt wrapped the test action to inject the
+        /// values, which would have kept the temp path out of the sheet; that is not viable, because
+        /// <c>ISpecialExecutionTaskTestAction</c> has some thirty-five members and hand-implementing it
+        /// against undocumented Tricentis types is far more fragile than two module rows.
         /// </summary>
-        public string? CaptureScreenshot(string directory, string fileName)
+        public string? CaptureScreenshot()
         {
+            string? directory = Parameter("Directory");
+            string? fileName = Parameter("Filename") ?? Parameter("FileName");
+
+            if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+            {
+                Utils.Log("App Percy needs Directory and Filename parameters on the Percy module: " +
+                    $"the {_screenshotTaskName} task reads its destination from them, and this SDK " +
+                    "cannot supply them on your behalf. Point them at any writable folder — the file " +
+                    "is read and deleted straight away. (Percy on Automate does not need either.)");
+                return null;
+            }
+
             try
             {
                 ISpecialExecutionTask task = SpecialExecutionTaskFactory.CreateTask(
                     _screenshotTaskName, _screenshotEngineId);
 
-                task.ExecuteTask(new ScreenshotTestAction(_testAction, directory, fileName));
+                // The real test action, unmodified: it already carries Directory and Filename, and it
+                // is also what tells the task which device to capture from.
+                task.ExecuteTask(_testAction);
 
                 string path = Path.Combine(directory, fileName);
                 if (File.Exists(path)) return path;
 
-                // The engine may have appended its own extension, so accept a near match rather
-                // than reporting failure for a file that is right there.
+                // The engine may have appended its own extension, so accept a near match rather than
+                // reporting failure for a file that is right there.
                 string? match = Directory.EnumerateFiles(directory,
                         Path.GetFileNameWithoutExtension(fileName) + ".*")
                     .FirstOrDefault();
@@ -138,6 +154,23 @@ namespace AppPercyTosca
                 Utils.Log($"Could not capture a screenshot through the {_screenshotTaskName} task: " +
                     e.Message);
                 Utils.Log(e.ToString(), "debug");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Reads a module parameter, treating a blank or unreadable row as unset. Mirrors the shim's
+        /// own reader; kept local so this class does not depend on the task type.
+        /// </summary>
+        private string? Parameter(string name)
+        {
+            try
+            {
+                string? value = _testAction.GetParameterAsInputValue(name, true)?.Value?.ToString();
+                return string.IsNullOrWhiteSpace(value) ? null : value;
+            }
+            catch (Exception)
+            {
                 return null;
             }
         }
