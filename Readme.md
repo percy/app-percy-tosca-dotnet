@@ -62,10 +62,16 @@ mode's behaviour and limitations. `Diagnose` prints which mode is active.
 
 Then register the extension:
 
-1. Copy `AppPercyTosca_v8.dll` from the [releases](../../releases) into
-   `C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\Percy`
-2. Add that path in Tosca Commander → Project settings → TBox → Extension loading → Extensions
-3. Restart Tosca Commander
+1. Copy `AppPercyTosca_v8.dll` from the [releases](../../releases) into a folder containing
+   **nothing else** — `C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\Percy` is the conventional
+   place, matching the HTML SDK
+2. Add that folder in Tosca Commander → Project settings → TBox → Extension loading → Extensions
+3. Fully close and reopen Tosca Commander — reloading the project is not enough
+
+The "nothing else" matters: Tosca scans every DLL in the folder you register. Do not point it at the
+build output of another project, and do not put it somewhere alongside unrelated assemblies. A folder
+under `C:\Users\...` can also fail if the process executing your tests runs as a different user, so
+prefer a path under the Tosca installation.
 
 Create a module with:
 
