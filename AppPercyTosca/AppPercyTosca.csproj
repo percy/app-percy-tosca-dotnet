@@ -9,23 +9,6 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
-  <!-- Do not copy the referenced Tricentis assemblies into the output folder.
-
-       A <Reference> with a HintPath is CopyLocal by default, which would fill bin\ with 139 copies of
-       Tosca's own assemblies alongside our one DLL. That is not merely wasteful: Tosca discovers an
-       extension by scanning the folder you register, so pointing it at bin\ would have it load
-       duplicate copies of its own engines — and the symptom is the extension silently failing to
-       register, which is a long way from the cause.
-
-       They are compile-time references only; at runtime Tosca supplies them from TBox, which is
-       already where they came from. With this, bin\ holds just AppPercyTosca.dll and can be registered
-       directly. -->
-  <ItemDefinitionGroup>
-    <Reference>
-      <Private>false</Private>
-    </Reference>
-  </ItemDefinitionGroup>
-
   <!-- The Core is compiled into this assembly rather than referenced as a project.
 
        Tosca loads an extension by pointing at a folder and picking up the DLLs in it; that folder is
