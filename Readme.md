@@ -35,13 +35,30 @@ all of that by having the CLI drive the session itself, which is why it can do m
 
 ## Setup
 
-Install and start the Percy CLI:
+Install the Percy CLI, then start it **in the mode you want** — this is what selects the mode, not
+anything on the Tosca module. The SDK asks the CLI which mode it is in and follows that.
 
 ```sh-session
 $ npm install --save-dev @percy/cli
+```
+
+For **Percy on Automate**, use an Automate project's token (it starts with `auto_`) and `exec`:
+
+```sh-session
+$ set PERCY_TOKEN=auto_<TOKEN>
+$ percy exec:start
+```
+
+For **App Percy**, use an App project's token and `app:exec`:
+
+```sh-session
 $ set PERCY_TOKEN=<TOKEN>
 $ percy app:exec:start
 ```
+
+The two are different project types in Percy with different tokens, so a snapshot cannot be sent to
+the wrong kind of project by accident — but starting the CLI the wrong way will get you the other
+mode's behaviour and limitations. `Diagnose` prints which mode is active.
 
 Then register the extension:
 
