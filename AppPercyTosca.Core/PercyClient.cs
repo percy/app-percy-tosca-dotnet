@@ -81,10 +81,25 @@ namespace AppPercyTosca.Core
         /// been restarted in a different mode, so the App Percy / Percy on Automate decision follows
         /// the CLI that is actually running now.
         /// </summary>
+        /// <remarks>
+        /// Deliberately not locked, even though Tosca can run steps concurrently and these two fields
+        /// are read-then-written.
+        ///
+        /// The race is benign: two steps arriving together both run the healthcheck and both write the
+        /// same answer, since the only input is the CLI's reply. A torn <see cref="DateTime"/> read
+        /// costs one extra request to a local process, nothing more.
+        ///
+        /// A lock would be actively worse. <see cref="RunHealthcheck"/> makes a blocking HTTP call with
+        /// a ten-minute timeout, so holding a lock across it would let one step with an unresponsive
+        /// CLI stall every other step behind it — trading a harmless duplicate request for a stalled
+        /// test run.
+        /// </remarks>
         public bool Healthcheck()
         {
             if (_enabled != null && Now() - _checkedAt < HealthcheckTtl) return _enabled.Value;
 
+            // Stamped before the call, not after: stamping after would extend the window by however
+            // long the request took, and a slow CLI is exactly when re-asking least helps.
             _checkedAt = Now();
             return (_enabled = RunHealthcheck()).Value;
         }
