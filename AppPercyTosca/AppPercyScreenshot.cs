@@ -105,8 +105,11 @@ namespace AppPercyTosca
                     Utils.Log("Percy session diagnostics:" + Environment.NewLine + Describe(driver));
                 }
 
-                Screenshot(driver, snapshotName!, options, read);
-                return new PassedActionResult("Snapshot Taken!");
+                // The step passes whether or not a snapshot was recorded — a visual check that could
+                // not run is not a functional regression — but it must not *claim* one was. A green
+                // step reading "Snapshot Taken!" when nothing reached Percy is worse than a slow
+                // failure: nobody goes looking.
+                return new PassedActionResult(Screenshot(driver, snapshotName!, options, read));
             }
             catch (Exception e)
             {
@@ -122,8 +125,11 @@ namespace AppPercyTosca
         /// <summary>
         /// Dispatches to the flow the CLI's session type calls for. Percy on Automate hands the
         /// session to the CLI to capture remotely; App Percy captures here and uploads a tile.
+        ///
+        /// Returns what the Tosca step should report — which is the caller's whole reason for wanting
+        /// a return value here, since every outcome below except a throw leaves the step passing.
         /// </summary>
-        private static void Screenshot(
+        private static string Screenshot(
             ToscaMobileDriver driver,
             string snapshotName,
             ScreenshotOptions options,
@@ -139,9 +145,9 @@ namespace AppPercyTosca
             // Memoized inside PercyClient, so the later Healthcheck() calls are free.
             if (!Client.Value.Healthcheck())
             {
-                // Percy is not running or is too old; it has already said so. Nothing to capture,
-                // and no reason to fail the step over it.
-                return;
+                // Percy is not running or is too old; it has already said so in the log. Nothing to
+                // capture, and no reason to fail the step over it.
+                return SnapshotOutcome.PercyNotRunning;
             }
 
             if (Env.IsAutomateSession)
@@ -160,11 +166,14 @@ namespace AppPercyTosca
                 // Rebuilt from the parameters rather than converted from `options`: the CLI owns this
                 // schema, and BuildAutomateOptions omits anything the step left unset so a project
                 // default is deferred to rather than overridden with a null.
-                OnAutomate(driver).Screenshot(snapshotName, ToscaOptions.BuildAutomateOptions(read));
-                return;
+                return SnapshotOutcome.Describe(
+                    OnAutomate(driver).Screenshot(snapshotName, ToscaOptions.BuildAutomateOptions(read)),
+                    snapshotName);
             }
-            AppPercyFor(driver).Screenshot(snapshotName, options);
+            return SnapshotOutcome.Describe(
+                AppPercyFor(driver).Screenshot(snapshotName, options), snapshotName);
         }
+
 
         // A fresh façade per step. The Core's caches are per-session and this driver is per-step, so
         // there is nothing to carry across; the CLI connection and its healthcheck — the only

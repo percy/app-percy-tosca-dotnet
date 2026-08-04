@@ -420,6 +420,37 @@ namespace AppPercyTosca.Core.Tests
         }
     }
 
+    public class SnapshotOutcomeTests
+    {
+        [Fact]
+        public void AnAcceptedSnapshotIsReportedAsTaken()
+        {
+            Assert.Equal(SnapshotOutcome.Taken,
+                SnapshotOutcome.Describe(Json.TryParse("{\"id\":\"c1\"}"), "home"));
+        }
+
+        [Fact]
+        public void NoSnapshotIsNeverReportedAsTaken()
+        {
+            // The rule this class exists to hold: the step passes either way, so the message is the
+            // only signal a reader gets. Claiming success when nothing reached Percy means nobody
+            // goes looking — worse than an outright failure.
+            string message = SnapshotOutcome.Describe(null, "home");
+
+            Assert.NotEqual(SnapshotOutcome.Taken, message);
+            Assert.Contains("No snapshot was recorded", message);
+            // Names the snapshot, so a sheet with many steps points at the right one.
+            Assert.Contains("home", message);
+        }
+
+        [Fact]
+        public void ANotRunningCliIsReportedWithoutClaimingASnapshot()
+        {
+            Assert.NotEqual(SnapshotOutcome.Taken, SnapshotOutcome.PercyNotRunning);
+            Assert.Contains("not running", SnapshotOutcome.PercyNotRunning);
+        }
+    }
+
     public class PercyExceptionTests
     {
         [Fact]

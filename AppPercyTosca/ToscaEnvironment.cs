@@ -235,15 +235,33 @@ namespace AppPercyTosca
             return null;
         }
 
-        /// <summary>Every type in the loaded Tricentis assemblies, computed once per process.</summary>
         private static List<Type>? _tricentisTypes;
+        private static int _typesFromAssemblyCount = -1;
 
+        /// <summary>
+        /// Every type in the loaded Tricentis assemblies.
+        ///
+        /// Cached because enumerating types across ~30 Tricentis assemblies is thousands of types and
+        /// this is on the path of every snapshot — but invalidated as soon as the loaded-assembly count
+        /// changes, which is the part that matters. Tosca loads engine assemblies on demand, so the one
+        /// holding the configuration or buffer singleton may well not be loaded when the first
+        /// PercyScreenshot step runs. Caching a miss for the life of the process would make that miss
+        /// permanent: no test configuration parameters, no session id, every snapshot degraded, and
+        /// restarting Commander appearing to "fix" it.
+        ///
+        /// Comparing the count rather than the contents is enough here: assemblies are never unloaded,
+        /// so the count only rises, and any rise is a reason to look again.
+        /// </summary>
         private static List<Type> TricentisTypes()
         {
-            if (_tricentisTypes != null) return _tricentisTypes;
+            System.Reflection.Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
+            if (_tricentisTypes != null && loaded.Length == _typesFromAssemblyCount)
+            {
+                return _tricentisTypes;
+            }
 
             List<Type> types = new List<Type>();
-            foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (System.Reflection.Assembly assembly in loaded)
             {
                 if (!(assembly.GetName().Name ?? "")
                     .StartsWith("Tricentis", StringComparison.OrdinalIgnoreCase))
@@ -266,6 +284,7 @@ namespace AppPercyTosca
                     // Nothing readable in this assembly; the others may still hold the type.
                 }
             }
+            _typesFromAssemblyCount = loaded.Length;
             return _tricentisTypes = types;
         }
     }
