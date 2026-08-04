@@ -5,7 +5,7 @@ Testsuite installed — a GitHub runner has no Tricentis assemblies to reference
 uploads whatever is committed, so the build has to happen before the tag.
 
 1. Bump the version in **both** places, or Percy will record an SDK version that does not match the
-   assembly: `AppPercyTosca/Properties/AssemblyInfo.cs` and `Env.SdkVersion` in
+   assembly: `<Version>` in `AppPercyTosca/AppPercyTosca.csproj` and `Env.SdkVersion` in
    `AppPercyTosca.Core/Env.cs`.
 2. On a machine with Tosca Commander 24, build the extension and copy the output over the committed
    DLL:

@@ -6,7 +6,18 @@
     <Nullable>enable</Nullable>
     <RootNamespace>AppPercyTosca</RootNamespace>
     <AssemblyName>AppPercyTosca</AssemblyName>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Assembly info is left to the SDK on purpose, and there is no hand-written AssemblyInfo.cs.
+         Setting GenerateAssemblyInfo=false also suppresses the generated
+         [assembly: TargetFramework(".NETCoreApp,Version=v8.0")], and a host that checks framework
+         compatibility before loading a plugin can quietly skip an assembly that does not declare one.
+         The working HTML SDK (percy/percy-tosca-dotnet) lets the SDK generate this; match it. Keep
+         Version in step with Env.SdkVersion in the Core. -->
+    <Version>1.0.0</Version>
+    <Company>Perceptual Inc</Company>
+    <Product>AppPercyTosca</Product>
+    <Description>App Percy visual testing for Tricentis Tosca mobile tests</Description>
+    <Copyright>Copyright Perceptual Inc</Copyright>
   </PropertyGroup>
 
   <!-- The Core is compiled into this assembly rather than referenced as a project.

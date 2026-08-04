@@ -34,7 +34,6 @@
   <ItemGroup>
     <Compile Include="TricentisStubs.cs" />
     <Compile Include="..\AppPercyTosca\*.cs" />
-    <Compile Include="..\AppPercyTosca\Properties\*.cs" />
     <Compile Include="..\AppPercyTosca.Core\**\*.cs"
              Exclude="..\AppPercyTosca.Core\bin\**;..\AppPercyTosca.Core\obj\**" />
     <EmbeddedResource Include="..\AppPercyTosca.Core\resources\devices.json"
