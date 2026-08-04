@@ -16,9 +16,28 @@ namespace AppPercyTosca.Core
         /// </summary>
         public const int MinimumMinorVersion = 27;
 
+        /// <summary>
+        /// How long a healthcheck answer is trusted before being re-asked.
+        ///
+        /// The other App Percy SDKs memoize this for the life of the process, which is right for them:
+        /// the process is one test run. Tosca Commander is a desktop IDE an engineer leaves open for
+        /// days, across many `percy app:exec:start` cycles — so a permanent memo means the very first
+        /// answer sticks forever. Run a sheet before starting Percy and every later run is silently
+        /// disabled until Commander is restarted, with nothing to suggest why.
+        ///
+        /// A minute is long enough that a sheet with hundreds of steps costs at most a handful of
+        /// extra requests to a local process, and short enough that starting Percy and re-running is
+        /// picked up without a thought.
+        /// </summary>
+        public static readonly TimeSpan HealthcheckTtl = TimeSpan.FromSeconds(60);
+
+        /// <summary>Clock, replaceable so the expiry can be tested without waiting a minute.</summary>
+        internal static Func<DateTime> Now { get; set; } = () => DateTime.UtcNow;
+
         private readonly HttpClient _http;
         private readonly string _cliApi;
         private bool? _enabled;
+        private DateTime _checkedAt;
 
         public PercyClient(HttpClient http, string? cliApi = null)
         {
@@ -56,13 +75,17 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Whether Percy is running and new enough, memoized for the process. Also records the
-        /// build id/url and session type the CLI reports, which the App Automate flow stamps onto
-        /// its executor calls.
+        /// Whether Percy is running and new enough, memoized for <see cref="HealthcheckTtl"/>. Also
+        /// records the build id/url and session type the CLI reports — which is why the answer
+        /// expiring matters for more than just enablement: a re-check also picks up a CLI that has
+        /// been restarted in a different mode, so the App Percy / Percy on Automate decision follows
+        /// the CLI that is actually running now.
         /// </summary>
         public bool Healthcheck()
         {
-            if (_enabled != null) return _enabled.Value;
+            if (_enabled != null && Now() - _checkedAt < HealthcheckTtl) return _enabled.Value;
+
+            _checkedAt = Now();
             return (_enabled = RunHealthcheck()).Value;
         }
 
@@ -144,9 +167,9 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Posts a captured App Percy screenshot (the tile flow) and returns the response's `data`
-        /// object, or null when the CLI refused it. Failures are logged rather than thrown: a
-        /// visual snapshot must not fail an otherwise-passing Tosca test step.
+        /// Posts a captured App Percy screenshot (the tile flow) and returns the CLI's full response,
+        /// or null when it refused. Failures are logged rather than thrown: a visual snapshot must not
+        /// fail an otherwise-passing Tosca test step.
         /// </summary>
         public JsonElement? PostScreenshot(
             string name,
@@ -174,7 +197,7 @@ namespace AppPercyTosca.Core
                     ["labels"] = options.Labels,
                     ["thTestCaseExecutionId"] = options.ThTestCaseExecutionId
                 };
-                return PostAndUnwrap("/percy/comparison", payload, name);
+                return Post("/percy/comparison", payload, name);
             }
             catch (Exception error)
             {
@@ -186,7 +209,7 @@ namespace AppPercyTosca.Core
 
         /// <summary>
         /// Posts a Percy on Automate screenshot: the CLI reconnects to the session itself and
-        /// captures server-side, so no image data crosses this boundary.
+        /// captures server-side, so no image data crosses this boundary. Returns the full response.
         /// </summary>
         public JsonElement? PostAutomateScreenshot(
             string name,
@@ -207,7 +230,7 @@ namespace AppPercyTosca.Core
                     ["snapshotName"] = name,
                     ["options"] = options
                 };
-                return PostAndUnwrap("/percy/automateScreenshot", payload, name);
+                return Post("/percy/automateScreenshot", payload, name);
             }
             catch (Exception error)
             {
@@ -256,20 +279,27 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// POSTs a screenshot payload and returns its `data` member. A CLI that answers
-        /// success:false is an error, not an empty result — the message it gives is the only
-        /// explanation of why the snapshot did not appear in the build.
+        /// POSTs a screenshot payload and returns the **whole** parsed response, not just its `data`
+        /// member.
+        ///
+        /// That distinction matters: the CLI replies `{ success, link, data }`, where `link` — the URL
+        /// of the resulting comparison — is a *sibling* of `data`, not a child. Unwrapping here would
+        /// hide it, and the App Automate flow needs it to report the comparison URL back to the
+        /// BrowserStack session log. Callers unwrap `data` for their own return value instead.
+        ///
+        /// A CLI that answers success:false is an error, not an empty result — the message it gives is
+        /// the only explanation of why the snapshot did not appear in the build.
         /// </summary>
-        private JsonElement? PostAndUnwrap(string endpoint, Dictionary<string, object?> payload, string name)
+        private JsonElement? Post(string endpoint, Dictionary<string, object?> payload, string name)
         {
             PercyResponse res = Request(endpoint, payload);
-            JsonElement? data = Json.TryParse(res.Content);
-            if (!Json.IsTrue(data, "success"))
+            JsonElement? response = Json.TryParse(res.Content);
+            if (!Json.IsTrue(response, "success"))
             {
-                throw new Exception(Json.PropertyAsString(data, "error")
+                throw new Exception(Json.PropertyAsString(response, "error")
                     ?? $"Percy CLI rejected screenshot \"{name}\"");
             }
-            return Json.Property(data, "data");
+            return response;
         }
     }
 }

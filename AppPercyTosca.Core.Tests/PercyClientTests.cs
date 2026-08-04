@@ -125,6 +125,55 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void TheHealthcheckIsReAskedOnceItsAnswerExpires()
+        {
+            // Tosca Commander is a desktop IDE left open for days, across many `percy app:exec:start`
+            // cycles. A process-lifetime memo — which is right for the other SDKs, where the process is
+            // one test run — would freeze the first answer forever: run a sheet before starting Percy
+            // and every later run is silently disabled until Commander is restarted.
+            DateTime now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+            PercyClient.Now = () => now;
+
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .On("/percy/healthcheck", "{\"success\":false,\"error\":\"not running\"}")
+                .On("/percy/healthcheck", HealthyBody);
+            PercyClient client = Client(handler);
+
+            Assert.False(client.Healthcheck());
+            // Still inside the window: the answer is reused rather than re-asked.
+            now = now.Add(PercyClient.HealthcheckTtl).Subtract(TimeSpan.FromSeconds(1));
+            Assert.False(client.Healthcheck());
+            Assert.Equal(1, handler.CountFor("/percy/healthcheck"));
+
+            // Past it: Percy has since been started, and this run picks it up.
+            now = now.Add(TimeSpan.FromSeconds(2));
+            Assert.True(client.Healthcheck());
+            Assert.Equal(2, handler.CountFor("/percy/healthcheck"));
+        }
+
+        [Fact]
+        public void AnExpiredHealthcheckAlsoRefreshesTheSessionType()
+        {
+            // The mode decision follows the CLI that is running now, so restarting the CLI in the other
+            // mode does not leave the SDK capturing down the wrong path.
+            DateTime now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+            PercyClient.Now = () => now;
+
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .On("/percy/healthcheck", HealthyBody)
+                .On("/percy/healthcheck",
+                    "{\"success\":true,\"type\":\"automate\",\"build\":{\"id\":\"b\"}}");
+            PercyClient client = Client(handler);
+
+            Assert.True(client.Healthcheck());
+            Assert.False(Env.IsAutomateSession);
+
+            now = now.Add(PercyClient.HealthcheckTtl).Add(TimeSpan.FromSeconds(1));
+            Assert.True(client.Healthcheck());
+            Assert.True(Env.IsAutomateSession);
+        }
+
+        [Fact]
         public void ACliThatReportsFailureDisablesSnapshots()
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
@@ -216,7 +265,7 @@ namespace AppPercyTosca.Core.Tests
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
                 .On("/percy/comparison",
-                    "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/1\"}}");
+                    "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}");
 
             JsonElement? data = Client(handler).PostScreenshot(
                 "home",
@@ -227,7 +276,10 @@ namespace AppPercyTosca.Core.Tests
                 new Dictionary<string, object?> { ["considerElementsData"] = new List<object>() },
                 new ScreenshotOptions { Sync = true, TestCase = "tc", Labels = "l" });
 
+            // The full response, not just `data`: `link` is a sibling of `data`, and unwrapping here
+            // would hide the comparison URL from the App Automate flow that has to report it.
             Assert.Equal("https://percy.io/c/1", Json.PropertyAsString(data, "link"));
+            Assert.Equal("c1", Json.PropertyAsString(Json.Property(data, "data"), "id"));
 
             string body = handler.BodyFor("/percy/comparison")!;
             Assert.Contains($"\"clientInfo\":\"{Env.ClientInfo}\"", body);
@@ -285,7 +337,7 @@ namespace AppPercyTosca.Core.Tests
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
                 .On("/percy/automateScreenshot",
-                    "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/2\"}}");
+                    "{\"success\":true,\"link\":\"https://percy.io/c/2\",\"data\":{\"id\":\"c2\"}}");
 
             JsonElement? data = Client(handler).PostAutomateScreenshot(
                 "cart",

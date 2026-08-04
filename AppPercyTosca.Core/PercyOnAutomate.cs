@@ -45,12 +45,12 @@ namespace AppPercyTosca.Core
                 ResolveElementIds(userOptions, IgnoreElementKey, "ignore_region_elements");
                 ResolveElementIds(userOptions, ConsiderElementKey, "consider_region_elements");
 
-                return _client.PostAutomateScreenshot(
+                return Json.Property(_client.PostAutomateScreenshot(
                     name,
                     _driver.SessionId,
                     _driver.Host?.TrimEnd('/'),
                     _driver.Capabilities,
-                    userOptions);
+                    userOptions), "data");
             }
             catch (Exception error)
             {
@@ -74,8 +74,10 @@ namespace AppPercyTosca.Core
             if (raw is not System.Collections.IEnumerable locators || raw is string) return;
 
             List<string> ids = new List<string>();
+            int requested = 0;
             foreach (object? locator in locators)
             {
+                requested++;
                 string? xpath = locator as string;
                 if (string.IsNullOrWhiteSpace(xpath)) continue;
                 try
@@ -95,6 +97,17 @@ namespace AppPercyTosca.Core
                     Utils.Log($"Element with xpath: {xpath} not found. Ignoring this xpath.");
                     Utils.Log(e.ToString(), "debug");
                 }
+            }
+            if (ids.Count == 0 && requested > 0)
+            {
+                // Nothing resolved, so sending `targetKey: []` would tell the CLI "no regions" and the
+                // user's request would vanish silently. Omitting the key at least leaves any
+                // project-level configuration in place, and says why.
+                Utils.Log($"None of the {requested} entr{(requested == 1 ? "y" : "ies")} under " +
+                    $"'{sourceKey}' could be resolved to an element, so no {targetKey} are being sent. " +
+                    "On Tosca this key needs element objects the mobile engine does not expose — use " +
+                    "IgnoreRegionXpaths, or pass pre-resolved ids as 'ignore_region_elements'.", "warn");
+                return;
             }
             options[targetKey] = ids;
         }

@@ -101,7 +101,7 @@ namespace AppPercyTosca.Core.Tests
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
                 .On("/percy/healthcheck", Healthy)
-                .Default(comparisonBody ?? "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/1\"}}");
+                .Default(comparisonBody ?? "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}");
             PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
             return (new AppPercy(driver, client), handler);
         }
@@ -113,7 +113,8 @@ namespace AppPercyTosca.Core.Tests
 
             JsonElement? data = percy.Screenshot("home", new ScreenshotOptions());
 
-            Assert.Equal("https://percy.io/c/1", Json.PropertyAsString(data, "link"));
+            // AppPercy unwraps `data` for its caller, as the other App Percy SDKs do at this layer.
+            Assert.Equal("c1", Json.PropertyAsString(data, "id"));
             Assert.Equal(1, handler.CountFor("/percy/comparison"));
         }
 
@@ -234,7 +235,7 @@ namespace AppPercyTosca.Core.Tests
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
                 .On("/percy/healthcheck", Healthy)
-                .Default(screenshotBody ?? "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/2\"}}");
+                .Default(screenshotBody ?? "{\"success\":true,\"link\":\"https://percy.io/c/2\",\"data\":{\"id\":\"c2\"}}");
             PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
             return (new PercyOnAutomate(driver, client), handler);
         }
@@ -254,7 +255,7 @@ namespace AppPercyTosca.Core.Tests
             JsonElement? data = percy.Screenshot("cart",
                 new Dictionary<string, object?> { ["full_screen"] = true });
 
-            Assert.Equal("https://percy.io/c/2", Json.PropertyAsString(data, "link"));
+            Assert.Equal("c2", Json.PropertyAsString(data, "id"));
 
             string body = handler.BodyFor("/percy/automateScreenshot")!;
             Assert.Contains("\"sessionId\":\"session-1\"", body);
@@ -321,7 +322,11 @@ namespace AppPercyTosca.Core.Tests
             });
 
             Assert.True(Logged("//missing"));
-            Assert.Contains("\"ignore_region_elements\":[]", handler.BodyFor("/percy/automateScreenshot")!);
+            // The key is omitted rather than sent empty: `ignore_region_elements: []` tells the CLI
+            // "no regions", so the user's request would vanish silently instead of being explained.
+            string body = handler.BodyFor("/percy/automateScreenshot")!;
+            Assert.DoesNotContain("ignore_region_elements", body);
+            Assert.True(Logged("could be resolved to an element"));
         }
 
         [Fact]
@@ -337,7 +342,8 @@ namespace AppPercyTosca.Core.Tests
                 [PercyOnAutomate.IgnoreElementKey] = new List<object?> { "//total" }
             });
 
-            Assert.Contains("\"ignore_region_elements\":[]", handler.BodyFor("/percy/automateScreenshot")!);
+            Assert.DoesNotContain("ignore_region_elements", handler.BodyFor("/percy/automateScreenshot")!);
+            Assert.True(Logged("could be resolved to an element"));
         }
 
         [Fact]
@@ -365,7 +371,7 @@ namespace AppPercyTosca.Core.Tests
                 [PercyOnAutomate.IgnoreElementKey] = new List<object?> { "", "  ", null, 42 }
             });
 
-            Assert.Contains("\"ignore_region_elements\":[]", handler.BodyFor("/percy/automateScreenshot")!);
+            Assert.DoesNotContain("ignore_region_elements", handler.BodyFor("/percy/automateScreenshot")!);
         }
 
         [Fact]
@@ -383,6 +389,24 @@ namespace AppPercyTosca.Core.Tests
             // character.
             Assert.DoesNotContain("ignore_region_elements", body);
             Assert.DoesNotContain(PercyOnAutomate.IgnoreElementKey, body);
+        }
+
+        [Fact]
+        public void AResolvedElementStillSendsTheList()
+        {
+            // The omit-on-empty rule must not swallow a list that did resolve.
+            StubMobileDriver driver = AutomateDriver();
+            driver.ElementsByXPath["//a"] = new ElementRect(0, 0, 1, 1, "el-1");
+            driver.ElementsByXPath["//gone"] = null;
+            (PercyOnAutomate percy, StubHttpMessageHandler handler) = Build(driver);
+
+            percy.Screenshot("cart", new Dictionary<string, object?>
+            {
+                [PercyOnAutomate.IgnoreElementKey] = new List<object?> { "//a", "//gone" }
+            });
+
+            Assert.Contains("\"ignore_region_elements\":[\"el-1\"]",
+                handler.BodyFor("/percy/automateScreenshot")!);
         }
 
         [Fact]

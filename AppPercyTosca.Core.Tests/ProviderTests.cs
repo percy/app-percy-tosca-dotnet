@@ -63,7 +63,7 @@ namespace AppPercyTosca.Core.Tests
 
     public class GenericProviderTests : CoreTestBase
     {
-        private const string Accepted = "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/1\"}}";
+        private const string Accepted = "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}";
 
         private static (GenericProvider Provider, StubHttpMessageHandler Handler) Build(
             StubMobileDriver driver)
@@ -85,7 +85,10 @@ namespace AppPercyTosca.Core.Tests
 
                 JsonElement? data = provider.Screenshot("home", new ScreenshotOptions());
 
+                // The provider returns the CLI's whole response, so `link` — a sibling of `data` —
+                // is still reachable. That is what lets App Automate report the comparison URL.
                 Assert.Equal("https://percy.io/c/1", Json.PropertyAsString(data, "link"));
+                Assert.Equal("c1", Json.PropertyAsString(Json.Property(data, "data"), "id"));
 
                 string body = handler.BodyFor("/percy/comparison")!;
                 Assert.Contains("\"name\":\"home\"", body);
@@ -331,7 +334,7 @@ namespace AppPercyTosca.Core.Tests
 
     public class AppAutomateTests : CoreTestBase
     {
-        private const string Accepted = "{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/1\"}}";
+        private const string Accepted = "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}";
 
         private const string BeginResult =
             "{\"success\":true,\"deviceName\":\"Samsung Galaxy S23\",\"osVersion\":\"13.0\"," +

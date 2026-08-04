@@ -28,6 +28,7 @@ namespace AppPercyTosca.Core.Tests
             }
             Env.Reset();
             DeviceRegistry.Reset();
+            PercyClient.Now = () => DateTime.UtcNow;
             Utils.LogSink = (message, level) => Logs.Add((message, level));
         }
 
@@ -47,6 +48,7 @@ namespace AppPercyTosca.Core.Tests
             Utils.LogSink = null;
             Env.Reset();
             DeviceRegistry.Reset();
+            PercyClient.Now = () => DateTime.UtcNow;
         }
     }
 }

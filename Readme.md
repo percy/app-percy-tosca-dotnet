@@ -79,6 +79,7 @@ takes a single-screen snapshot of the current screen.
 | `TestCase` | Test case name, for grouping in Percy |
 | `Labels` | Comma-separated labels |
 | `Sync` | `true` to wait for the comparison before continuing |
+| `ThTestCaseExecutionId` | Test Management execution id, for linking back to a test run |
 
 ### Device details
 
@@ -112,6 +113,9 @@ reads the real dimensions off the live session.
 | `ScrollableXpath`, `ScrollableId` | Which element to scroll for a full page |
 | `TopScrollviewOffset`, `BottomScrollviewOffset` | Pixels to trim while scrolling |
 | `IosOptimizedFullpage` | `true` for the optimised iOS full-page algorithm |
+| `FreezeAnimatedImage` | `true` to freeze animations before capture (**Percy on Automate only**). Worth reaching for first when a snapshot is flaky — an animated splash or spinner is the usual cause |
+| `FreezeImageByXpaths` | XPaths of images to freeze; needs `FreezeAnimatedImage` (**Percy on Automate only**) |
+| `PercyCSS` | CSS injected before capture and removed after, for webview content (**Percy on Automate only**) |
 
 ### Regions
 
@@ -122,6 +126,7 @@ resolves them against the session itself.
 |---|---|
 | `CustomIgnoreRegions`, `CustomConsiderRegions` | `top,bottom,left,right` in pixels, one region per entry |
 | `IgnoreRegionXpaths`, `ConsiderRegionXpaths` | XPath locators (**Percy on Automate only**) |
+| `IgnoreRegionSelectors`, `ConsiderRegionSelectors` | CSS selectors, for webview content (**Percy on Automate only**) |
 
 Accessibility-id regions are **not supported on Tosca** in either mode, and the step logs a warning
 saying so if you set them. Resolving them is a client-side feature of the other App Percy SDKs — it
@@ -157,8 +162,12 @@ Log output goes to the Percy CLI (so it appears alongside the rest of the build)
 `%TEMP%\percy.txt`, which is where to look when the CLI itself is what failed.
 
 A failed snapshot does **not** fail the Tosca step: a visual check that could not run is not a
-functional regression, and failing the step would stop the rest of the sheet. To change that, set
-`percyOptions.ignoreErrors` to `false` in your mobile configuration.
+functional regression, and failing the step would stop the rest of the sheet. To change that, add a
+test configuration parameter `percy.ignoreErrors` with the value `false`. A TCP named `percy.enabled`
+set to `false` turns Percy off entirely without editing any test sheet.
+
+(The other App Percy SDKs use a nested `percyOptions` capability for this. That shape cannot come from
+a TCP, which is why the flat `percy.*` spellings are the ones to use on Tosca.)
 
 ### Environment variables
 

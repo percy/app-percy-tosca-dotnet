@@ -36,7 +36,9 @@ namespace AppPercyTosca.Core
             try
             {
                 GenericProvider provider = ProviderResolver.ResolveProvider(_driver, _client, _sessionCache);
-                return provider.Screenshot(name, options);
+                // The provider hands back the CLI's whole response so that App Automate can read the
+                // sibling `link` off it; `data` is what a caller wants.
+                return Json.Property(provider.Screenshot(name, options), "data");
             }
             catch (Exception e)
             {

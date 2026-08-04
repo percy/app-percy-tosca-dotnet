@@ -15,8 +15,10 @@ namespace AppPercyTosca.Core
     public static class ToscaOptions
     {
         /// <summary>
-        /// Names of every parameter read below, in the order the README documents them. Used by the
-        /// shim to build the Percy on Automate option bag without re-listing them.
+        /// Every parameter name a PercyScreenshot module can carry, in the order the Readme documents
+        /// them — including the ones the shim reads itself (SnapshotName, SessionIdBuffer, Diagnose)
+        /// rather than only those the builders below read. It is the module's parameter manifest, and a
+        /// test asserts the builders never read a name missing from it.
         /// </summary>
         public static readonly string[] KnownParameters =
         {
@@ -25,7 +27,10 @@ namespace AppPercyTosca.Core
             "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
             "ScrollableXpath", "ScrollableId", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
-            "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId", "Options"
+            "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
+            "FreezeAnimatedImage", "FreezeImageByXpaths", "PercyCSS",
+            "IgnoreRegionSelectors", "ConsiderRegionSelectors",
+            "SessionIdBuffer", "Diagnose", "Options"
         };
 
         /// <summary>
@@ -110,6 +115,17 @@ namespace AppPercyTosca.Core
             Put(options, "th_test_case_execution_id", Trimmed(read("ThTestCaseExecutionId")));
             Put(options, "scrollable_xpath", Trimmed(read("ScrollableXpath")));
             Put(options, "scrollable_id", Trimmed(read("ScrollableId")));
+            // Freezing animation is worth a named parameter rather than leaving it to the raw Options
+            // escape hatch: an animated splash or loading spinner is one of the most common causes of
+            // a flaky mobile comparison, and the CLI does all the work.
+            Put(options, "freeze_animated_image", ParseBool(read("FreezeAnimatedImage"), "FreezeAnimatedImage"));
+            PutList(options, "freeze_image_by_xpaths", ParseLocatorList(read("FreezeImageByXpaths")));
+            // Pure pass-through to the CLI, so there is no reason to make a user reach them through
+            // the raw Options JSON. Selectors and percyCSS apply to webviews, which a Tosca mobile
+            // test can legitimately be driving.
+            Put(options, "percy_css", Trimmed(read("PercyCSS")));
+            PutList(options, "ignore_region_selectors", ParseLocatorList(read("IgnoreRegionSelectors")));
+            PutList(options, "consider_region_selectors", ParseLocatorList(read("ConsiderRegionSelectors")));
 
             // XPaths go under the xpath keys, which the CLI resolves against the session itself.
             // Not under ignore_region_appium_elements — that key means a list of Appium element

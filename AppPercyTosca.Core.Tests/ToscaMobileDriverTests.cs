@@ -291,6 +291,35 @@ namespace AppPercyTosca.Core.Tests
                 new ToscaMobileDriver(new StubToscaEnvironment(), null!));
         }
 
+        [Theory]
+        [InlineData("percy.enabled", false, true)]
+        [InlineData("percy.ignoreErrors", true, false)]
+        public void PercyCanBeTurnedOffOrMadeStrictFromATestConfigurationParameter(
+            string parameter, bool expectedEnabled, bool expectedIgnoreErrors)
+        {
+            // The other SDKs use a nested `percyOptions` capability for this. That shape cannot come
+            // from a test configuration parameter, so on Tosca the flat `percy.*` spellings are the
+            // route — and they work precisely because every parameter is carried into the capability
+            // bag under its own name.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps[parameter] = "false";
+            ToscaMobileDriver driver = Build(tosca);
+            PercyOptions options = new PercyOptions(driver, new Cache<string, object?>());
+
+            Assert.Equal(expectedEnabled, options.PercyEnabled());
+            Assert.Equal(expectedIgnoreErrors, options.IgnoreErrors());
+        }
+
+        [Fact]
+        public void WithNoPercyParametersPercyIsEnabledAndForgiving()
+        {
+            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
+            PercyOptions options = new PercyOptions(driver, new Cache<string, object?>());
+
+            Assert.True(options.PercyEnabled());
+            Assert.True(options.IgnoreErrors());
+        }
+
         [Fact]
         public void TheWindowWidthIsUnavailableAndReportsZero()
         {
@@ -446,7 +475,7 @@ namespace AppPercyTosca.Core.Tests
                 tosca.Tcps["ScreenResolution"] = "1080x2340";
                 StubHttpMessageHandler handler = new StubHttpMessageHandler()
                     .On("/percy/healthcheck", "{\"success\":true,\"build\":{\"id\":\"b\",\"url\":\"u\"}}")
-                    .Default("{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/1\"}}");
+                    .Default("{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}");
                 PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
 
                 ScreenshotOptions options = new ScreenshotOptions { StatusBarHeight = 60, NavBarHeight = 40 };
@@ -478,7 +507,7 @@ namespace AppPercyTosca.Core.Tests
             StubHttpMessageHandler handler = new StubHttpMessageHandler()
                 .On("/percy/healthcheck",
                     "{\"success\":true,\"type\":\"automate\",\"build\":{\"id\":\"b\",\"url\":\"u\"}}")
-                .Default("{\"success\":true,\"data\":{\"link\":\"https://percy.io/c/2\"}}");
+                .Default("{\"success\":true,\"link\":\"https://percy.io/c/2\",\"data\":{\"id\":\"c2\"}}");
             PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
             ToscaMobileDriver driver = Build(tosca);
 
