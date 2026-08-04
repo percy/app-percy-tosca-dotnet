@@ -27,7 +27,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore dotnet-8/AppPercyTosca.Core.sln
+        run: dotnet restore AppPercyTosca.Core.sln
 
       - uses: actions/setup-node@v4
         with:
@@ -59,7 +59,7 @@ jobs:
 
       - name: Test with 100% line coverage gate
         run: >
-          dotnet test dotnet-8/AppPercyTosca.Core.sln
+          dotnet test AppPercyTosca.Core.sln
           --no-restore
           /p:CollectCoverage=true
           /p:CoverletOutputFormat=cobertura

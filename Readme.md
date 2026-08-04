@@ -85,7 +85,7 @@ takes a single-screen snapshot of the current screen.
 Tosca exposes device information through test configuration parameters (`DeviceName`, `OSVersion`,
 `AppiumServer`, …) and this SDK reads them automatically. Set these only when a parameter is missing
 or wrong — for example when the device is not in the SDK's built-in dimension table, which covers
-older iPhones and iPads only (see `dotnet-8/AppPercyTosca.Core/resources/devices.json`).
+older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 
 | Parameter | Description |
 |---|---|
@@ -175,21 +175,21 @@ The repository is split so that almost all of it is testable without Tosca:
 
 | Project | What it is |
 |---|---|
-| `dotnet-8/AppPercyTosca.Core` | All of the logic — CLI protocol, device metadata, option parsing, capture flows. No Tricentis dependency |
-| `dotnet-8/AppPercyTosca.Core.Tests` | Unit tests. CI enforces **100% line coverage** of the Core |
-| `dotnet-8/AppPercyTosca.ShimCheck` | Compile-checks the Tosca shim against stubbed Tricentis types, so the shim's source is not entirely unverified on CI |
-| `dotnet-8/AppPercyTosca` | The Tosca shim — the only code that touches Tricentis assemblies. Builds only on a machine with Tosca installed |
+| `AppPercyTosca.Core` | All of the logic — CLI protocol, device metadata, option parsing, capture flows. No Tricentis dependency |
+| `AppPercyTosca.Core.Tests` | Unit tests. CI enforces **100% line coverage** of the Core |
+| `AppPercyTosca.ShimCheck` | Compile-checks the Tosca shim against stubbed Tricentis types, so the shim's source is not entirely unverified on CI |
+| `AppPercyTosca` | The Tosca shim — the only code that touches Tricentis assemblies. Builds only on a machine with Tosca installed |
 
 ```sh-session
 # Everything CI runs; works on any OS with the .NET 8 SDK
-$ dotnet test dotnet-8/AppPercyTosca.Core.sln
+$ dotnet test AppPercyTosca.Core.sln
 
 # The extension itself; needs Tosca Testsuite installed
-$ dotnet build dotnet-8/AppPercyTosca.sln
+$ dotnet build AppPercyTosca.sln
 ```
 
 The shim is deliberately thin. If you find yourself adding a decision to it, consider whether it
 belongs in the Core behind `IToscaEnvironment` instead — that is the seam that makes the rest of this
 testable.
 
-See [Release.md](dotnet-8/Release.md) for how a release is cut.
+See [Release.md](Release.md) for how a release is cut.

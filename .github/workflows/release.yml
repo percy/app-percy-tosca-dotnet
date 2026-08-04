@@ -9,13 +9,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # The DLL is built and committed by hand — a runner has no Tricentis assemblies to build
-      # against. See dotnet-8/Release.md. Fail loudly rather than publishing a release with no asset.
+      # against. See Release.md. Fail loudly rather than publishing a release with no asset.
       - name: Check the DLL was committed
-        run: test -f ./dotnet-8/AppPercyTosca_v8.dll
+        run: test -f ./AppPercyTosca_v8.dll
       - name: Upload assets
         uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
         with:
           files: |
-            ./dotnet-8/AppPercyTosca_v8.dll
+            ./AppPercyTosca_v8.dll
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
