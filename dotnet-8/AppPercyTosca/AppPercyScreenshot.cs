@@ -129,6 +129,21 @@ namespace AppPercyTosca
             ScreenshotOptions options,
             ToscaOptions.ParameterReader read)
         {
+            // The healthcheck is what tells us the session type, and it has to happen before the
+            // branch below rather than inside the façade constructors underneath it. Without this,
+            // the very first PercyScreenshot step of a Tosca Commander session reads SessionType as
+            // null, takes the App Percy path against an automate-mode CLI, has the comparison
+            // rejected (and swallowed), and reports a passing step with no snapshot in the build —
+            // while every later step behaves correctly, which reads as a flake.
+            //
+            // Memoized inside PercyClient, so the later Healthcheck() calls are free.
+            if (!Client.Value.Healthcheck())
+            {
+                // Percy is not running or is too old; it has already said so. Nothing to capture,
+                // and no reason to fail the step over it.
+                return;
+            }
+
             if (Env.IsAutomateSession)
             {
                 if (!driver.HasRealSessionId)
@@ -169,7 +184,10 @@ namespace AppPercyTosca
         {
             IEnumerable<string> lines = new[]
             {
-                $"host (AppiumServer): {Utils.RedactCredentials(driver.Host) ?? "(not found)"}",
+                // RedactCredentials turns null into "", so the fallback has to be chosen before
+                // redacting — otherwise a missing AppiumServer prints an empty value, and this dump
+                // exists to make exactly that visible.
+                $"host (AppiumServer): {(string.IsNullOrWhiteSpace(driver.Host) ? "(not found)" : Utils.RedactCredentials(driver.Host))}",
                 $"appium session id:   {(driver.HasRealSessionId ? driver.SessionId : "(not found)")}",
                 $"platform:            {driver.PlatformName ?? "(not found)"}",
                 $"session type:        {Env.SessionType ?? "(app percy)"}",

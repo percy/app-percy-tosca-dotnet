@@ -18,7 +18,7 @@ Percy on Automate unless you have a reason not to.
 | How | The Percy CLI reconnects to your BrowserStack session and captures server-side | This SDK captures locally through Tosca's mobile engine and uploads the image |
 | Needs | BrowserStack App Automate + the Appium session id in a buffer (see below) | Any mobile session Tosca can screenshot |
 | Full page screenshots | Yes | No |
-| Ignore/consider regions by XPath or accessibility id | Yes | **No** — pixel regions only |
+| Ignore/consider regions by XPath | Yes — resolved by the CLI | **No** — pixel regions only |
 | Device metadata | Resolved by the CLI from the live session | From test configuration parameters, or declared on the module |
 
 The gap is not a shortcoming of Percy but of what a Tosca extension can reach. Mobile Engine 3.0 runs
@@ -92,9 +92,15 @@ older iPhones and iPads only (see `dotnet-8/AppPercyTosca.Core/resources/devices
 | `DeviceName` | Device label used for the Percy tag and dimension lookup |
 | `OsName` | `Android` or `iOS`. Required if Tosca reports no platform |
 | `OsVersion` | OS version |
-| `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels** |
+| `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Worth setting on App Percy — see below |
 | `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
+
+On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
+`DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.
+Percy groups and diffs comparisons by the device tag, so a snapshot tagged `0x0` will not group with
+correctly-tagged ones — the step warns when this happens. Percy on Automate is unaffected: the CLI
+reads the real dimensions off the live session.
 
 ### Capture
 
@@ -109,14 +115,18 @@ older iPhones and iPads only (see `dotnet-8/AppPercyTosca.Core/resources/devices
 
 ### Regions
 
-Ignore and consider regions come in two forms. **Custom (pixel) regions work in both modes**;
-locator-based regions require Percy on Automate.
+**Custom (pixel) regions work in both modes.** XPath regions require Percy on Automate, where the CLI
+resolves them against the session itself.
 
 | Parameter | Description |
 |---|---|
 | `CustomIgnoreRegions`, `CustomConsiderRegions` | `top,bottom,left,right` in pixels, one region per entry |
 | `IgnoreRegionXpaths`, `ConsiderRegionXpaths` | XPath locators (**Percy on Automate only**) |
-| `IgnoreRegionAccessibilityIds`, `ConsiderRegionAccessibilityIds` | Accessibility ids (**Percy on Automate only**) |
+
+Accessibility-id regions are **not supported on Tosca** in either mode, and the step logs a warning
+saying so if you set them. Resolving them is a client-side feature of the other App Percy SDKs — it
+needs a driver to query, which Tosca does not expose — and Percy on Automate has no accessibility-id
+option for the CLI to resolve. Use an XPath, or a custom pixel region.
 
 Lists are separated by **newlines** if the value contains any, otherwise by **semicolons**. Commas
 are deliberately not separators, because an XPath predicate such as `//*[contains(@id,'total')]`

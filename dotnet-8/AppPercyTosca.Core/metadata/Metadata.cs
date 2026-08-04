@@ -72,14 +72,31 @@ namespace AppPercyTosca.Core
         /// and compares snapshots by this, so a device name that varies run to run would split one
         /// baseline into several.
         /// </summary>
-        public Dictionary<string, object?> GetTag() => new Dictionary<string, object?>
+        public Dictionary<string, object?> GetTag()
         {
-            ["name"] = DeviceName(),
-            ["osName"] = OsName(),
-            ["osVersion"] = PlatformVersion(),
-            ["width"] = DeviceScreenWidth(),
-            ["height"] = DeviceScreenHeight(),
-            ["orientation"] = Orientation()
-        };
+            int width = DeviceScreenWidth();
+            int height = DeviceScreenHeight();
+
+            // Percy groups and diffs comparisons by this tag, so a zero dimension is a corrupt
+            // baseline key rather than a cosmetic gap — and on Tosca it is the likely case, since a
+            // mobile session reports no screen size unless a test configuration parameter carries
+            // one. Say so once, naming the parameters that fix it.
+            if (width <= 0 || height <= 0)
+            {
+                Utils.Log("Could not determine the device screen size, so this snapshot is tagged " +
+                    $"{width}x{height} and will not group with correctly-tagged ones. Set " +
+                    "ScreenWidth and ScreenHeight (in pixels) on the Percy module.", "warn");
+            }
+
+            return new Dictionary<string, object?>
+            {
+                ["name"] = DeviceName(),
+                ["osName"] = OsName(),
+                ["osVersion"] = PlatformVersion(),
+                ["width"] = width,
+                ["height"] = height,
+                ["orientation"] = Orientation()
+            };
+        }
     }
 }

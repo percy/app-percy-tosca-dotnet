@@ -268,6 +268,52 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void CustomRegionsSurviveAnUnknownScreenSizeInsteadOfBeingDiscarded()
+        {
+            // The situation on a Tosca session with no screen-size parameter. Validating against a
+            // 0x0 screen rejects every region, so the user loses the only region type available to
+            // them — and the message blames the region rather than the missing dimensions.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("deviceScreenSize");
+            driver.Caps.Remove("viewportRect");
+            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
+
+            provider.Screenshot("home", new ScreenshotOptions
+            {
+                CustomIgnoreRegions = new List<Region> { new Region(0, 100, 0, 200) }
+            });
+
+            string body = handler.BodyFor("/percy/comparison")!;
+            Assert.Contains("\"top\":0,\"bottom\":100,\"left\":0,\"right\":200", body);
+            Assert.False(Logged("is not valid"));
+        }
+
+        [Fact]
+        public void AnUnknownScreenSizeIsReportedBecauseItCorruptsTheComparisonTag()
+        {
+            // Percy groups and diffs by the tag, so a 0x0 tag will not group with correctly-tagged
+            // snapshots. Naming the parameters that fix it is the whole value of the warning.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("deviceScreenSize");
+            driver.Caps.Remove("viewportRect");
+            (GenericProvider provider, _) = Build(driver);
+
+            provider.Screenshot("home", new ScreenshotOptions());
+
+            Assert.True(Logged("ScreenWidth and ScreenHeight"));
+        }
+
+        [Fact]
+        public void AKnownScreenSizeIsNotWarnedAbout()
+        {
+            (GenericProvider provider, _) = Build(StubMobileDriver.Android());
+
+            provider.Screenshot("home", new ScreenshotOptions());
+
+            Assert.False(Logged("Could not determine the device screen size"));
+        }
+
+        [Fact]
         public void ACustomRegionOutsideTheScreenIsReportedAndSkipped()
         {
             (GenericProvider provider, StubHttpMessageHandler handler) =

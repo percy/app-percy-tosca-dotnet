@@ -87,7 +87,9 @@ namespace AppPercyTosca
 
         public string? Buffer(string name)
         {
-            object? buffers = SingletonInstance(BuffersTypeNames);
+            object? buffers = SingletonInstance(BuffersTypeNames,
+                candidate => Reflect.MemberNames(candidate)
+                    .Any(member => GetBufferNames.Contains(member.TrimEnd('(', ')'))));
             if (buffers == null)
             {
                 Utils.Log("Could not reach Tosca's buffers, so the Appium session id is not " +
@@ -148,7 +150,8 @@ namespace AppPercyTosca
         {
             Dictionary<string, string?> parameters = new Dictionary<string, string?>();
 
-            object? configuration = SingletonInstance(ConfigurationTypeNames);
+            object? configuration = SingletonInstance(ConfigurationTypeNames,
+                candidate => Reflect.Member(candidate, ParameterMapNames) != null);
             if (configuration == null)
             {
                 Utils.Log("Could not reach Tosca's test configuration parameters. Device details " +
@@ -178,52 +181,92 @@ namespace AppPercyTosca
 
         /// <summary>
         /// Finds a Tricentis singleton by type name across the assemblies already loaded into Tosca
-        /// Commander, and returns its <c>Instance</c>.
+        /// Commander, and returns its <c>Instance</c> — but only if <paramref name="isUsable"/>
+        /// accepts it.
         ///
         /// Searching loaded assemblies rather than naming one is deliberate: these types' assemblies
         /// have moved between Tosca releases, and by the time an extension runs, whichever assembly
         /// holds them is loaded anyway.
+        ///
+        /// Two things this gets right that a naive search does not. Candidate names are tried
+        /// outermost, so the preference order in the arrays above is honoured — iterating assemblies
+        /// first would let load order decide, and load order is not deterministic. And each candidate
+        /// is checked for the member actually needed before being accepted, because "a Tricentis type
+        /// named Configuration with a static Instance" describes more than one type; accepting the
+        /// wrong one yields an empty parameter set and a snapshot with no device details.
         /// </summary>
-        private static object? SingletonInstance(string[] typeNames)
+        private static object? SingletonInstance(string[] typeNames, Func<object, bool> isUsable)
         {
+            List<Type> candidateTypes = TricentisTypes();
+
+            foreach (string name in typeNames)
+            {
+                foreach (Type type in candidateTypes)
+                {
+                    if (!string.Equals(type.Name, name, StringComparison.Ordinal)) continue;
+
+                    // FlattenHierarchy: a singleton commonly inherits Instance from a
+                    // Singleton<T> base, where a non-flattened lookup would not see it.
+                    object? instance = null;
+                    try
+                    {
+                        instance = type
+                            .GetProperty("Instance", System.Reflection.BindingFlags.Static |
+                                System.Reflection.BindingFlags.Public |
+                                System.Reflection.BindingFlags.NonPublic |
+                                System.Reflection.BindingFlags.FlattenHierarchy)
+                            ?.GetValue(null);
+                    }
+                    catch (Exception e)
+                    {
+                        // A singleton whose initialiser needs an automation context we are not in.
+                        Utils.Log($"Reading {type.FullName}.Instance failed: {e.Message}", "debug");
+                    }
+
+                    if (instance == null) continue;
+                    if (!isUsable(instance))
+                    {
+                        Utils.Log($"{type.FullName} is not the type wanted here; continuing.", "debug");
+                        continue;
+                    }
+                    return instance;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Every type in the loaded Tricentis assemblies, computed once per process.</summary>
+        private static List<Type>? _tricentisTypes;
+
+        private static List<Type> TricentisTypes()
+        {
+            if (_tricentisTypes != null) return _tricentisTypes;
+
+            List<Type> types = new List<Type>();
             foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (!(assembly.FullName ?? "").StartsWith("Tricentis", StringComparison.OrdinalIgnoreCase))
+                if (!(assembly.GetName().Name ?? "")
+                    .StartsWith("Tricentis", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                Type[] types;
                 try
                 {
-                    types = assembly.GetTypes();
+                    types.AddRange(assembly.GetTypes());
                 }
                 catch (System.Reflection.ReflectionTypeLoadException e)
                 {
                     // A partially-loadable assembly still yields the types that did load, and one of
                     // them may be the one wanted.
-                    types = e.Types.Where(t => t != null).Select(t => t!).ToArray();
+                    types.AddRange(e.Types.Where(t => t != null).Select(t => t!));
                 }
                 catch (Exception)
                 {
-                    continue;
-                }
-
-                foreach (string name in typeNames)
-                {
-                    Type? type = types.FirstOrDefault(t =>
-                        string.Equals(t.Name, name, StringComparison.Ordinal));
-                    if (type == null) continue;
-
-                    object? instance = type
-                        .GetProperty("Instance", System.Reflection.BindingFlags.Static |
-                            System.Reflection.BindingFlags.Public |
-                            System.Reflection.BindingFlags.NonPublic)
-                        ?.GetValue(null);
-                    if (instance != null) return instance;
+                    // Nothing readable in this assembly; the others may still hold the type.
                 }
             }
-            return null;
+            return _tricentisTypes = types;
         }
     }
 }

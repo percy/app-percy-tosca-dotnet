@@ -98,7 +98,11 @@ namespace AppPercyTosca.Core
             Put(options, "bottom_scrollview_offset", ParseInt(read("BottomScrollviewOffset"), "BottomScrollviewOffset"));
             Put(options, "screen_lengths", ParseInt(read("ScreenLengths"), "ScreenLengths"));
             Put(options, "full_screen", ParseBool(read("FullScreen"), "FullScreen"));
-            Put(options, "fullpage", ParseBool(read("FullPage"), "FullPage"));
+            // "full_page", not "fullpage". The CLI camelCases every option key before reading it, and
+            // it reads `fullPage`. A key with no separator is left alone by that conversion, so
+            // "fullpage" stays "fullpage" and never matches — full page capture would silently
+            // degrade to a single screen, which is the main reason to choose Percy on Automate.
+            Put(options, "full_page", ParseBool(read("FullPage"), "FullPage"));
             Put(options, "ios_optimized_fullpage", ParseBool(read("IosOptimizedFullpage"), "IosOptimizedFullpage"));
             Put(options, "sync", ParseBool(read("Sync"), "Sync"));
             Put(options, "test_case", Trimmed(read("TestCase")));
@@ -107,12 +111,21 @@ namespace AppPercyTosca.Core
             Put(options, "scrollable_xpath", Trimmed(read("ScrollableXpath")));
             Put(options, "scrollable_id", Trimmed(read("ScrollableId")));
 
-            PutList(options, PercyOnAutomate.IgnoreElementKey, ParseLocatorList(read("IgnoreRegionXpaths")));
-            PutList(options, PercyOnAutomate.ConsiderElementKey, ParseLocatorList(read("ConsiderRegionXpaths")));
-            PutList(options, "ignore_region_accessibility_ids", ParseLocatorList(read("IgnoreRegionAccessibilityIds")));
-            PutList(options, "consider_region_accessibility_ids", ParseLocatorList(read("ConsiderRegionAccessibilityIds")));
+            // XPaths go under the xpath keys, which the CLI resolves against the session itself.
+            // Not under ignore_region_appium_elements — that key means a list of Appium element
+            // objects, which this SDK cannot produce and which would send the locators through
+            // local element resolution that a Tosca session cannot perform, dropping every region.
+            PutList(options, "ignore_region_xpaths", ParseLocatorList(read("IgnoreRegionXpaths")));
+            PutList(options, "consider_region_xpaths", ParseLocatorList(read("ConsiderRegionXpaths")));
             PutList(options, "custom_ignore_regions", RegionPayloads(ParseRegions(read("CustomIgnoreRegions"), "CustomIgnoreRegions")));
             PutList(options, "custom_consider_regions", RegionPayloads(ParseRegions(read("CustomConsiderRegions"), "CustomConsiderRegions")));
+
+            // Accessibility ids are an App Percy feature: the SDK resolves them to coordinates
+            // locally, which needs a driver Tosca does not expose. Percy on Automate has no
+            // equivalent option, so silently forwarding them would leave the region unapplied with
+            // nothing said about it.
+            WarnIfSet(read, "IgnoreRegionAccessibilityIds");
+            WarnIfSet(read, "ConsiderRegionAccessibilityIds");
 
             foreach (KeyValuePair<string, object?> extra in ParseRawOptions(read("Options")))
             {
@@ -253,6 +266,18 @@ namespace AppPercyTosca.Core
 
         private static string? Trimmed(string? value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        /// <summary>
+        /// Reports a parameter that has no effect on this path, rather than accepting it silently.
+        /// </summary>
+        private static void WarnIfSet(ParameterReader read, string parameter)
+        {
+            if (ParseLocatorList(read(parameter)).Count == 0) return;
+            Utils.Log($"{parameter} is not supported on Tosca — element lookups need a driver the " +
+                "Tosca mobile engine does not expose, and Percy on Automate has no accessibility-id " +
+                "option. Use IgnoreRegionXpaths, or CustomIgnoreRegions with pixel coordinates.",
+                "warn");
+        }
 
         private static void Put(Dictionary<string, object?> options, string key, object? value)
         {

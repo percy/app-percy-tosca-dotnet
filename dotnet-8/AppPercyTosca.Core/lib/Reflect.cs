@@ -55,7 +55,14 @@ namespace AppPercyTosca.Core
             {
                 MethodInfo? method = FindMethod(target.GetType(), name, args.Length);
                 if (method == null) continue;
-                return Read(() => method.Invoke(target, args), target, name);
+
+                object? value = Read(() => method.Invoke(target, args), target, name);
+                // Keep going when the call produced nothing, exactly as Member does. Methods are
+                // matched on arity alone — parameter types are unknowable here — so the first match
+                // may well be the wrong overload and throw. Returning its null would abandon the
+                // remaining candidates: a GetBuffer(Guid) sitting in front of a GetBufferValue(string)
+                // would make every buffer read fail while reporting the buffer as unset.
+                if (value != null) return value;
             }
             return null;
         }

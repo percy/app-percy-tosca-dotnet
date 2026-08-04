@@ -299,7 +299,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(6, options["bottom_scrollview_offset"]);
             Assert.Equal(3, options["screen_lengths"]);
             Assert.Equal(true, options["full_screen"]);
-            Assert.Equal(true, options["fullpage"]);
+            Assert.Equal(true, options["full_page"]);
             Assert.Equal(true, options["ios_optimized_fullpage"]);
             Assert.Equal(true, options["sync"]);
             Assert.Equal("tc", options["test_case"]);
@@ -315,15 +315,11 @@ namespace AppPercyTosca.Core.Tests
             Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
                 ("IgnoreRegionXpaths", "//a"),
                 ("ConsiderRegionXpaths", "//b"),
-                ("IgnoreRegionAccessibilityIds", "id-1"),
-                ("ConsiderRegionAccessibilityIds", "id-2"),
                 ("CustomIgnoreRegions", "0,10,0,20"),
                 ("CustomConsiderRegions", "1,11,1,21")));
 
-            Assert.Equal(new[] { "//a" }, Assert.IsType<List<string>>(options[PercyOnAutomate.IgnoreElementKey]));
-            Assert.Equal(new[] { "//b" }, Assert.IsType<List<string>>(options[PercyOnAutomate.ConsiderElementKey]));
-            Assert.Equal(new[] { "id-1" }, Assert.IsType<List<string>>(options["ignore_region_accessibility_ids"]));
-            Assert.Equal(new[] { "id-2" }, Assert.IsType<List<string>>(options["consider_region_accessibility_ids"]));
+            Assert.Equal(new[] { "//a" }, Assert.IsType<List<string>>(options["ignore_region_xpaths"]));
+            Assert.Equal(new[] { "//b" }, Assert.IsType<List<string>>(options["consider_region_xpaths"]));
 
             List<Dictionary<string, object?>> ignored =
                 Assert.IsType<List<Dictionary<string, object?>>>(options["custom_ignore_regions"]);
@@ -332,6 +328,56 @@ namespace AppPercyTosca.Core.Tests
             List<Dictionary<string, object?>> considered =
                 Assert.IsType<List<Dictionary<string, object?>>>(options["custom_consider_regions"]);
             Assert.Equal(21, considered[0]["right"]);
+        }
+
+        [Fact]
+        public void XPathsAreNotSentUnderTheAppiumElementKey()
+        {
+            // That key means "a list of Appium element objects". Locators sent under it are routed
+            // through local element resolution, which a Tosca session cannot do, so every region is
+            // dropped — the exact silent failure this spelling exists to avoid.
+            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
+                ("IgnoreRegionXpaths", "//a"),
+                ("ConsiderRegionXpaths", "//b")));
+
+            Assert.False(options.ContainsKey(PercyOnAutomate.IgnoreElementKey));
+            Assert.False(options.ContainsKey(PercyOnAutomate.ConsiderElementKey));
+        }
+
+        [Fact]
+        public void FullPageUsesTheSeparatedSpellingTheCliCamelCasesCorrectly()
+        {
+            // The CLI camelCases option keys and reads `fullPage`. "fullpage" has no separator, so it
+            // survives that conversion unchanged and never matches — full page capture would silently
+            // degrade to one screen.
+            Dictionary<string, object?> options =
+                ToscaOptions.BuildAutomateOptions(Reader(("FullPage", "true")));
+
+            Assert.Equal(true, options["full_page"]);
+            Assert.False(options.ContainsKey("fullpage"));
+        }
+
+        [Theory]
+        [InlineData("IgnoreRegionAccessibilityIds")]
+        [InlineData("ConsiderRegionAccessibilityIds")]
+        public void AccessibilityIdRegionsAreReportedAsUnsupportedRatherThanSilentlyDropped(string parameter)
+        {
+            // Resolving them needs a driver Tosca does not expose, and Percy on Automate has no
+            // accessibility-id option — so forwarding them would leave the region unapplied with
+            // nothing said about it.
+            Dictionary<string, object?> options =
+                ToscaOptions.BuildAutomateOptions(Reader((parameter, "id-1")));
+
+            Assert.DoesNotContain("accessibility", string.Join(",", options.Keys));
+            Assert.True(Logged(parameter));
+            Assert.True(Logged("CustomIgnoreRegions"));
+        }
+
+        [Fact]
+        public void UnsetAccessibilityIdParametersAreNotWarnedAbout()
+        {
+            ToscaOptions.BuildAutomateOptions(Reader());
+            Assert.False(Logged("not supported on Tosca"));
         }
 
         [Fact]

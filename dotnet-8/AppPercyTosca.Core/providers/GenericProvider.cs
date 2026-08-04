@@ -150,13 +150,27 @@ namespace AppPercyTosca.Core
 
         private void AddCustomRegions(List<Dictionary<string, object?>> regions, List<Region> customRegions)
         {
+            if (customRegions.Count == 0) return;
+
             int width = Metadata.DeviceScreenWidth();
             int height = Metadata.DeviceScreenHeight();
+
+            // With no known screen size there is nothing to validate against, and IsValid would
+            // reject every region for exceeding a zero-sized screen. Passing them through unchecked
+            // respects what the user actually asked for; discarding them would silently drop the only
+            // region type available on a Tosca session, blaming the region rather than the missing
+            // dimensions. GetTag has already warned about those.
+            bool canValidate = width > 0 && height > 0;
+            if (!canValidate)
+            {
+                Utils.Log($"Passing {customRegions.Count} custom region(s) through unchecked: the " +
+                    "device screen size is unknown, so they cannot be validated against it.", "debug");
+            }
 
             for (int index = 0; index < customRegions.Count; index++)
             {
                 Region region = customRegions[index];
-                if (!region.IsValid(height, width))
+                if (canValidate && !region.IsValid(height, width))
                 {
                     Utils.Log($"Values passed in custom region at index:- {index} is not valid");
                     continue;

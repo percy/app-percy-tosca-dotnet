@@ -1,3 +1,4 @@
+using AppPercyTosca.Core;
 using Tricentis.Automation.AutomationInstructions.TestActions;
 using Tricentis.Automation.Engines;
 
@@ -46,7 +47,18 @@ namespace AppPercyTosca
             }
         }
 
-        public void SetResult(ActionResult result) => _inner.SetResult(result);
+        /// <summary>
+        /// Absorbed rather than forwarded. The screenshot task reports its own outcome here, and the
+        /// point of this wrapper is that its outcome belongs to Percy, not to the user's test step:
+        /// <see cref="ToscaEnvironment.CaptureScreenshot"/> already detects a failed capture (no file
+        /// written) and lets the Core degrade the snapshot. Passing a failed result through would
+        /// stamp a failure onto a test action whose own assertions passed, and which
+        /// <c>AppPercyScreenshot.Execute</c> is about to report as passed — a contradiction Tosca
+        /// resolves in ways that differ by version.
+        /// </summary>
+        public void SetResult(ActionResult result) =>
+            Utils.Log($"The {result.GetType().Name} from the mobile screenshot task is not " +
+                "propagated to the test step; Percy reports its own result.", "debug");
 
         /// <summary>An <see cref="IInputValue"/> over a value this SDK supplies rather than Tosca.</summary>
         private class StaticInputValue : IInputValue

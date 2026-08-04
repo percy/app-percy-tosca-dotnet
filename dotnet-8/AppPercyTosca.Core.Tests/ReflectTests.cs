@@ -95,6 +95,20 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void AFailedInvokeFallsThroughToTheNextCandidateName()
+        {
+            // Methods are matched on arity alone — parameter types are unknowable here — so the first
+            // match may be the wrong overload and throw. Returning its null would abandon the
+            // remaining candidates: a GetBuffer(Guid) in front of a GetBufferValue(string) would make
+            // every buffer read fail while reporting the buffer as unset.
+            SetEnv("PERCY_LOGLEVEL", "debug");
+
+            Assert.Equal("value: k",
+                Reflect.Call(new WrongOverloadFirst(), new[] { "GetBuffer", "GetBufferValue" }, "k"));
+            Assert.True(Logged("wrong type"));
+        }
+
+        [Fact]
         public void AVoidMethodIsNotTreatedAsAReadableMember()
         {
             // Reflect only exists to read values; matching a void method would return null and stop
@@ -218,6 +232,18 @@ namespace AppPercyTosca.Core.Tests
             {
                 public FakeToscaTypes.DerivedHolder Deeper { get; } = new FakeToscaTypes.DerivedHolder();
             }
+        }
+
+        /// <summary>
+        /// Shaped like the failure mode above: the preferred name exists but throws for the argument
+        /// given, and the usable member is a later candidate.
+        /// </summary>
+        private class WrongOverloadFirst
+        {
+            public string GetBuffer(object key) =>
+                throw new ArgumentException("wrong type for this overload");
+
+            public string GetBufferValue(string key) => "value: " + key;
         }
 
         private class Hostile
