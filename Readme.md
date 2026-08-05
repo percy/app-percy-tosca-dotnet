@@ -115,6 +115,13 @@ older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 | `Directory`, `Filename` | **Required for App Percy.** Any writable folder and file name, e.g. `C:\Percy\tmp` and `percy.png` |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
 
+App Percy captures by asking Tosca's own mobile screenshot task to do it. Which task that is differs
+between Tosca versions — the published `Mobile30PrintScreen` / `ME3.0` pair is from a Tosca 16-era page
+and is **not** registered on 24 — so the SDK tries that pair first and then any task this install
+registers whose name looks like a screenshot, preferring mobile ones. Run with `PERCY_LOGLEVEL=debug`
+to see which it used, or every candidate it found if none worked, then pin it with
+`ScreenshotTaskName` / `ScreenshotEngineId`.
+
 `Directory` and `Filename` look like an odd thing to put in a test sheet, and they are — but they are
 unavoidable. App Percy captures by delegating to Tosca's own mobile screenshot task, and that task
 reads its destination from the test action's `Directory` and `Filename` parameters. There is no way to
@@ -173,6 +180,7 @@ separate the four numbers:
 |---|---|
 | `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
 | `Options` | Raw JSON object merged into the Percy on Automate options, for reaching a CLI option this SDK has no named parameter for |
+| `ScreenshotTaskName`, `ScreenshotEngineId` | Which Tosca task performs the App Percy capture. Only needed if discovery picks the wrong one — see below |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 
 ## Troubleshooting

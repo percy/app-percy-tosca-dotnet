@@ -1,3 +1,4 @@
+using System.Reflection;
 using AppPercyTosca.Core;
 using Tricentis.Automation.AutomationInstructions.TestActions;
 using Tricentis.Automation.Engines.SpecialExecutionTasks;
@@ -127,17 +128,47 @@ namespace AppPercyTosca
                 return null;
             }
 
-            try
-            {
-                ISpecialExecutionTask task = SpecialExecutionTaskFactory.CreateTask(
-                    _screenshotTaskName, _screenshotEngineId);
+            List<(string Task, string Engine)> tried = new List<(string, string)>();
 
-                // The real test action, unmodified: it already carries Directory and Filename, and it
-                // is also what tells the task which device to capture from.
-                task.ExecuteTask(_testAction);
+            foreach ((string task, string engine) in ScreenshotTaskCandidates())
+            {
+                if (tried.Contains((task, engine))) continue;
+                tried.Add((task, engine));
+
+                ISpecialExecutionTask? created;
+                try
+                {
+                    created = SpecialExecutionTaskFactory.CreateTask(task, engine);
+                }
+                catch (Exception e)
+                {
+                    // Wrong name or engine for this Tosca version — that is what the candidate list
+                    // exists for, so move on rather than giving up.
+                    Utils.Log($"No '{task}' task under engine '{engine}': {e.Message}", "debug");
+                    continue;
+                }
+
+                // Past this point the task exists, so a failure is a real one: do not try another
+                // candidate, because the capture may have partially run.
+                try
+                {
+                    // The real test action, unmodified: it already carries Directory and Filename, and
+                    // it is also what tells the task which device to capture from.
+                    created.ExecuteTask(_testAction);
+                }
+                catch (Exception e)
+                {
+                    Utils.Log($"The '{task}' task (engine '{engine}') failed: {e.Message}");
+                    Utils.Log(e.ToString(), "debug");
+                    return null;
+                }
 
                 string path = Path.Combine(directory, fileName);
-                if (File.Exists(path)) return path;
+                if (File.Exists(path))
+                {
+                    Utils.Log($"Captured via the '{task}' task under engine '{engine}'.", "debug");
+                    return path;
+                }
 
                 // The engine may have appended its own extension, so accept a near match rather than
                 // reporting failure for a file that is right there.
@@ -146,14 +177,107 @@ namespace AppPercyTosca
                     .FirstOrDefault();
                 if (match != null) return match;
 
-                Utils.Log($"The {_screenshotTaskName} task ran but wrote no file to {path}.", "debug");
+                Utils.Log($"The '{task}' task ran but wrote no file to {path}.", "debug");
                 return null;
             }
-            catch (Exception e)
+
+            Utils.Log("Could not find Tosca's mobile screenshot task. Tried: " +
+                string.Join(", ", tried.Select(t => $"'{t.Task}'/'{t.Engine}'")) +
+                ". Set ScreenshotTaskName and ScreenshotEngineId on the Percy module to the correct " +
+                "pair, and run with PERCY_LOGLEVEL=debug to see every task this Tosca install offers.");
+            LogAvailableScreenshotTasks();
+            return null;
+        }
+
+        /// <summary>
+        /// Task/engine pairs to try, in order: whatever the module or constructor specified, then the
+        /// name Tricentis' own PrintScreen source uses, then anything this install actually registers
+        /// that looks like a mobile screenshot task.
+        ///
+        /// Discovery is here because the documented pair is version-specific — the published
+        /// "Mobile30PrintScreen"/"ME3.0" is from a Tosca 16-era page and is not registered on 24 — and
+        /// hardcoding another guess would just move the problem to the next release.
+        /// </summary>
+        private IEnumerable<(string Task, string Engine)> ScreenshotTaskCandidates()
+        {
+            string? task = Parameter("ScreenshotTaskName") ?? _screenshotTaskName;
+            string? engine = Parameter("ScreenshotEngineId") ?? _screenshotEngineId;
+            if (!string.IsNullOrWhiteSpace(task) && !string.IsNullOrWhiteSpace(engine))
             {
-                Utils.Log($"Could not capture a screenshot through the {_screenshotTaskName} task: " +
-                    e.Message);
-                Utils.Log(e.ToString(), "debug");
+                yield return (task, engine);
+            }
+
+            foreach ((string Task, string Engine) found in DiscoverScreenshotTasks())
+            {
+                yield return found;
+            }
+        }
+
+        /// <summary>
+        /// Every registered special execution task whose name looks like a screenshot, paired with the
+        /// engine id of the assembly declaring it. Mobile ones are offered first.
+        /// </summary>
+        private static List<(string Task, string Engine)> DiscoverScreenshotTasks()
+        {
+            List<(string Task, string Engine, bool Mobile)> found =
+                new List<(string, string, bool)>();
+
+            foreach (Type type in TricentisTypes())
+            {
+                string? taskName = TaskNameOf(type);
+                if (taskName == null) continue;
+                if (taskName.IndexOf("printscreen", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    taskName.IndexOf("screenshot", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                string? engineId = EngineIdOf(type.Assembly);
+                if (engineId == null) continue;
+
+                bool mobile = taskName.IndexOf("mobile", StringComparison.OrdinalIgnoreCase) >= 0
+                    || engineId.IndexOf("ME", StringComparison.Ordinal) >= 0
+                    || Reflect.TypeNameContains(type, "mobile");
+                found.Add((taskName, engineId, mobile));
+            }
+
+            return found
+                .OrderByDescending(f => f.Mobile)
+                .Select(f => (f.Task, f.Engine))
+                .Distinct()
+                .ToList();
+        }
+
+        /// <summary>Logs every screenshot-ish task found, so a wrong guess is one log line from fixed.</summary>
+        private static void LogAvailableScreenshotTasks()
+        {
+            List<(string Task, string Engine)> available = DiscoverScreenshotTasks();
+            Utils.Log(available.Count == 0
+                ? "No screenshot-like special execution tasks were found in the loaded Tricentis assemblies."
+                : "Screenshot-like tasks this install registers: " +
+                    string.Join(", ", available.Select(a => $"'{a.Task}' (engine '{a.Engine}')")),
+                "debug");
+        }
+
+        // Read reflectively rather than by cast: the attributes' property names are not published, and
+        // a wrong guess should degrade discovery rather than fail to compile.
+        private static string? TaskNameOf(Type type)
+        {
+            object? attribute = type.GetCustomAttributes(false)
+                .FirstOrDefault(a => Reflect.TypeSimpleNameContains(a, "SpecialExecutionTaskName"));
+            return Reflect.Member(attribute, "Name", "SpecialExecutionTaskName", "TaskName")?.ToString();
+        }
+
+        private static string? EngineIdOf(Assembly assembly)
+        {
+            try
+            {
+                object? attribute = assembly.GetCustomAttributes(false)
+                    .FirstOrDefault(a => Reflect.TypeSimpleNameContains(a, "EngineId"));
+                return Reflect.Member(attribute, "Id", "EngineId", "Name")?.ToString();
+            }
+            catch (Exception)
+            {
                 return null;
             }
         }
