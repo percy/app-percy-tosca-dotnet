@@ -31,7 +31,7 @@ namespace AppPercyTosca.Core
         public override int DeviceScreenWidth()
         {
             if (SuppliedScreenWidth > 0) return SuppliedScreenWidth;
-            return ScreenSize()?.Width ?? ViewportInt("width") ?? 0;
+            return ScreenSize()?.Width ?? ViewportInt("width") ?? FallbackScreenWidth;
         }
 
         public override int DeviceScreenHeight()
@@ -44,7 +44,7 @@ namespace AppPercyTosca.Core
             // No deviceScreenSize: rebuild the full height from the usable area plus the bars we
             // know about, so the tag is still roughly right rather than 0.
             int? viewportHeight = ViewportInt("height");
-            if (viewportHeight == null) return 0;
+            if (viewportHeight == null) return FallbackScreenHeight;
             return viewportHeight.Value + StatBarHeight() + NavBarHeight();
         }
 

@@ -35,7 +35,7 @@ namespace AppPercyTosca.Core
 
             int fromTable = DeviceRegistry.Value("screenWidth", DeviceName());
             if (fromTable != 0) return fromTable;
-            return ViewportInt("width") ?? 0;
+            return ViewportInt("width") ?? FallbackScreenWidth;
         }
 
         public override int DeviceScreenHeight()
@@ -46,7 +46,7 @@ namespace AppPercyTosca.Core
             if (fromTable != 0) return fromTable;
 
             int? viewportHeight = ViewportInt("height");
-            if (viewportHeight == null) return 0;
+            if (viewportHeight == null) return FallbackScreenHeight;
             return viewportHeight.Value + StatBarHeight();
         }
 
