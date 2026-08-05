@@ -421,6 +421,159 @@ namespace AppPercyTosca.Core.Tests
         }
     }
 
+    public class AutomateSessionFinderTests : CoreTestBase
+    {
+        private const string Hub = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+
+        private static AutomateSessionFinder Finder(StubHttpMessageHandler handler) =>
+            new AutomateSessionFinder(handler.Client(), "https://api.example.com/app-automate");
+
+        private static StubHttpMessageHandler Api(string builds, string sessions)
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler();
+            handler.On("/builds.json?limit=5", builds);
+            handler.On("/builds.json?limit=5", builds);
+            handler.Default(sessions);
+            return handler;
+        }
+
+        [Theory]
+        [InlineData("https://user:key@hub-cloud.browserstack.com/wd/hub", "user", "key")]
+        [InlineData("https://a%40b.com:k%2Fy@hub/wd/hub", "a@b.com", "k/y")]
+        public void CredentialsAreReadFromTheHubUrlUserinfo(string url, string user, string key)
+        {
+            // Percent-encoded because a BrowserStack username is an email and a key can contain a
+            // slash; leaving them encoded would send the wrong credentials.
+            Assert.Equal((user, key), AutomateSessionFinder.CredentialsFrom(url));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("https://hub-cloud.browserstack.com/wd/hub")]
+        [InlineData("https://onlyuser@hub/wd/hub")]
+        [InlineData("https://:key@hub/wd/hub")]
+        [InlineData("not a url")]
+        public void AUrlWithoutAUsableCredentialPairYieldsNothing(string? url)
+        {
+            Assert.Null(AutomateSessionFinder.CredentialsFrom(url));
+        }
+
+        [Fact]
+        public void WithoutCredentialsTheLookupIsNotAttemptedAndSaysWhatToDo()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler();
+
+            Assert.Null(Finder(handler).TryFindSessionId("https://hub-cloud.browserstack.com/wd/hub"));
+
+            Assert.Empty(handler.Requests);
+            Assert.True(Logged("carries no credentials"));
+            Assert.True(Logged("Get Appium Session Id"));
+        }
+
+        [Fact]
+        public void TheRunningSessionOfTheRunningBuildIsReturned()
+        {
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b-done\",\"status\":\"done\"}}," +
+                "{\"automation_build\":{\"hashed_id\":\"b-live\",\"status\":\"running\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s-done\",\"status\":\"done\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s-live\",\"status\":\"running\"}}]");
+
+            Assert.Equal("s-live", Finder(handler).TryFindSessionId(Hub));
+            Assert.Contains("/builds/b-live/sessions.json", handler.Requests.Last().Url);
+        }
+
+        [Fact]
+        public void TheMostRecentIsUsedWhenNothingReportsItselfRunning()
+        {
+            // A session flips to "done" between the app finishing and this being asked, so requiring
+            // "running" outright would make the common case fail.
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"done\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"done\"}}]");
+
+            Assert.Equal("s1", Finder(handler).TryFindSessionId(Hub));
+        }
+
+        [Fact]
+        public void TheRequestIsAuthenticatedWithBasicAuth()
+        {
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\"}}]");
+
+            Finder(handler).TryFindSessionId(Hub);
+
+            Assert.Equal("someone:secretkey",
+                System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(
+                    handler.Requests[0].AuthParameter!)));
+        }
+
+        [Fact]
+        public void NoBuildsMeansNoSession()
+        {
+            Assert.Null(Finder(Api("[]", "[]")).TryFindSessionId(Hub));
+            Assert.True(Logged("no App Automate builds"));
+        }
+
+        [Fact]
+        public void ABuildWithNoSessionsIsReported()
+        {
+            Assert.Null(Finder(Api("[{\"automation_build\":{\"hashed_id\":\"b1\"}}]", "[]"))
+                .TryFindSessionId(Hub));
+            Assert.True(Logged("reported no sessions"));
+        }
+
+        [Fact]
+        public void ARejectedRequestNamesTheCredentialParameter()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("unauthorized", System.Net.HttpStatusCode.Unauthorized);
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub));
+            Assert.True(Logged("AppiumServer"));
+        }
+
+        [Fact]
+        public void AnUnreachableApiIsReportedWithCredentialsRedacted()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException($"failed calling {Hub}")
+            };
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub));
+            Assert.True(Logged("Could not ask BrowserStack"));
+            Assert.False(Logged("secretkey"));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("not json")]
+        [InlineData("{}")]
+        [InlineData("[{}]")]
+        [InlineData("[{\"automation_build\":{}}]")]
+        public void AnUnusableListYieldsNothing(string? body)
+        {
+            Assert.Null(AutomateSessionFinder.FirstHashedId(body, "automation_build", false));
+        }
+
+        [Fact]
+        public void AnUnwrappedEntryIsAlsoAccepted()
+        {
+            // Defensive: the wrapper key is the documented shape, but a flat entry is unambiguous.
+            Assert.Equal("s1",
+                AutomateSessionFinder.FirstHashedId("[{\"hashed_id\":\"s1\"}]", "automation_session", false));
+        }
+
+        [Fact]
+        public void ANullHttpClientIsRefused()
+        {
+            Assert.Throws<ArgumentNullException>(() => new AutomateSessionFinder(null!));
+        }
+    }
+
     public class WebDriverSessionTests : CoreTestBase
     {
         private const string Png = StubMobileDriver.ValidPngBase64;

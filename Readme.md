@@ -26,7 +26,7 @@ Capture is attempted two ways, in this order:
    registered is the generic `PrintScreen` (engine `Framework`) — no mobile-specific task is
    discoverable — and that one captures nothing unless `Environment` tells it to target the device.
 
-Route 1 is the one to get working, and it needs the **Get Appium Session Id** step described below.
+Route 1 is the one to get working. It needs the Appium session id — see below.
 
 
 ### What App Percy cannot do on Tosca
@@ -76,12 +76,24 @@ Create a module with:
 
 ### Required: the Appium session id
 
-Capture needs the session id, and the only way to obtain it in Tosca is the built-in
-**Get Appium Session Id** standard module (Standard modules → Engines → Mobile). Before your
-AppPercyScreenshot step, add that module and have it write to a buffer named `PercyAppiumSessionId` — or
-name your own buffer and pass it as the `SessionIdBuffer` parameter.
+Direct capture needs the session id. There are two ways to supply it, and either is enough.
 
-Without it, capture falls back to Tosca's own screenshot task, which is the less reliable route.
+**From Tosca.** Add the built-in **Get Appium Session Id** standard module (Standard modules → Engines
+→ Mobile) before your AppPercyScreenshot step, writing to a buffer named `PercyAppiumSessionId` — or
+name your own buffer and pass it as `SessionIdBuffer`.
+
+**From BrowserStack, on App Automate.** That module is not always usable against a cloud connection.
+Embed your credentials in the `AppiumServer` test configuration parameter:
+
+```
+https://<user>:<access-key>@hub-cloud.browserstack.com/wd/hub
+```
+
+The SDK then asks App Automate's REST API which session is running and uses that. A buffered id always
+wins over a discovered one, because it came from the session actually under test whereas discovery
+infers from "what is running on this account" — so it is only reliable when one session is.
+
+Without either, capture falls back to Tosca's own screenshot task, which is the weaker route.
 
 ## Parameters
 

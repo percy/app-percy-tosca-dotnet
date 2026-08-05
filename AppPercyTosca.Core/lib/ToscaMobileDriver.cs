@@ -46,6 +46,9 @@ namespace AppPercyTosca.Core
         private readonly IToscaEnvironment _tosca;
         private readonly ScreenshotOptions _options;
         private readonly Func<string, string, WebDriverSession>? _webDriver;
+        private readonly Func<string?, string?>? _discoverSessionId;
+        private string? _discoveredSessionId;
+        private bool _discoveryAttempted;
         private readonly string? _sessionIdBuffer;
         private readonly Dictionary<string, object?> _capabilities;
         private readonly string _fallbackSessionId;
@@ -64,11 +67,13 @@ namespace AppPercyTosca.Core
             ScreenshotOptions options,
             string? sessionIdBuffer = null,
             string? fallbackSessionId = null,
-            Func<string, string, WebDriverSession>? webDriver = null)
+            Func<string, string, WebDriverSession>? webDriver = null,
+            Func<string?, string?>? discoverSessionId = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _webDriver = webDriver;
+            _discoverSessionId = discoverSessionId;
             _sessionIdBuffer = sessionIdBuffer;
             _fallbackSessionId = fallbackSessionId ?? "tosca-session";
             _capabilities = BuildCapabilities();
@@ -84,8 +89,28 @@ namespace AppPercyTosca.Core
             get
             {
                 string? buffered = _tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer);
-                return string.IsNullOrWhiteSpace(buffered) ? _fallbackSessionId : buffered.Trim();
+                if (!string.IsNullOrWhiteSpace(buffered)) return buffered.Trim();
+
+                string? discovered = DiscoveredSessionId();
+                return string.IsNullOrWhiteSpace(discovered) ? _fallbackSessionId : discovered;
             }
+        }
+
+        /// <summary>
+        /// The session id BrowserStack reports, asked for once per driver.
+        ///
+        /// This is the second source rather than the first because a buffer is authoritative — it came
+        /// from the session actually under test — whereas discovery infers from "which session is
+        /// running on this account", which is only right when one is. Memoized including the failure,
+        /// so a session that cannot be discovered costs one API call rather than one per property read.
+        /// </summary>
+        private string? DiscoveredSessionId()
+        {
+            if (_discoveryAttempted || _discoverSessionId == null) return _discoveredSessionId;
+
+            _discoveryAttempted = true;
+            _discoveredSessionId = _discoverSessionId(Host);
+            return _discoveredSessionId;
         }
 
         /// <summary>
@@ -94,7 +119,8 @@ namespace AppPercyTosca.Core
         /// about the buffer actually being unset.
         /// </summary>
         public bool HasRealSessionId =>
-            !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer));
+            !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer))
+            || !string.IsNullOrWhiteSpace(DiscoveredSessionId());
 
         public string? Host
         {
@@ -194,8 +220,11 @@ namespace AppPercyTosca.Core
             if (!HasRealSessionId)
             {
                 Utils.Log("The Appium session id is not available, so the device session cannot be " +
-                    "asked for a screenshot directly. Add the 'Get Appium Session Id' standard module " +
-                    $"before this step, writing to buffer '{_sessionIdBuffer ?? DefaultSessionIdBuffer}'.");
+                    "asked for a screenshot directly. Either add the 'Get Appium Session Id' standard " +
+                    $"module before this step writing to buffer " +
+                    $"'{_sessionIdBuffer ?? DefaultSessionIdBuffer}', or — on App Automate — embed your " +
+                    "credentials in the AppiumServer parameter as " +
+                    "https://user:key@hub-cloud.browserstack.com/wd/hub so the session can be looked up.");
                 return null;
             }
 

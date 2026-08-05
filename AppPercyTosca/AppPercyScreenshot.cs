@@ -105,7 +105,8 @@ namespace AppPercyTosca
                     options,
                     Parameter(testAction, "SessionIdBuffer"),
                     SessionKey(testAction),
-                    (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
+                    (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId),
+                    hub => new AutomateSessionFinder(DeviceHttp.Value).TryFindSessionId(hub));
 
                 if (ToscaOptions.ParseBool(Parameter(testAction, "Diagnose"), "Diagnose") == true)
                 {

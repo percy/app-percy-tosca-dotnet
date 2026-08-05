@@ -15,7 +15,7 @@ namespace AppPercyTosca.Core.Tests
             public string? CoreVersion { get; set; } = "1.27.0";
         }
 
-        public record Recorded(string Method, string Url, string? Body);
+        public record Recorded(string Method, string Url, string? Body, string? AuthParameter = null);
 
         private readonly Dictionary<string, Queue<Reply>> _replies =
             new Dictionary<string, Queue<Reply>>();
@@ -62,7 +62,8 @@ namespace AppPercyTosca.Core.Tests
 
             string url = request.RequestUri!.ToString();
             string? body = request.Content?.ReadAsStringAsync(cancellationToken).Result;
-            Requests.Add(new Recorded(request.Method.Method, url, body));
+            Requests.Add(new Recorded(request.Method.Method, url, body,
+                request.Headers.Authorization?.Parameter));
 
             Reply reply = _fallback;
             foreach (KeyValuePair<string, Queue<Reply>> entry in _replies)

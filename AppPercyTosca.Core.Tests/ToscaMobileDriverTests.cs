@@ -73,12 +73,13 @@ namespace AppPercyTosca.Core.Tests
     {
         private static ToscaMobileDriver Build(
             StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null,
-            StubHttpMessageHandler? deviceHttp = null) =>
+            StubHttpMessageHandler? deviceHttp = null, Func<string?, string?>? discover = null) =>
             new ToscaMobileDriver(tosca, options ?? new ScreenshotOptions(), buffer, null,
                 deviceHttp == null
                     ? null
                     : (server, sessionId) =>
-                        new WebDriverSession(deviceHttp.Client(), server, sessionId));
+                        new WebDriverSession(deviceHttp.Client(), server, sessionId),
+                discover);
 
         /// <summary>A device session that answers the WebDriver screenshot endpoint.</summary>
         private static StubHttpMessageHandler DeviceServing(string base64) =>
@@ -186,6 +187,62 @@ namespace AppPercyTosca.Core.Tests
             // Still stable, because the per-session caches key on it.
             Assert.False(string.IsNullOrWhiteSpace(driver.SessionId));
             Assert.Equal(driver.SessionId, driver.SessionId);
+        }
+
+        [Fact]
+        public void TheSessionIdCanBeDiscoveredWhenNoBufferHoldsIt()
+        {
+            // The case that matters on App Automate, where the 'Get Appium Session Id' module is not
+            // always usable and there is no mobile screenshot task to fall back to either.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
+
+            ToscaMobileDriver driver = Build(tosca, discover: _ => "discovered-1");
+
+            Assert.Equal("discovered-1", driver.SessionId);
+            Assert.True(driver.HasRealSessionId);
+        }
+
+        [Fact]
+        public void ABufferedSessionIdIsPreferredOverADiscoveredOne()
+        {
+            // The buffer came from the session actually under test; discovery infers from "what is
+            // running on this account", which is only right when one thing is.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            bool asked = false;
+
+            ToscaMobileDriver driver = Build(tosca, discover: _ => { asked = true; return "discovered"; });
+
+            Assert.Equal("session-abc", driver.SessionId);
+            Assert.False(asked);
+        }
+
+        [Fact]
+        public void DiscoveryIsAttemptedOncePerDriverEvenWhenItFails()
+        {
+            // Otherwise every property read costs a BrowserStack API call.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
+            int calls = 0;
+
+            ToscaMobileDriver driver = Build(tosca, discover: _ => { calls++; return null; });
+
+            Assert.False(driver.HasRealSessionId);
+            _ = driver.SessionId;
+            _ = driver.SessionId;
+            Assert.Equal(1, calls);
+        }
+
+        [Fact]
+        public void DiscoveryIsHandedTheHubUrlToAuthenticateWith()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
+            string? seen = null;
+
+            _ = Build(tosca, discover: hub => { seen = hub; return null; }).SessionId;
+
+            Assert.Equal("https://hub-cloud.browserstack.com/wd/hub", seen);
         }
 
         [Fact]
