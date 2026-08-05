@@ -58,12 +58,13 @@ namespace AppPercyTosca.Core.Tests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            if (Throw != null) throw Throw;
-
             string url = request.RequestUri!.ToString();
             string? body = request.Content?.ReadAsStringAsync(cancellationToken).Result;
             Requests.Add(new Recorded(request.Method.Method, url, body,
                 request.Headers.Authorization?.Parameter));
+
+            // Recorded before throwing: the request was attempted, and a retry test needs to count it.
+            if (Throw != null) throw Throw;
 
             Reply reply = _fallback;
             foreach (KeyValuePair<string, Queue<Reply>> entry in _replies)

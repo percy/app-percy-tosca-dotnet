@@ -754,6 +754,55 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void ATransportFailureIsRetriedBecauseTheDeviceMayNotBeReady()
+        {
+            // A Tosca step can hand over before the device is ready; the web Tosca SDK retries for the
+            // same reason.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler();
+            handler.Throw = new HttpRequestException("connection reset");
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.Equal(WebDriverSession.Attempts, handler.Requests.Count);
+        }
+
+        [Fact]
+        public void AServerErrorIsRetriedButAClientErrorIsNot()
+        {
+            // A 5xx may pass on a second look; a 404 says the session or endpoint is wrong and will
+            // stay wrong, so retrying only delays the report.
+            StubHttpMessageHandler serverError = new StubHttpMessageHandler()
+                .Default("boom", System.Net.HttpStatusCode.InternalServerError);
+            Assert.Null(Session(serverError).TryGetScreenshotBase64());
+            Assert.Equal(WebDriverSession.Attempts, serverError.Requests.Count);
+
+            StubHttpMessageHandler notFound = new StubHttpMessageHandler()
+                .Default("no session", System.Net.HttpStatusCode.NotFound);
+            Assert.Null(Session(notFound).TryGetScreenshotBase64());
+            Assert.Single(notFound.Requests);
+        }
+
+        [Fact]
+        public void ARetryThatSucceedsReturnsTheImage()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .On("/screenshot", "boom", System.Net.HttpStatusCode.BadGateway)
+                .On("/screenshot", "{\"value\":\"" + Png + "\"}");
+
+            Assert.Equal(Png, Session(handler).TryGetScreenshotBase64());
+            Assert.Equal(2, handler.Requests.Count);
+        }
+
+        [Fact]
+        public void AWellFormedRefusalIsNotRetried()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"error\":\"no such window\"}}");
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.Single(handler.Requests);
+        }
+
+        [Fact]
         public void AnUnreachableServerIsReportedWithCredentialsRedacted()
         {
             // The endpoint commonly carries credentials in its userinfo, and this message is the one

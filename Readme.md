@@ -68,11 +68,25 @@ Then register the extension:
 2. Add that path in Tosca Commander → Project settings → TBox → Extension loading → Extensions
 3. Restart Tosca Commander
 
-Create a module with:
+### The module
 
-- **Engine** → `Percy`
-- **SpecialExecutionTask** → `AppPercyScreenshot`
-- each parameter you want to use as a row with **Parameter** → `True`
+Create a module with **Engine** → `Percy` and **SpecialExecutionTask** → `AppPercyScreenshot`, then add
+each parameter you want as a row with **Parameter** → `True`.
+
+Getting these exactly right matters — a mistyped task name or engine surfaces as
+`The SpecialExecutionTask 'x' was not found for engine 'y'`, which reads like a broken install rather
+than a typo. The minimum viable module is three rows:
+
+| Row | Value | Notes |
+|---|---|---|
+| `SnapshotName` | e.g. `Home` | Required; must be unique per snapshot |
+| `Diagnose` | `true` | Worth leaving on until the first snapshot lands |
+| `SessionIdBuffer` | `PercyAppiumSessionId` | Only if you named your buffer something else |
+
+> **Not yet shipped:** the web SDK ([percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet))
+> ships a `PercySnapshot.tsu` subset so you can import a correct module instead of building one. The
+> equivalent for this SDK is not in the repo yet — see `Release.md`. Until it is, build the module by
+> hand from the table above.
 
 ### Required: the Appium session id
 

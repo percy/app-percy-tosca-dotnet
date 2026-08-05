@@ -29,6 +29,7 @@ namespace AppPercyTosca.Core.Tests
             Env.Reset();
             DeviceRegistry.Reset();
             PercyClient.Now = () => DateTime.UtcNow;
+            WebDriverSession.Sleep = _ => { };
             Utils.LogSink = (message, level) => Logs.Add((message, level));
         }
 
@@ -49,6 +50,7 @@ namespace AppPercyTosca.Core.Tests
             Env.Reset();
             DeviceRegistry.Reset();
             PercyClient.Now = () => DateTime.UtcNow;
+            WebDriverSession.Sleep = duration => Thread.Sleep(duration);
         }
     }
 }

@@ -18,6 +18,19 @@ namespace AppPercyTosca.Core
     /// </summary>
     public class WebDriverSession
     {
+        /// <summary>
+        /// Attempts made before giving up. The web Tosca SDK retries finding its target ten times for
+        /// the same reason: a Tosca step can hand over before the thing it steered is ready. Kept
+        /// smaller here because each attempt is a real HTTP round trip to a possibly-remote hub.
+        /// </summary>
+        public const int Attempts = 3;
+
+        /// <summary>Gap between attempts.</summary>
+        public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
+
+        /// <summary>Replaceable so tests do not actually wait.</summary>
+        internal static Action<TimeSpan> Sleep { get; set; } = duration => Thread.Sleep(duration);
+
         private readonly HttpClient _http;
         private readonly string _serverUrl;
         private readonly string _sessionId;
@@ -41,6 +54,26 @@ namespace AppPercyTosca.Core
         /// </summary>
         public string? TryGetScreenshotBase64()
         {
+            for (int attempt = 1; ; attempt++)
+            {
+                (string? Image, bool WorthRetrying) result = AttemptScreenshot();
+                if (result.Image != null) return result.Image;
+
+                if (!result.WorthRetrying || attempt >= Attempts) return null;
+
+                Utils.Log($"Retrying the screenshot ({attempt} of {Attempts}) — the device may not be " +
+                    "ready yet.", "debug");
+                Sleep(RetryDelay);
+            }
+        }
+
+        /// <summary>
+        /// One attempt. Reports whether retrying could plausibly help, which a bare null could not:
+        /// a 4xx means the session or endpoint is wrong and will stay wrong, while a transport failure
+        /// or a 5xx is exactly the "not ready yet" case worth a second look.
+        /// </summary>
+        private (string? Image, bool WorthRetrying) AttemptScreenshot()
+        {
             try
             {
                 Task<HttpResponseMessage> request = _http.GetAsync(Endpoint);
@@ -54,7 +87,8 @@ namespace AppPercyTosca.Core
                 {
                     Utils.Log($"The device session refused a screenshot ({(int)response.StatusCode} " +
                         $"{response.ReasonPhrase}): {Truncate(body.Result)}");
-                    return null;
+                    // A 5xx may pass; a 4xx says the session or endpoint is wrong and will not.
+                    return (null, (int)response.StatusCode >= 500);
                 }
 
                 string? base64 = ExtractValue(body.Result);
@@ -62,9 +96,10 @@ namespace AppPercyTosca.Core
                 {
                     Utils.Log("The device session returned a screenshot response with no image in it: " +
                         Truncate(body.Result));
-                    return null;
+                    // A well-formed refusal, not a hiccup.
+                    return (null, false);
                 }
-                return base64;
+                return (base64, false);
             }
             catch (Exception e)
             {
@@ -72,7 +107,7 @@ namespace AppPercyTosca.Core
                 Utils.Log("Could not reach the device session for a screenshot: " +
                     Utils.RedactCredentials(e.Message));
                 Utils.Log(Utils.RedactCredentials(e.ToString()), "debug");
-                return null;
+                return (null, true);
             }
         }
 
