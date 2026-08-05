@@ -461,6 +461,22 @@ namespace AppPercyTosca
         private static int _typesFromAssemblyCount = -1;
 
         /// <summary>
+        /// Names of the loaded assemblies worth reporting in the Diagnose output. Whether the mobile
+        /// engine assemblies are loaded at all is the first thing worth knowing: if they are not, the
+        /// engine really is running out of process and no driver object can be reached from here.
+        /// </summary>
+        internal static IEnumerable<string> LoadedAutomationAssemblies() =>
+            AppDomain.CurrentDomain.GetAssemblies()
+                .Select(a => a.GetName().Name ?? "")
+                .Where(n => n.StartsWith("Tricentis", StringComparison.OrdinalIgnoreCase)
+                    || n.StartsWith("OpenQA", StringComparison.OrdinalIgnoreCase)
+                    || n.IndexOf("Appium", StringComparison.OrdinalIgnoreCase) >= 0)
+                .OrderBy(n => n, StringComparer.Ordinal);
+
+        /// <summary>Loaded types the driver probe looks through.</summary>
+        internal static IEnumerable<Type> AutomationTypes() => TricentisTypes();
+
+        /// <summary>
         /// Every type in the loaded Tricentis assemblies.
         ///
         /// Cached because enumerating types across ~30 Tricentis assemblies is thousands of types and
