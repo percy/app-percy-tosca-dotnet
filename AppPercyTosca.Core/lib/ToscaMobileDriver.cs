@@ -46,10 +46,8 @@ namespace AppPercyTosca.Core
         private readonly IToscaEnvironment _tosca;
         private readonly ScreenshotOptions _options;
         private readonly Func<string, string, WebDriverSession>? _webDriver;
-        private readonly Func<string?, AutomateSessionFinder.Hints, string?>? _discoverSessionId;
-        private string? _discoveredSessionId;
-        private bool _discoveryAttempted;
         private readonly string? _sessionIdBuffer;
+        private readonly string? _explicitSessionId;
         private readonly Dictionary<string, object?> _capabilities;
         private readonly string _fallbackSessionId;
 
@@ -67,14 +65,16 @@ namespace AppPercyTosca.Core
             ScreenshotOptions options,
             string? sessionIdBuffer = null,
             string? fallbackSessionId = null,
-            Func<string, string, WebDriverSession>? webDriver = null,
-            Func<string?, AutomateSessionFinder.Hints, string?>? discoverSessionId = null)
+            string? explicitSessionId = null,
+            Func<string, string, WebDriverSession>? webDriver = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _webDriver = webDriver;
-            _discoverSessionId = discoverSessionId;
             _sessionIdBuffer = sessionIdBuffer;
+            _explicitSessionId = string.IsNullOrWhiteSpace(explicitSessionId)
+                ? null
+                : explicitSessionId.Trim();
             _fallbackSessionId = fallbackSessionId ?? "tosca-session";
             _capabilities = BuildCapabilities();
         }
@@ -84,41 +84,30 @@ namespace AppPercyTosca.Core
         /// per-session caches working; it is not a session anything can be asked about, which is why
         /// <see cref="HasRealSessionId"/> exists for callers to check first.
         /// </summary>
+        /// <summary>
+        /// The session id, from the best source available.
+        ///
+        /// Both sources are exact. An id given on the module is best: Tosca resolves a
+        /// <c>{B[...]}</c> buffer reference in a parameter value before handing it over, so it is the
+        /// same id the `Get Appium Session Id` module captured, delivered through documented Tosca
+        /// behaviour rather than by reflecting into Tosca's buffer store.
+        ///
+        /// There used to be a third source — asking BrowserStack which session was running — and it is
+        /// gone on purpose. It inferred rather than knew, and on a shared account it could capture the
+        /// wrong device and produce a snapshot plausible enough to be accepted as a baseline. Narrowing
+        /// by device made that less likely without making it safe.
+        /// </summary>
         public string SessionId
         {
             get
             {
-                string? buffered = _tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer);
-                if (!string.IsNullOrWhiteSpace(buffered)) return buffered.Trim();
+                if (_explicitSessionId != null) return _explicitSessionId;
 
-                string? discovered = DiscoveredSessionId();
-                return string.IsNullOrWhiteSpace(discovered) ? _fallbackSessionId : discovered;
+                string? buffered = _tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer);
+                return string.IsNullOrWhiteSpace(buffered) ? _fallbackSessionId : buffered.Trim();
             }
         }
 
-        /// <summary>
-        /// The session id BrowserStack reports, asked for once per driver.
-        ///
-        /// This is the second source rather than the first because a buffer is authoritative — it came
-        /// from the session actually under test — whereas discovery infers from "which session is
-        /// running on this account", which is only right when one is. Memoized including the failure,
-        /// so a session that cannot be discovered costs one API call rather than one per property read.
-        /// </summary>
-        private string? DiscoveredSessionId()
-        {
-            if (_discoveryAttempted || _discoverSessionId == null) return _discoveredSessionId;
-
-            _discoveryAttempted = true;
-            // The device details this test asked for are what tell one running session from another on
-            // a shared account, so they are handed over rather than leaving the lookup to guess.
-            _discoveredSessionId = _discoverSessionId(Host, new AutomateSessionFinder.Hints
-            {
-                DeviceName = _options.DeviceName ?? _capabilities.GetString("deviceName"),
-                OsVersion = _options.PlatformVersion ?? _capabilities.GetString("platformVersion"),
-                App = _capabilities.GetString("app")
-            });
-            return _discoveredSessionId;
-        }
 
         /// <summary>
         /// Whether a real Appium session id was found. Capture asks the automation server for
@@ -126,8 +115,8 @@ namespace AppPercyTosca.Core
         /// about the buffer actually being unset.
         /// </summary>
         public bool HasRealSessionId =>
-            !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer))
-            || !string.IsNullOrWhiteSpace(DiscoveredSessionId());
+            _explicitSessionId != null
+            || !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer));
 
         public string? Host
         {
@@ -185,9 +174,9 @@ namespace AppPercyTosca.Core
 
             throw new PercyException(
                 "Could not capture the device screen. Check that the AppiumServer test configuration " +
-                "parameter points at your BrowserStack hub, that the Appium session id is available " +
-                "(the 'Get Appium Session Id' module, or credentials in AppiumServer so it can be " +
-                "looked up), and that the test is steering a device at this point.");
+                "parameter points at your BrowserStack hub, that the SessionId parameter carries the " +
+                "session id (the 'Get Appium Session Id' module writes it to a buffer; pass it as " +
+                "{B[PercyAppiumSessionId]}), and that the test is steering a device at this point.");
         }
 
         /// <summary>
@@ -229,10 +218,9 @@ namespace AppPercyTosca.Core
             if (!HasRealSessionId)
             {
                 Utils.Log("The Appium session id is not available, so the device session cannot be " +
-                    "reached. Either add the 'Get Appium Session Id' standard module before this step " +
-                    $"writing to buffer '{_sessionIdBuffer ?? DefaultSessionIdBuffer}', or embed your " +
-                    "credentials in the AppiumServer parameter as " +
-                    "https://user:key@hub-cloud.browserstack.com/wd/hub so the session can be looked up.");
+                    "reached. The most direct fix: add the 'Get Appium Session Id' standard module " +
+                    "before this step, then set the Percy module's SessionId parameter to " +
+                    $"{{B[{_sessionIdBuffer ?? DefaultSessionIdBuffer}]}} so Tosca hands the id over.");
                 return null;
             }
 

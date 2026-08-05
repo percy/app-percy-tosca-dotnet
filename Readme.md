@@ -36,7 +36,7 @@ Route 1 is the one to get working. It needs the Appium session id — see below.
 ### Requirements
 
 - The session must be on **BrowserStack App Automate** — `AppiumServer` pointing at a BrowserStack hub
-- The **Appium session id** must be available (see below)
+- The **Appium session id** must be passed to the module (see below)
 
 XPath and accessibility-id regions are resolved against elements, which this SDK does not query — use
 `CustomIgnoreRegions` with pixel coordinates.
@@ -93,28 +93,26 @@ than a typo. The minimum viable module is three rows:
 
 ### Required: the Appium session id
 
-Direct capture needs the session id. There are two ways to supply it, and either is enough.
+Capture needs the session id, and Tosca is the only thing that knows it. Add the built-in **Get Appium Session Id** standard module (Standard
+modules → Engines → Mobile) before your AppPercyScreenshot step, writing to a buffer. Then hand that
+buffer to Percy as a parameter value:
 
-**From Tosca.** Add the built-in **Get Appium Session Id** standard module (Standard modules → Engines
-→ Mobile) before your AppPercyScreenshot step, writing to a buffer named `PercyAppiumSessionId` — or
-name your own buffer and pass it as `SessionIdBuffer`.
+| Row | Value |
+|---|---|
+| `SessionId` | `{B[PercyAppiumSessionId]}` |
 
-**From BrowserStack.** That module is not always usable against a cloud connection. Embed your
-credentials in the `AppiumServer` test configuration parameter:
+Tosca resolves the `{B[...]}` reference before the step runs, so the SDK receives the id as a plain
+string. This is the most reliable route — it uses documented Tosca behaviour rather than reading
+Tosca's buffer store, and it takes precedence over everything below.
 
-```
-https://<user>:<access-key>@hub-cloud.browserstack.com/wd/hub
-```
+(`SessionIdBuffer` names a buffer for the SDK to read itself, if you would rather not add a `SessionId`
+row. It works, but it reaches into Tosca internals whose shape is not published.)
 
-The SDK then asks App Automate's REST API which sessions are running. On a shared account several
-usually are, so it narrows them by the device and OS this test asked for — `DeviceName` and `OSVersion`
-from your test configuration parameters, or the same names on the Percy module. **If more than one
-session still matches, it refuses rather than guessing**, naming the candidates: capturing the wrong
-device would produce a plausible-looking snapshot that gets accepted as a baseline.
+Without it, capture cannot reach the device and the step says so.
 
-A buffered id always wins over a discovered one, since it came from the session actually under test.
-
-Without either, capture falls back to Tosca's own screenshot task, which is the weaker route.
+There used to be a third route — asking BrowserStack which session was running — and it is gone on
+purpose. It inferred rather than knew, and on a shared account it could capture the wrong device and
+produce a snapshot plausible enough to be accepted as a baseline.
 
 ## Parameters
 
@@ -187,7 +185,8 @@ separate the four numbers:
 
 | Parameter | Description |
 |---|---|
-| `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
+| `SessionId` | The Appium session id. Use `{B[PercyAppiumSessionId]}` to pass a buffer written by the *Get Appium Session Id* module |
+| `SessionIdBuffer` | Buffer for the SDK to read itself instead (default `PercyAppiumSessionId`) |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 
 ## Troubleshooting

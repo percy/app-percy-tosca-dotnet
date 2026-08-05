@@ -27,7 +27,7 @@ namespace AppPercyTosca.Core
             "ScrollableXpath", "ScrollableId", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
-            "SessionIdBuffer", "Diagnose"
+            "SessionId", "SessionIdBuffer", "Diagnose"
         };
 
         /// <summary>
