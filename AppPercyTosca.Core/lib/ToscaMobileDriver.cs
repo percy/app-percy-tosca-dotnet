@@ -44,6 +44,7 @@ namespace AppPercyTosca.Core
 
         private readonly IToscaEnvironment _tosca;
         private readonly ScreenshotOptions _options;
+        private readonly Func<string, string, WebDriverSession>? _webDriver;
         private readonly string? _sessionIdBuffer;
         private readonly Dictionary<string, object?> _capabilities;
         private readonly string _fallbackSessionId;
@@ -53,14 +54,20 @@ namespace AppPercyTosca.Core
         /// on Tosca the module parameters are frequently the *only* source of device metadata — when
         /// the TCPs do not carry it, there is nowhere else to look.
         /// </summary>
+        /// <param name="webDriver">
+        /// Builds a session client for a (serverUrl, sessionId) pair. Supplied by the shim, which owns
+        /// the HttpClient; null disables the WebDriver capture route and leaves only Tosca's own task.
+        /// </param>
         public ToscaMobileDriver(
             IToscaEnvironment tosca,
             ScreenshotOptions options,
             string? sessionIdBuffer = null,
-            string? fallbackSessionId = null)
+            string? fallbackSessionId = null,
+            Func<string, string, WebDriverSession>? webDriver = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
             _options = options ?? throw new ArgumentNullException(nameof(options));
+            _webDriver = webDriver;
             _sessionIdBuffer = sessionIdBuffer;
             _fallbackSessionId = fallbackSessionId ?? "tosca-session";
             _capabilities = BuildCapabilities();
@@ -136,14 +143,20 @@ namespace AppPercyTosca.Core
         /// </summary>
         public string GetScreenshotBase64()
         {
+            // Preferred when both facts are available, because it depends only on the WebDriver
+            // standard rather than on a Tosca task name that changes between releases.
+            string? fromSession = TryCaptureOverWebDriver();
+            if (fromSession != null) return fromSession;
+
             string? path = _tosca.CaptureScreenshot();
             if (string.IsNullOrWhiteSpace(path))
             {
                 throw new PercyException(
                     "The Tosca mobile engine did not produce a screenshot. Check that the test is " +
                     "steering a mobile device, that the Mobile Engine 3.0 server is running, and that " +
-                    "the Percy module has Directory and Filename parameters pointing at a writable " +
-                    "folder — the engine's screenshot task reads its destination from those.");
+                    "either the Appium session id is available in a buffer (the 'Get Appium Session " +
+                    "Id' module) so the device can be captured directly, or the Percy module has " +
+                    "Directory and Filename parameters for Tosca's own screenshot task to write to.");
             }
             if (!File.Exists(path))
             {
@@ -159,6 +172,35 @@ namespace AppPercyTosca.Core
             {
                 TryDelete(path);
             }
+        }
+
+        /// <summary>
+        /// Asks the automation server for the screen directly. Needs the server URL and the real
+        /// session id; without either there is nothing to ask, and null sends the caller to Tosca's
+        /// own screenshot task instead.
+        /// </summary>
+        private string? TryCaptureOverWebDriver()
+        {
+            if (_webDriver == null) return null;
+
+            string? server = Host;
+            if (string.IsNullOrWhiteSpace(server))
+            {
+                Utils.Log("No AppiumServer test configuration parameter, so the device session cannot " +
+                    "be asked for a screenshot directly.", "debug");
+                return null;
+            }
+            if (!HasRealSessionId)
+            {
+                Utils.Log("The Appium session id is not available, so the device session cannot be " +
+                    "asked for a screenshot directly. Add the 'Get Appium Session Id' standard module " +
+                    $"before this step, writing to buffer '{_sessionIdBuffer ?? DefaultSessionIdBuffer}'.");
+                return null;
+            }
+
+            WebDriverSession session = _webDriver(server, SessionId);
+            Utils.Log($"Capturing from the device session at {Utils.RedactCredentials(session.Endpoint)}.");
+            return session.TryGetScreenshotBase64();
         }
 
         /// <summary>

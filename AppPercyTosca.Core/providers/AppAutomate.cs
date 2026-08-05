@@ -44,7 +44,7 @@ namespace AppPercyTosca.Core
             {
                 Utils.Log("The session is on App Automate but cannot send automation commands, " +
                     "so screenshots will be captured locally and uploaded. Full page screenshots " +
-                    "are not available this way — use Percy on Automate for those.", "debug");
+                    "are not available this way.", "debug");
                 return false;
             }
             return true;

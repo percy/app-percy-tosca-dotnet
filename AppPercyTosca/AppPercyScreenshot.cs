@@ -45,6 +45,13 @@ namespace AppPercyTosca
         /// <summary>The shared CLI connection, used by <see cref="ToscaLog"/> to forward log lines.</summary>
         internal static PercyClient CliClient => Client.Value;
 
+        /// <summary>
+        /// Separate from the CLI client: this one talks to the device's automation server, which may be
+        /// a remote hub, and a screenshot of a large screen is worth a generous timeout of its own.
+        /// </summary>
+        private static readonly Lazy<HttpClient> DeviceHttp = new Lazy<HttpClient>(() =>
+            new HttpClient { Timeout = TimeSpan.FromMinutes(2) });
+
         public AppPercyScreenshot(Tricentis.Automation.Creation.Validator validator) : base(validator)
         {
             // Tosca Commander is a desktop process with no console attached, so without a sink every
@@ -98,7 +105,8 @@ namespace AppPercyTosca
                     tosca,
                     options,
                     Parameter(testAction, "SessionIdBuffer"),
-                    SessionKey(testAction));
+                    SessionKey(testAction),
+                    (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
 
                 if (ToscaOptions.ParseBool(Parameter(testAction, "Diagnose"), "Diagnose") == true)
                 {

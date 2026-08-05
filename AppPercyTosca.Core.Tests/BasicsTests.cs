@@ -420,6 +420,124 @@ namespace AppPercyTosca.Core.Tests
         }
     }
 
+    public class WebDriverSessionTests : CoreTestBase
+    {
+        private const string Png = StubMobileDriver.ValidPngBase64;
+
+        private static WebDriverSession Session(StubHttpMessageHandler handler,
+            string server = "https://hub.example.com/wd/hub/", string sessionId = "s-1") =>
+            new WebDriverSession(handler.Client(), server, sessionId);
+
+        [Fact]
+        public void TheEndpointIsTheStandardWebDriverScreenshotPath()
+        {
+            // A trailing slash on the server must not double up: some servers 404 on //session.
+            Assert.Equal("https://hub.example.com/wd/hub/session/s-1/screenshot",
+                Session(new StubHttpMessageHandler()).Endpoint);
+        }
+
+        [Fact]
+        public void AW3cResponseYieldsTheImage()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":\"" + Png + "\"}");
+
+            Assert.Equal(Png, Session(handler).TryGetScreenshotBase64());
+        }
+
+        [Fact]
+        public void AJsonWireProtocolResponseYieldsTheImageToo()
+        {
+            // Which protocol a session speaks is the server's choice, not ours.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"status\":0,\"sessionId\":\"s-1\",\"value\":\"" + Png + "\"}");
+
+            Assert.Equal(Png, Session(handler).TryGetScreenshotBase64());
+        }
+
+        [Fact]
+        public void AnErrorStatusIsReportedWithItsCodeAndBody()
+        {
+            // A 404 (session gone) and a 500 (device unreachable) call for different responses from
+            // whoever is reading, so the code has to survive into the log.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"error\":\"invalid session id\"}}",
+                    System.Net.HttpStatusCode.NotFound);
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.True(Logged("refused a screenshot (404"));
+            Assert.True(Logged("invalid session id"));
+        }
+
+        [Fact]
+        public void AW3cErrorObjectUnderValueIsNotMistakenForAnImage()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"error\":\"no such window\"}}");
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.True(Logged("no image in it"));
+        }
+
+        [Theory]
+        [InlineData("{}")]
+        [InlineData("not json")]
+        [InlineData("{\"value\":null}")]
+        [InlineData("{\"value\":\"\"}")]
+        public void AResponseWithNoUsableImageIsRejected(string body)
+        {
+            Assert.Null(Session(new StubHttpMessageHandler().Default(body)).TryGetScreenshotBase64());
+        }
+
+        [Fact]
+        public void AnUnreachableServerIsReportedWithCredentialsRedacted()
+        {
+            // The endpoint commonly carries credentials in its userinfo, and this message is the one
+            // most likely to be pasted into a support ticket.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException("connect failed to https://user:key@hub.example.com")
+            };
+
+            Assert.Null(Session(handler, "https://user:key@hub.example.com/wd/hub")
+                .TryGetScreenshotBase64());
+
+            Assert.True(Logged("Could not reach the device session"));
+            Assert.False(Logged("user:key"));
+            Assert.True(Logged("***@hub.example.com"));
+        }
+
+        [Fact]
+        public void AVeryLongBodyIsTruncatedSoALogLineStaysALogLine()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"m\":\"" + new string('x', 5000) + "\"}}",
+                    System.Net.HttpStatusCode.InternalServerError);
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.True(Logs.Any(l => l.Message.Contains("\u2026") && l.Message.Length < 600));
+        }
+
+        [Fact]
+        public void AnEmptyBodyIsDescribedRatherThanShownBlank()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("", System.Net.HttpStatusCode.BadGateway);
+
+            Assert.Null(Session(handler).TryGetScreenshotBase64());
+            Assert.True(Logged("(empty)"));
+        }
+
+        [Fact]
+        public void NullArgumentsAreRefusedAtConstruction()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler();
+            Assert.Throws<ArgumentNullException>(() => new WebDriverSession(null!, "s", "i"));
+            Assert.Throws<ArgumentNullException>(() => new WebDriverSession(handler.Client(), null!, "i"));
+            Assert.Throws<ArgumentNullException>(() => new WebDriverSession(handler.Client(), "s", null!));
+        }
+    }
+
     public class SnapshotOutcomeTests
     {
         [Fact]

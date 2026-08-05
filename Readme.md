@@ -8,24 +8,40 @@ Built for **.NET 8 / Tosca Commander 24**. For web (HTML) tests, use
 [percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet) instead — this repository is the
 mobile counterpart.
 
-## Which mode to use
+## How capture works
 
-There are two ways to get screenshots into Percy, and on Tosca they are **not** equivalent. Pick
-Percy on Automate unless you have a reason not to.
+This SDK is built for **App Percy**: it captures the device screen and uploads it to Percy.
 
-| | Percy on Automate (**recommended**) | App Percy |
-|---|---|---|
-| How | The Percy CLI reconnects to your BrowserStack session and captures server-side | This SDK captures locally through Tosca's mobile engine and uploads the image |
-| Needs | BrowserStack App Automate + the Appium session id in a buffer (see below) | Any mobile session Tosca can screenshot |
-| Full page screenshots | Yes | No |
-| Ignore/consider regions by XPath | Yes — resolved by the CLI | **No** — pixel regions only |
-| Device metadata | Resolved by the CLI from the live session | From test configuration parameters, or declared on the module |
+Capture is attempted two ways, in this order:
 
-The gap is not a shortcoming of Percy but of what a Tosca extension can reach. Mobile Engine 3.0 runs
-**out of process** — Tosca Commander talks to a separate mobile server over IPC — so there is no
-Appium driver object for an extension to borrow, and Tosca's `Execute Driver Script` (the only route
-for a raw Appium command) is restricted to Tricentis' own device cloud. Percy on Automate sidesteps
-all of that by having the CLI drive the session itself, which is why it can do more.
+1. **Directly from the device session** — a standard WebDriver `GET /session/{id}/screenshot` against
+   the server in your `AppiumServer` test configuration parameter, using the Appium session id from a
+   Tosca buffer. This needs no Tricentis API at all, which is why it is preferred: it does not depend
+   on internals that change between Tosca releases.
+2. **Via Tosca's own mobile screenshot task** — used when the session cannot be reached directly.
+   Requires `Directory` and `Filename` on the module, and the right task name for your Tosca version
+   (discovered automatically; see `ScreenshotTaskName`).
+
+Route 1 is the one to get working. Both need the **Get Appium Session Id** step described below.
+
+<details>
+<summary>Percy on Automate is also supported, if you ever want it</summary>
+
+Percy on Automate hands the session to the Percy CLI, which reconnects and captures server-side. It
+gains full-page capture and XPath-based regions, because the CLI has a live Appium connection. You get
+it by starting the CLI differently — `percy exec:start` with an `auto_` token instead of
+`percy app:exec:start` — and nothing on the module changes. It is not required for anything below.
+
+</details>
+
+### What App Percy cannot do on Tosca
+
+Two limits, both from what a Tosca extension can reach rather than from Percy. Mobile Engine 3.0 runs
+**out of process**, so there is no Appium driver object for an extension to borrow, and Tosca's
+`Execute Driver Script` is restricted to Tricentis' own device cloud:
+
+- **No full-page capture.** Only the visible screen.
+- **No XPath or accessibility-id regions.** Use `CustomIgnoreRegions` with pixel coordinates.
 
 ## Requirements
 
@@ -35,30 +51,20 @@ all of that by having the CLI drive the session itself, which is why it can do m
 
 ## Setup
 
-Install the Percy CLI, then start it **in the mode you want** — this is what selects the mode, not
-anything on the Tosca module. The SDK asks the CLI which mode it is in and follows that.
+Install and start the Percy CLI:
 
 ```sh-session
 $ npm install --save-dev @percy/cli
 ```
 
-For **Percy on Automate**, use an Automate project's token (it starts with `auto_`) and `exec`:
-
 ```sh-session
-$ set PERCY_TOKEN=auto_<TOKEN>
-$ percy exec:start
-```
-
-For **App Percy**, use an App project's token and `app:exec`:
-
-```sh-session
-$ set PERCY_TOKEN=<TOKEN>
+$ set PERCY_TOKEN=<your App project token>
 $ percy app:exec:start
 ```
 
-The two are different project types in Percy with different tokens, so a snapshot cannot be sent to
-the wrong kind of project by accident — but starting the CLI the wrong way will get you the other
-mode's behaviour and limitations. `Diagnose` prints which mode is active.
+Use an **App** project's token, and `app:exec:start`. (A token starting with `auto_` plus
+`percy exec:start` selects Percy on Automate instead — see the note above.) `Diagnose` prints which
+mode is active.
 
 Then register the extension:
 
@@ -73,15 +79,14 @@ Create a module with:
 - **SpecialExecutionTask** → `AppPercyScreenshot`
 - each parameter you want to use as a row with **Parameter** → `True`
 
-### Extra step for Percy on Automate
+### Required: the Appium session id
 
-The CLI needs the Appium session id, and the only way to obtain it in Tosca is the built-in
+Capture needs the session id, and the only way to obtain it in Tosca is the built-in
 **Get Appium Session Id** standard module (Standard modules → Engines → Mobile). Before your
 AppPercyScreenshot step, add that module and have it write to a buffer named `PercyAppiumSessionId` — or
 name your own buffer and pass it as the `SessionIdBuffer` parameter.
 
-Without it the step fails with a message saying exactly this, rather than letting the CLI fail later
-with something less informative.
+Without it, capture falls back to Tosca's own screenshot task, which is the less reliable route.
 
 ## Parameters
 

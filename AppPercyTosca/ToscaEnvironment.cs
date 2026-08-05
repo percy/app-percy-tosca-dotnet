@@ -124,7 +124,9 @@ namespace AppPercyTosca
                 Utils.Log("App Percy needs Directory and Filename parameters on the Percy module: " +
                     $"the {_screenshotTaskName} task reads its destination from them, and this SDK " +
                     "cannot supply them on your behalf. Point them at any writable folder — the file " +
-                    "is read and deleted straight away. (Percy on Automate does not need either.)");
+                    "is read and deleted straight away. Alternatively, make the Appium session id " +
+                    "available (the 'Get Appium Session Id' module) and the device is captured " +
+                    "directly, which needs neither parameter.");
                 return null;
             }
 
@@ -304,7 +306,8 @@ namespace AppPercyTosca
             List<(string Task, string Engine)> available = DiscoverScreenshotTasks();
             Utils.Log(available.Count == 0
                 ? "No screenshot-like special execution tasks were found in the loaded Tricentis " +
-                  "assemblies, so App Percy cannot capture on this install — use Percy on Automate."
+                  "assemblies. Capture the device directly instead: add the 'Get Appium Session Id' " +
+                  "module before this step and set the AppiumServer test configuration parameter."
                 : "Screenshot-like tasks this install registers, for ScreenshotTaskName / " +
                   "ScreenshotEngineId: " +
                     string.Join(", ", available.Select(a => $"'{a.Task}' (engine '{a.Engine}')")));

@@ -21,6 +21,9 @@ namespace AppPercyTosca.Core.Tests
             new Dictionary<string, Queue<Reply>>();
         private Reply _fallback = new Reply();
 
+        /// <summary>Set to simulate a transport failure rather than an HTTP error status.</summary>
+        public Exception? Throw { get; set; }
+
         public List<Recorded> Requests { get; } = new List<Recorded>();
 
         /// <summary>Queues a reply for requests whose path ends with <paramref name="endpoint"/>.</summary>
@@ -55,6 +58,8 @@ namespace AppPercyTosca.Core.Tests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (Throw != null) throw Throw;
+
             string url = request.RequestUri!.ToString();
             string? body = request.Content?.ReadAsStringAsync(cancellationToken).Result;
             Requests.Add(new Recorded(request.Method.Method, url, body));

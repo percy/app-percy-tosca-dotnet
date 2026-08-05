@@ -72,8 +72,17 @@ namespace AppPercyTosca.Core.Tests
     public class ToscaMobileDriverTests : CoreTestBase
     {
         private static ToscaMobileDriver Build(
-            StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null) =>
-            new ToscaMobileDriver(tosca, options ?? new ScreenshotOptions(), buffer);
+            StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null,
+            StubHttpMessageHandler? deviceHttp = null) =>
+            new ToscaMobileDriver(tosca, options ?? new ScreenshotOptions(), buffer, null,
+                deviceHttp == null
+                    ? null
+                    : (server, sessionId) =>
+                        new WebDriverSession(deviceHttp.Client(), server, sessionId));
+
+        /// <summary>A device session that answers the WebDriver screenshot endpoint.</summary>
+        private static StubHttpMessageHandler DeviceServing(string base64) =>
+            new StubHttpMessageHandler().Default("{\"value\":\"" + base64 + "\"}");
 
         [Fact]
         public void TheHubUrlComesFromTheAppiumServerParameter()
@@ -333,6 +342,72 @@ namespace AppPercyTosca.Core.Tests
             // Only iOS's scale factor reads it, and that degrades to 1 — correct whenever the real
             // and logical widths match.
             Assert.Equal(0, Build(StubToscaEnvironment.AppAutomate()).WindowWidth);
+        }
+
+        [Fact]
+        public void TheScreenIsCapturedFromTheDeviceSessionWhenItCanBeReached()
+        {
+            // Preferred over Tosca's own screenshot task: it depends only on the WebDriver standard,
+            // not on a task name that differs between Tosca releases.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
+
+            Assert.Equal(StubMobileDriver.ValidPngBase64,
+                Build(tosca, deviceHttp: device).GetScreenshotBase64());
+
+            Assert.Contains("/session/session-abc/screenshot", device.Requests[0].Url);
+            // Tosca's task was never asked, so a wrong task name cannot break this path.
+            Assert.Empty(tosca.Captured);
+        }
+
+        [Fact]
+        public void ADeviceSessionThatRefusesFallsBackToToscasOwnTask()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
+            try
+            {
+                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+                tosca.Directory_ = tempDir;
+                StubHttpMessageHandler device = new StubHttpMessageHandler()
+                    .Default("no session", System.Net.HttpStatusCode.NotFound);
+
+                Assert.Equal(StubMobileDriver.ValidPngBase64,
+                    Build(tosca, deviceHttp: device).GetScreenshotBase64());
+
+                Assert.True(Logged("refused a screenshot"));
+                Assert.Single(tosca.Captured);
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Fact]
+        public void WithoutASessionIdTheDeviceIsNotAskedAndTheModuleIsNamed()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
+            StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
+
+            Build(tosca, deviceHttp: device).GetScreenshotBase64();
+
+            Assert.Empty(device.Requests);
+            Assert.True(Logged("Get Appium Session Id"));
+        }
+
+        [Fact]
+        public void WithoutAServerUrlTheDeviceIsNotAsked()
+        {
+            SetEnv("PERCY_LOGLEVEL", "debug");
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps.Remove("AppiumServer");
+            StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
+
+            Build(tosca, deviceHttp: device).GetScreenshotBase64();
+
+            Assert.Empty(device.Requests);
+            Assert.True(Logged("No AppiumServer"));
         }
 
         [Fact]
