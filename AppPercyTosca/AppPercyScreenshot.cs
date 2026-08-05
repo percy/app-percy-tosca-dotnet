@@ -10,7 +10,7 @@ using Tricentis.Automation.Engines.SpecialExecutionTasks.Attributes;
 namespace AppPercyTosca
 {
     /// <summary>
-    /// The PercyScreenshot special execution task: takes one App Percy screenshot of the mobile
+    /// The AppPercyScreenshot special execution task: takes one App Percy screenshot of the mobile
     /// device under test.
     ///
     /// This class and its two neighbours are the only code that touches Tosca. Everything with a
@@ -23,12 +23,12 @@ namespace AppPercyTosca
     /// it can be built for, and a special execution task is never handed a technical. Tosca's own
     /// task examples carry only the two attributes used here.
     /// </summary>
-    [SpecialExecutionTaskName("PercyScreenshot")]
+    [SpecialExecutionTaskName("AppPercyScreenshot")]
     public class AppPercyScreenshot : SpecialExecutionTask
     {
         /// <summary>
         /// One CLI connection for the Tosca Commander process. The healthcheck behind it is
-        /// memoized, which is what keeps a sheet with fifty PercyScreenshot steps from performing
+        /// memoized, which is what keeps a sheet with fifty AppPercyScreenshot steps from performing
         /// fifty healthchecks.
         /// </summary>
         private static readonly Lazy<PercyClient> Client = new Lazy<PercyClient>(() =>
@@ -137,7 +137,7 @@ namespace AppPercyTosca
         {
             // The healthcheck is what tells us the session type, and it has to happen before the
             // branch below rather than inside the façade constructors underneath it. Without this,
-            // the very first PercyScreenshot step of a Tosca Commander session reads SessionType as
+            // the very first AppPercyScreenshot step of a Tosca Commander session reads SessionType as
             // null, takes the App Percy path against an automate-mode CLI, has the comparison
             // rejected (and swallowed), and reports a passing step with no snapshot in the build —
             // while every later step behaves correctly, which reads as a flake.

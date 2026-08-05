@@ -16,6 +16,6 @@ uploads whatever is committed, so the build has to happen before the tag.
    The Core is compiled into that assembly, so `AppPercyTosca_v8.dll` is the whole extension — there
    is no second DLL to ship.
 3. Sanity-check it in Tosca: drop it in the extension folder, restart Commander, and run a
-   PercyScreenshot step with `Diagnose` set to `true`. CI cannot cover this step, and it is the one
+   AppPercyScreenshot step with `Diagnose` set to `true`. CI cannot cover this step, and it is the one
    that catches a Tricentis signature having changed.
 4. Commit the DLL, merge, then publish a GitHub release. The `Upload DLL` workflow attaches it.

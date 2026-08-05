@@ -1,7 +1,7 @@
 # AppPercyTosca
 
 App Percy visual testing for Tricentis Tosca mobile tests. Produces a distributable assembly
-(`AppPercyTosca_v8.dll`) that adds a `PercyScreenshot` special execution task to Tosca, for taking
+(`AppPercyTosca_v8.dll`) that adds an `AppPercyScreenshot` special execution task to Tosca, for taking
 App Percy screenshots of the mobile app under test.
 
 Built for **.NET 8 / Tosca Commander 24**. For web (HTML) tests, use
@@ -70,14 +70,14 @@ Then register the extension:
 Create a module with:
 
 - **Engine** → `Percy`
-- **SpecialExecutionTask** → `PercyScreenshot`
+- **SpecialExecutionTask** → `AppPercyScreenshot`
 - each parameter you want to use as a row with **Parameter** → `True`
 
 ### Extra step for Percy on Automate
 
 The CLI needs the Appium session id, and the only way to obtain it in Tosca is the built-in
 **Get Appium Session Id** standard module (Standard modules → Engines → Mobile). Before your
-PercyScreenshot step, add that module and have it write to a buffer named `PercyAppiumSessionId` — or
+AppPercyScreenshot step, add that module and have it write to a buffer named `PercyAppiumSessionId` — or
 name your own buffer and pass it as the `SessionIdBuffer` parameter.
 
 Without it the step fails with a message saying exactly this, rather than letting the CLI fail later

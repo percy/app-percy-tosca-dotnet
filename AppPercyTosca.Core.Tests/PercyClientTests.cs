@@ -113,7 +113,7 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void TheHealthcheckIsMemoizedForTheProcess()
         {
-            // A Tosca sheet can hold dozens of PercyScreenshot steps; re-checking on each would
+            // A Tosca sheet can hold dozens of AppPercyScreenshot steps; re-checking on each would
             // add a round trip per step for an answer that cannot change.
             StubHttpMessageHandler handler = new StubHttpMessageHandler().Default(HealthyBody);
             PercyClient client = Client(handler);

@@ -1,7 +1,7 @@
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Everything a single PercyScreenshot step can be told to do. Built from Tosca module
+    /// Everything a single AppPercyScreenshot step can be told to do. Built from Tosca module
     /// parameters by <see cref="ToscaOptions.Build"/>; the defaults here are what a step with
     /// only a SnapshotName gets.
     /// </summary>

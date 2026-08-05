@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// What a PercyScreenshot step reports back to Tosca.
+    /// What an AppPercyScreenshot step reports back to Tosca.
     ///
     /// This lives in the Core rather than the shim for one reason: the rule it encodes is easy to
     /// "simplify" away. The step passes whether or not a snapshot was recorded — a visual check that

@@ -15,7 +15,7 @@ namespace AppPercyTosca.Core
     public static class ToscaOptions
     {
         /// <summary>
-        /// Every parameter name a PercyScreenshot module can carry, in the order the Readme documents
+        /// Every parameter name an AppPercyScreenshot module can carry, in the order the Readme documents
         /// them — including the ones the shim reads itself (SnapshotName, SessionIdBuffer, Diagnose)
         /// rather than only those the builders below read. It is the module's parameter manifest, and a
         /// test asserts the builders never read a name missing from it.
@@ -41,7 +41,7 @@ namespace AppPercyTosca.Core
         public delegate string? ParameterReader(string name);
 
         /// <summary>
-        /// Assembles the options for one PercyScreenshot step.
+        /// Assembles the options for one AppPercyScreenshot step.
         /// </summary>
         public static ScreenshotOptions Build(ParameterReader read)
         {

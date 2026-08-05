@@ -278,7 +278,7 @@ namespace AppPercyTosca
         /// this is on the path of every snapshot — but invalidated as soon as the loaded-assembly count
         /// changes, which is the part that matters. Tosca loads engine assemblies on demand, so the one
         /// holding the configuration or buffer singleton may well not be loaded when the first
-        /// PercyScreenshot step runs. Caching a miss for the life of the process would make that miss
+        /// AppPercyScreenshot step runs. Caching a miss for the life of the process would make that miss
         /// permanent: no test configuration parameters, no session id, every snapshot degraded, and
         /// restarting Commander appearing to "fix" it.
         ///
