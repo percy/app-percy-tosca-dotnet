@@ -28,10 +28,9 @@ namespace AppPercyTosca.Core
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
             "SessionIdBuffer", "Diagnose",
-            // Read by Tosca's own screenshot task off the same test action, not by Build below.
-            "Directory", "Filename", "Environment",
-            // Overrides for which Tosca task performs the capture, read by the shim.
-            "ScreenshotTaskName", "ScreenshotEngineId"
+            // Read by Tosca's own screenshot task off the same test action, not by Build below; used
+            // only on the PERCY_DISABLE_REMOTE_UPLOADS route.
+            "Directory", "Filename", "Environment"
         };
 
         /// <summary>

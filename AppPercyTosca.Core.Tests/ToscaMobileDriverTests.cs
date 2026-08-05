@@ -94,47 +94,54 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void AnAppAutomateHubIsRecognisedButDoesNotSelectTheRemoteCapturePath()
+        public void AnAppAutomateSessionReachableOverHttpCanExecuteScripts()
         {
-            // This is the load-bearing consequence of the design: the host says App Automate, but a
-            // Tosca session cannot send the browserstack_executor commands that provider is built
-            // out of, so it must fall back to local capture rather than fail on its first command.
-            SetEnv("PERCY_LOGLEVEL", "debug");
-            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
+            // The correction that made the App Automate provider usable at all: Tosca will not pass a
+            // raw Appium command through, but the hub accepts one directly over HTTP. Scripting was
+            // never unavailable — only unavailable through Tosca — and it is what full page needs.
+            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate(),
+                deviceHttp: DeviceServing(StubMobileDriver.ValidPngBase64));
 
-            Assert.Contains("browserstack", driver.Host!);
-            Assert.False(driver.CanExecuteScript);
-            Assert.False(AppAutomate.Supports(driver));
-            Assert.True(Logged("captured locally"));
+            Assert.True(AppAutomate.Supports(driver));
+            Assert.True(driver.CanExecuteScript);
         }
 
         [Fact]
-        public void ProviderResolutionPicksLocalCaptureForAToscaSession()
+        public void WithoutAReachableSessionScriptingIsUnavailable()
         {
-            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
-            GenericProvider provider = ProviderResolver.ResolveProvider(driver,
-                new PercyClient(new StubHttpMessageHandler().Client(), "http://localhost:5338"),
-                new Cache<string, object?>());
-
-            Assert.IsNotType<AppAutomate>(provider);
+            // No session client, so nothing to send a script through.
+            Assert.False(Build(StubToscaEnvironment.AppAutomate()).CanExecuteScript);
         }
 
         [Fact]
-        public void RemoteCaptureBecomesAvailableIfToscaEverAllowsScripting()
+        public void AScriptIsSentToTheSessionsExecuteEndpoint()
         {
-            // Not speculative plumbing for its own sake: the whole reason CanExecuteScript is asked
-            // rather than hard-coded is so this needs no code change when it becomes possible.
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":\"{\\\"success\\\":true}\"}");
+            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate(), deviceHttp: device);
+
+            Assert.Equal("{\"success\":true}",
+                driver.ExecuteScript("browserstack_executor: {}"));
+            Assert.Contains("/session/session-abc/execute/sync", device.Requests[0].Url);
+            Assert.Contains("browserstack_executor", device.Requests[0].Body!);
+        }
+
+        [Fact]
+        public void ToscasOwnScriptingIsStillUsedIfItEverBecomesAvailable()
+        {
+            // Kept as a fallback rather than removed: a future Tosca that does pass scripts through
+            // should need no change here.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.CanExecuteScript = true;
             ToscaMobileDriver driver = Build(tosca);
 
-            Assert.True(AppAutomate.Supports(driver));
+            Assert.True(driver.CanExecuteScript);
             driver.ExecuteScript("browserstack_executor: {}");
             Assert.Equal(new[] { "browserstack_executor: {}" }, tosca.Scripts);
         }
 
         [Fact]
-        public void ScriptsAreNotEvenAttemptedWhenScriptingIsUnavailable()
+        public void ScriptsAreNotAttemptedWhenThereIsNoRouteForThem()
         {
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
 
@@ -613,6 +620,9 @@ namespace AppPercyTosca.Core.Tests
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
             SetEnv("PERCY_TMP_DIR", tempDir);
+            // The point here is the tag built from test configuration parameters, not the executor, so
+            // capture takes the local-tile path.
+            SetEnv("PERCY_DISABLE_REMOTE_UPLOADS", "true");
             try
             {
                 StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();

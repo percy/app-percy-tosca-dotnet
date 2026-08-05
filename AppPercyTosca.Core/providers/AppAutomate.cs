@@ -3,12 +3,32 @@ using System.Text.Json;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Capture on BrowserStack App Automate. The hub's <c>browserstack_executor</c> takes the
-    /// screenshots and uploads them itself, so tiles arrive as content hashes and no image data
-    /// passes through Tosca — which also makes full-page capture possible, unlike the local path.
+    /// The one capture path: BrowserStack App Automate.
+    ///
+    /// The hub's <c>browserstack_executor</c> takes the screenshots and uploads them itself, so tiles
+    /// arrive as content hashes and no image data passes through Tosca — which is also what makes
+    /// full-page capture possible.
+    ///
+    /// There used to be a second, generic provider for non-App-Automate devices, chosen by a resolver.
+    /// Both are gone: this SDK targets App Automate, and the local-capture path only existed because
+    /// scripting was believed impossible from Tosca. It is not — the hub takes scripts over HTTP — so
+    /// the fallback bought nothing except a quiet downgrade that lost full page.
+    ///
+    /// One local path remains, under <c>PERCY_DISABLE_REMOTE_UPLOADS</c>, exactly as in
+    /// percy-appium-dotnet: when uploads are switched off there is no other way to get the image out.
     /// </summary>
-    public class AppAutomate : GenericProvider
+    public class AppAutomate
     {
+        protected readonly IMobileDriver Driver;
+        protected readonly PercyClient Client;
+        protected readonly Cache<string, object?> SessionCache;
+
+        /// <summary>The App Automate session URL, shown next to the Percy comparison.</summary>
+        private string? _debugUrl;
+
+        /// <summary>Resolved per snapshot, before anything reads it.</summary>
+        protected Metadata Metadata { get; private set; } = null!;
+
         /// <summary>
         /// Cleared the first time the executor refuses a percyScreenshot command, which stops the
         /// remaining begin/end calls for the run from re-issuing commands the hub will not serve.
@@ -16,43 +36,34 @@ namespace AppPercyTosca.Core
         private bool _markedPercySession = true;
 
         public AppAutomate(IMobileDriver driver, PercyClient client, Cache<string, object?> sessionCache)
-            : base(driver, client, sessionCache)
         {
+            Driver = driver;
+            Client = client;
+            SessionCache = sessionCache;
         }
 
         /// <summary>
-        /// True when this provider can actually drive App Automate: the session is running against
-        /// an App Automate hub *and* can send raw automation commands.
-        ///
-        /// The scripting check is not redundant. Every capability this class adds — marking the
-        /// session, remote capture, full-page — is issued as a <c>browserstack_executor</c> command,
-        /// so on a session that cannot send them (a Tosca mobile session, where Appium passthrough
-        /// is restricted to Tricentis' own device cloud) this provider would fail on its first call
-        /// while the plain local-capture path would have worked. The host is checked first because
-        /// it is the only signal available before any command is sent.
+        /// Whether this session looks like App Automate. No longer used to choose between providers —
+        /// there is only one — but reported so a non-App-Automate session is called out rather than
+        /// failing on its first executor command with something less obvious.
         /// </summary>
         public static bool Supports(IMobileDriver driver)
         {
             string? host = driver.Host;
-            if (string.IsNullOrEmpty(host) ||
-                !host.Contains(Env.AutomateDomain(), StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            if (!driver.CanExecuteScript)
-            {
-                Utils.Log("The session is on App Automate but cannot send automation commands, " +
-                    "so screenshots will be captured locally and uploaded. Full page screenshots " +
-                    "are not available this way.", "debug");
-                return false;
-            }
-            return true;
+            return !string.IsNullOrEmpty(host)
+                && host.Contains(Env.AutomateDomain(), StringComparison.OrdinalIgnoreCase);
         }
 
-        public override JsonElement? Screenshot(
+        public JsonElement? Screenshot(
             string name, ScreenshotOptions options, string? platformVersion = null)
         {
+            if (!Supports(Driver))
+            {
+                Utils.Log("This session does not look like BrowserStack App Automate " +
+                    $"(AppiumServer is {Utils.RedactCredentials(Driver.Host) ?? "unset"}). App Percy for " +
+                    "Tosca captures through App Automate, so the commands below may be refused.", "warn");
+            }
+
             JsonElement? result = ExecutePercyScreenshotBegin(name);
 
             // The executor knows the real device it allocated, which is more trustworthy than the
@@ -67,7 +78,7 @@ namespace AppPercyTosca.Core
             string? error = null;
             try
             {
-                JsonElement? data = base.Screenshot(name, options, OsVersion(result) ?? platformVersion);
+                JsonElement? data = Capture(name, options, OsVersion(result) ?? platformVersion);
                 percyScreenshotUrl = Json.PropertyAsString(data, "link");
                 return data;
             }
@@ -85,10 +96,47 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Asks the hub to capture the screen(s) and returns the tile descriptors it uploaded.
-        /// Falls back to the local capture path when remote uploads are switched off.
+        /// Resolves the device facts, gathers regions, captures, and posts the comparison. Previously
+        /// inherited; inlined now that this is the only provider.
         /// </summary>
-        public override List<Tile> CaptureTiles(ScreenshotOptions options)
+        private JsonElement? Capture(string name, ScreenshotOptions options, string? platformVersion)
+        {
+            if (platformVersion != null && string.IsNullOrWhiteSpace(options.PlatformVersion))
+            {
+                options.PlatformVersion = platformVersion;
+            }
+
+            Metadata = MetadataResolver.Resolve(Driver, options, SessionCache);
+
+            Dictionary<string, object?> tag = Metadata.GetTag();
+            List<Dictionary<string, object?>> ignored = FindRegions(
+                options.IgnoreRegionXpaths,
+                options.IgnoreRegionAccessibilityIds,
+                options.CustomIgnoreRegions);
+            List<Dictionary<string, object?>> considered = FindRegions(
+                options.ConsiderRegionXpaths,
+                options.ConsiderRegionAccessibilityIds,
+                options.CustomConsiderRegions);
+
+            List<Tile> tiles = CaptureTiles(options);
+
+            return Client.PostScreenshot(
+                name,
+                tag,
+                tiles,
+                _debugUrl,
+                new Dictionary<string, object?> { ["ignoreElementsData"] = ignored },
+                new Dictionary<string, object?> { ["considerElementsData"] = considered },
+                options);
+        }
+
+        private void SetDebugUrl(string? debugUrl) => _debugUrl = debugUrl;
+
+        /// <summary>
+        /// Asks the hub to capture the screen(s) and returns the tile descriptors it uploaded.
+        /// Falls back to a locally-written tile when remote uploads are switched off.
+        /// </summary>
+        public List<Tile> CaptureTiles(ScreenshotOptions options)
         {
             if (Env.DisableRemoteUploads())
             {
@@ -97,7 +145,7 @@ namespace AppPercyTosca.Core
                     Utils.Log("Full page screenshots are only supported when " +
                         "\"isDisableRemoteUpload\" is not set", "warn");
                 }
-                return base.CaptureTiles(options);
+                return LocalTile(options);
             }
 
             int statusBar = Metadata.StatBarHeight();
@@ -264,5 +312,142 @@ namespace AppPercyTosca.Core
             string? response = Driver.ExecuteScript(command);
             return Json.TryParse(response);
         }
-    }
+
+        /// <summary>
+        /// A single tile captured through the session and written to disk. Only reached when
+        /// PERCY_DISABLE_REMOTE_UPLOADS is set, since otherwise the hub uploads for us.
+        /// </summary>
+        private List<Tile> LocalTile(ScreenshotOptions options)
+        {
+            string localFilePath = WriteTile(Driver.GetScreenshotBase64());
+            return new List<Tile>
+            {
+                new Tile(localFilePath, Metadata.StatBarHeight(), Metadata.NavBarHeight(),
+                    0, 0, options.FullScreen)
+            };
+        }
+
+        /// <summary>
+        /// Decodes a base64 screenshot to a PNG the CLI can read. The CLI reads it from disk by
+        /// path, so the file deliberately outlives this call and is cleaned up by the OS temp
+        /// sweep — the same contract the other App Percy SDKs use.
+        /// </summary>
+        private static string WriteTile(string base64)
+        {
+            if (string.IsNullOrWhiteSpace(base64))
+            {
+                throw new PercyException(
+                    "The session returned an empty screenshot. Check that the device is " +
+                    "connected and the app is in the foreground.");
+            }
+
+            string dir = Env.TempDir();
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, $"percy-{Guid.NewGuid()}.png");
+            File.WriteAllBytes(path, Convert.FromBase64String(base64));
+            return path;
+        }
+
+        /// <summary>
+        /// Resolves every declared region to device-pixel coordinates. A locator that does not
+        /// match is skipped with a log line rather than failing the snapshot: an ignore region for
+        /// an element that is legitimately absent on this screen is a normal thing for a Tosca
+        /// sheet to declare once and reuse.
+        /// </summary>
+        public List<Dictionary<string, object?>> FindRegions(
+            List<string> xpaths, List<string> accessibilityIds, List<Region> customRegions)
+        {
+            List<Dictionary<string, object?>> regions = new List<Dictionary<string, object?>>();
+            AddRegionsByLocator(regions, xpaths, "xpath", Driver.FindElementByXPath);
+            AddRegionsByLocator(regions, accessibilityIds, "id", Driver.FindElementByAccessibilityId);
+            AddCustomRegions(regions, customRegions);
+            return regions;
+        }
+
+        private void AddRegionsByLocator(
+            List<Dictionary<string, object?>> regions,
+            List<string> locators,
+            string kind,
+            Func<string, ElementRect?> resolve)
+        {
+            foreach (string locator in locators)
+            {
+                try
+                {
+                    ElementRect? element = resolve(locator);
+                    if (element == null)
+                    {
+                        Utils.Log($"Element with {kind}: {locator} not found. Ignoring this {kind}.");
+                        continue;
+                    }
+                    regions.Add(RegionPayload($"{kind}: {locator}", element));
+                }
+                catch (Exception e)
+                {
+                    Utils.Log($"Element with {kind}: {locator} not found. Ignoring this {kind}.");
+                    Utils.Log(e.ToString(), "debug");
+                }
+            }
+        }
+
+        private void AddCustomRegions(List<Dictionary<string, object?>> regions, List<Region> customRegions)
+        {
+            if (customRegions.Count == 0) return;
+
+            int width = Metadata.DeviceScreenWidth();
+            int height = Metadata.DeviceScreenHeight();
+
+            // With no known screen size there is nothing to validate against, and IsValid would
+            // reject every region for exceeding a zero-sized screen. Passing them through unchecked
+            // respects what the user actually asked for; discarding them would silently drop the only
+            // region type available on a Tosca session, blaming the region rather than the missing
+            // dimensions. GetTag has already warned about those.
+            bool canValidate = width > 0 && height > 0;
+            if (!canValidate)
+            {
+                Utils.Log($"Passing {customRegions.Count} custom region(s) through unchecked: the " +
+                    "device screen size is unknown, so they cannot be validated against it.", "debug");
+            }
+
+            for (int index = 0; index < customRegions.Count; index++)
+            {
+                Region region = customRegions[index];
+                if (canValidate && !region.IsValid(height, width))
+                {
+                    Utils.Log($"Values passed in custom region at index:- {index} is not valid");
+                    continue;
+                }
+                regions.Add(new Dictionary<string, object?>
+                {
+                    ["selector"] = $"custom region {index}",
+                    ["co_ordinates"] = new Dictionary<string, object?>
+                    {
+                        ["top"] = region.Top,
+                        ["bottom"] = region.Bottom,
+                        ["left"] = region.Left,
+                        ["right"] = region.Right
+                    }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Converts an element rect to the region payload. Coordinates are scaled because the
+        /// session reports points while the screenshot the CLI diffs is in pixels.
+        /// </summary>
+        private Dictionary<string, object?> RegionPayload(string selector, ElementRect element)
+        {
+            int scale = Metadata.ScaleFactor();
+            return new Dictionary<string, object?>
+            {
+                ["selector"] = selector,
+                ["co_ordinates"] = new Dictionary<string, object?>
+                {
+                    ["top"] = element.Y * scale,
+                    ["bottom"] = (element.Y + element.Height) * scale,
+                    ["left"] = element.X * scale,
+                    ["right"] = (element.X + element.Width) * scale
+                }
+            };
+        }    }
 }

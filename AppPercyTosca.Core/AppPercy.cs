@@ -35,9 +35,11 @@ namespace AppPercyTosca.Core
             bool ignoreErrors = _percyOptions.IgnoreErrors();
             try
             {
-                GenericProvider provider = ProviderResolver.ResolveProvider(_driver, _client, _sessionCache);
-                // The provider hands back the CLI's whole response so that App Automate can read the
-                // sibling `link` off it; `data` is what a caller wants.
+                // One provider now: App Automate. The generic local-capture provider and the resolver
+                // that chose between them are gone.
+                AppAutomate provider = new AppAutomate(_driver, _client, _sessionCache);
+                // It hands back the CLI's whole response so the sibling `link` is readable; `data` is
+                // what a caller wants.
                 return Json.Property(provider.Screenshot(name, options), "data");
             }
             catch (Exception e)

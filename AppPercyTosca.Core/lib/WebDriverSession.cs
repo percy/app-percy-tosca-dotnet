@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 namespace AppPercyTosca.Core
@@ -44,6 +45,86 @@ namespace AppPercyTosca.Core
 
         /// <summary>The screenshot endpoint, exposed for diagnostics with any credentials removed.</summary>
         public string Endpoint => $"{_serverUrl}/session/{_sessionId}/screenshot";
+
+        /// <summary>
+        /// Runs a script in the session and returns its result, or null when the server would not run
+        /// it.
+        ///
+        /// This is what makes App Automate's own capture reachable. Its percyScreenshot command travels
+        /// as a <c>browserstack_executor:</c> script, and for a long time this SDK treated scripting as
+        /// impossible because Tosca will not pass raw Appium commands through. That was the wrong
+        /// conclusion: the constraint is Tosca's, not the protocol's, and the hub takes scripts over the
+        /// same HTTP route the screenshot uses.
+        ///
+        /// Both endpoint spellings are tried — W3C moved execute to /execute/sync — because which one a
+        /// hub answers is its choice.
+        /// </summary>
+        public string? ExecuteScript(string script)
+        {
+            string body = PercyPayload.PayloadParser(new Dictionary<string, object?>
+            {
+                ["script"] = script,
+                ["args"] = Array.Empty<object>()
+            });
+
+            foreach (string path in new[] { "execute/sync", "execute" })
+            {
+                (string? Value, bool WorthTryingAnother) result = Post(path, body);
+                if (result.Value != null) return result.Value;
+                if (!result.WorthTryingAnother) return null;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// POSTs to one execute endpoint. Reports whether the *other* spelling is worth trying: a 404
+        /// means this hub does not have this route, whereas any other failure is about the script and
+        /// would fail identically on the other one.
+        /// </summary>
+        private (string? Value, bool WorthTryingAnother) Post(string path, string body)
+        {
+            string url = $"{_serverUrl}/session/{_sessionId}/{path}";
+            try
+            {
+                using StringContent content = new StringContent(body, Encoding.UTF8, "application/json");
+                Task<HttpResponseMessage> request = _http.PostAsync(url, content);
+                request.Wait();
+                HttpResponseMessage response = request.Result;
+
+                Task<string> responseBody = response.Content.ReadAsStringAsync();
+                responseBody.Wait();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        Utils.Log($"The session has no {path} endpoint; trying the other spelling.",
+                            "debug");
+                        return (null, true);
+                    }
+                    Utils.Log($"The device session refused a script ({(int)response.StatusCode} " +
+                        $"{response.ReasonPhrase}): {Truncate(responseBody.Result)}");
+                    return (null, false);
+                }
+
+                // The result may be a string, an object or a number depending on the command, so the
+                // raw JSON text is returned and left for the caller to interpret.
+                JsonElement? parsed = Json.TryParse(responseBody.Result);
+                JsonElement? value = Json.Property(parsed, "value");
+                if (value == null) return (null, false);
+
+                return (value.Value.ValueKind == JsonValueKind.String
+                    ? value.Value.GetString()
+                    : value.Value.GetRawText(), false);
+            }
+            catch (Exception e)
+            {
+                Utils.Log("Could not run a script on the device session: " +
+                    Utils.RedactCredentials(e.Message));
+                Utils.Log(Utils.RedactCredentials(e.ToString()), "debug");
+                return (null, false);
+            }
+        }
 
         /// <summary>
         /// Fetches the current screen as base64 PNG, or null when the server would not provide one.

@@ -151,14 +151,24 @@ namespace AppPercyTosca.Core
         public int WindowWidth => 0;
 
         /// <summary>
-        /// False on Tosca. <c>Execute Driver Script</c> — the module that would carry a
-        /// <c>browserstack_executor</c> command — is documented as available only against Tricentis'
-        /// own device cloud, so it cannot be relied on against an App Automate hub.
+        /// True whenever the session can be reached over HTTP.
+        ///
+        /// This used to be false, on the reasoning that Tosca's <c>Execute Driver Script</c> module is
+        /// restricted to Tricentis' own device cloud. That conflated two things: Tosca cannot pass a raw
+        /// Appium command through, but the hub accepts one directly over the same route the screenshot
+        /// uses. Scripting was never unavailable — only unavailable *through Tosca* — and it is what
+        /// makes App Automate's own capture, and therefore full page, reachable.
         /// </summary>
-        public bool CanExecuteScript => _tosca.CanExecuteScript;
+        public bool CanExecuteScript => Session() != null || _tosca.CanExecuteScript;
 
-        public string? ExecuteScript(string script) =>
-            _tosca.CanExecuteScript ? _tosca.ExecuteScript(script) : null;
+        public string? ExecuteScript(string script)
+        {
+            WebDriverSession? session = Session();
+            if (session != null) return session.ExecuteScript(script);
+
+            // Left as a fallback in case a future Tosca does pass scripts through.
+            return _tosca.CanExecuteScript ? _tosca.ExecuteScript(script) : null;
+        }
 
         /// <summary>
         /// Captures the screen through the mobile engine and returns it base64-encoded.
@@ -208,29 +218,46 @@ namespace AppPercyTosca.Core
         /// </summary>
         private string? TryCaptureOverWebDriver()
         {
+            WebDriverSession? session = Session();
+            if (session == null) return null;
+
+            Utils.Log($"Capturing from the device session at {Utils.RedactCredentials(session.Endpoint)}.");
+            return session.TryGetScreenshotBase64();
+        }
+
+        private WebDriverSession? _session;
+        private bool _sessionResolved;
+
+        /// <summary>
+        /// The session client, once, or null when the two facts it needs are not both available. Both
+        /// screenshots and scripts go through it, so the reasons it is unavailable are reported here
+        /// rather than duplicated at each call site.
+        /// </summary>
+        private WebDriverSession? Session()
+        {
+            if (_sessionResolved) return _session;
+            _sessionResolved = true;
+
             if (_webDriver == null) return null;
 
             string? server = Host;
             if (string.IsNullOrWhiteSpace(server))
             {
                 Utils.Log("No AppiumServer test configuration parameter, so the device session cannot " +
-                    "be asked for a screenshot directly.", "debug");
+                    "be reached.", "debug");
                 return null;
             }
             if (!HasRealSessionId)
             {
                 Utils.Log("The Appium session id is not available, so the device session cannot be " +
-                    "asked for a screenshot directly. Either add the 'Get Appium Session Id' standard " +
-                    $"module before this step writing to buffer " +
-                    $"'{_sessionIdBuffer ?? DefaultSessionIdBuffer}', or — on App Automate — embed your " +
+                    "reached. Either add the 'Get Appium Session Id' standard module before this step " +
+                    $"writing to buffer '{_sessionIdBuffer ?? DefaultSessionIdBuffer}', or embed your " +
                     "credentials in the AppiumServer parameter as " +
                     "https://user:key@hub-cloud.browserstack.com/wd/hub so the session can be looked up.");
                 return null;
             }
 
-            WebDriverSession session = _webDriver(server, SessionId);
-            Utils.Log($"Capturing from the device session at {Utils.RedactCredentials(session.Endpoint)}.");
-            return session.TryGetScreenshotBase64();
+            return _session = _webDriver(server, SessionId);
         }
 
         /// <summary>

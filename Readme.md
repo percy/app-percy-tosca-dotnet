@@ -10,33 +10,36 @@ mobile counterpart.
 
 ## How capture works
 
-This SDK is built for **App Percy**: it captures the device screen and uploads it to Percy.
+**App Percy on BrowserStack App Automate.** That is the supported configuration — there is no separate
+path for local or other-cloud devices.
 
-Capture is attempted two ways, in this order:
+Everything goes through the session's own HTTP endpoints, using two facts: the server address from your
+`AppiumServer` test configuration parameter, and the Appium session id. No Tricentis API is involved,
+which matters because Tosca's internals change between releases while the WebDriver protocol does not.
 
-1. **Directly from the device session** — a standard WebDriver `GET /session/{id}/screenshot` against
-   the server in your `AppiumServer` test configuration parameter, using the Appium session id from a
-   Tosca buffer. This needs no Tricentis API at all, which is why it is preferred: it does not depend
-   on internals that change between Tosca releases.
-2. **Via Tosca's own screenshot task** — used when the session cannot be reached directly. Requires
-   `Directory`, `Filename` and `Environment` on the module, and the right task name for your Tosca
-   version (discovered automatically; see `ScreenshotTaskName`).
+| Capture | How |
+|---|---|
+| **Single page** | The hub's `percyScreenshot` executor command captures and uploads; tiles come back as content hashes |
+| **Full page** | The same command with `screenshotType: fullpage` — the hub scrolls, captures N tiles and returns their overlap heights for Percy to stitch |
 
-   This route is the weaker one and worth avoiding. On a Tosca 24.2.1 install the only screenshot task
-   registered is the generic `PrintScreen` (engine `Framework`) — no mobile-specific task is
-   discoverable — and that one captures nothing unless `Environment` tells it to target the device.
+Both are issued as `browserstack_executor:` scripts over `POST /session/{id}/execute/sync`. Tosca will
+not pass a raw Appium command through, but the hub accepts one directly — so full page works here, which
+earlier versions of this SDK wrongly concluded was impossible.
+
+With `PERCY_DISABLE_REMOTE_UPLOADS=true` a single tile is captured over
+`GET /session/{id}/screenshot` and uploaded instead. Full page is unavailable that way, exactly as in
+percy-appium-dotnet.
 
 Route 1 is the one to get working. It needs the Appium session id — see below.
 
 
-### What App Percy cannot do on Tosca
+### Requirements
 
-Two limits, both from what a Tosca extension can reach rather than from Percy. Mobile Engine 3.0 runs
-**out of process**, so there is no Appium driver object for an extension to borrow, and Tosca's
-`Execute Driver Script` is restricted to Tricentis' own device cloud:
+- The session must be on **BrowserStack App Automate** — `AppiumServer` pointing at a BrowserStack hub
+- The **Appium session id** must be available (see below)
 
-- **No full-page capture.** Only the visible screen.
-- **No XPath or accessibility-id regions.** Use `CustomIgnoreRegions` with pixel coordinates.
+XPath and accessibility-id regions are resolved against elements, which this SDK does not query — use
+`CustomIgnoreRegions` with pixel coordinates.
 
 ## Requirements
 
@@ -140,20 +143,6 @@ older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 | `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
 
-App Percy captures by asking Tosca's own mobile screenshot task to do it. Which task that is differs
-between Tosca versions — the published `Mobile30PrintScreen` / `ME3.0` pair is from a Tosca 16-era page
-and is **not** registered on 24 — so the SDK tries that pair first and then any task this install
-registers whose name looks like a screenshot, preferring mobile ones. Run with `PERCY_LOGLEVEL=debug`
-to see which it used, or every candidate it found if none worked, then pin it with
-`ScreenshotTaskName` / `ScreenshotEngineId`.
-
-`Directory` and `Filename` look like an odd thing to put in a test sheet, and they are — but they are
-unavoidable. App Percy captures by delegating to Tosca's own mobile screenshot task, and that task
-reads its destination from the test action's `Directory` and `Filename` parameters. There is no way to
-supply them on your behalf: doing so would mean implementing `ISpecialExecutionTaskTestAction`, an
-interface with ~35 members over undocumented Tricentis types. Two rows is the cheaper trade. The file
-is read and deleted immediately.
-
 On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
 `DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.
 Percy groups and diffs comparisons by the device tag, so a snapshot tagged `0x0` will not group with
@@ -164,6 +153,11 @@ correctly-tagged ones — the step warns when this happens.
 | Parameter | Description |
 |---|---|
 | `FullScreen` | `true` if the app is in full-screen mode |
+| `FullPage` | `true` to capture the whole scrollable page |
+| `ScreenLengths` | Number of screens to capture for a full page |
+| `ScrollableXpath`, `ScrollableId` | Which element to scroll for a full page |
+| `TopScrollviewOffset`, `BottomScrollviewOffset` | Pixels to trim while scrolling |
+| `IosOptimizedFullpage` | `true` for the optimised iOS full-page algorithm |
 
 ### Regions
 
@@ -190,9 +184,7 @@ separate the four numbers:
 | Parameter | Description |
 |---|---|
 | `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
-| `Directory`, `Filename` | Destination for the fallback capture route. Only needed if the device session cannot be reached directly |
-| `Environment` | What the fallback task should capture. Tosca's generic `PrintScreen` needs this to target the mobile device; the built-in PrintScreen module lists the valid values |
-| `ScreenshotTaskName`, `ScreenshotEngineId` | Which Tosca task performs the App Percy capture. Only needed if discovery picks the wrong one — see below |
+| `Directory`, `Filename` | Destination for the `PERCY_DISABLE_REMOTE_UPLOADS` capture route only |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 
 ## Troubleshooting

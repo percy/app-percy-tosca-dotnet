@@ -912,6 +912,81 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void AScriptRunsThroughTheW3cExecuteEndpoint()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":\"ok\"}");
+
+            Assert.Equal("ok", Session(handler).ExecuteScript("browserstack_executor: {}"));
+            Assert.Contains("/session/s-1/execute/sync", handler.Requests[0].Url);
+            Assert.Contains("\"script\":\"browserstack_executor: {}\"", handler.Requests[0].Body!);
+        }
+
+        [Fact]
+        public void ANonStringResultComesBackAsItsRawJson()
+        {
+            // The executor answers with an object for some commands, and the caller parses it.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"success\":true}}");
+
+            Assert.Equal("{\"success\":true}", Session(handler).ExecuteScript("x"));
+        }
+
+        [Fact]
+        public void AHubWithoutTheW3cEndpointFallsBackToTheOlderSpelling()
+        {
+            // Which spelling a hub answers is its choice, not ours.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .On("/execute/sync", "nope", System.Net.HttpStatusCode.NotFound)
+                .Default("{\"value\":\"ok\"}");
+
+            Assert.Equal("ok", Session(handler).ExecuteScript("x"));
+            Assert.Equal(2, handler.Requests.Count);
+            Assert.EndsWith("/execute", handler.Requests[1].Url);
+        }
+
+        [Fact]
+        public void NeitherEndpointExistingYieldsNothing()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("nope", System.Net.HttpStatusCode.NotFound);
+
+            Assert.Null(Session(handler).ExecuteScript("x"));
+            Assert.Equal(2, handler.Requests.Count);
+        }
+
+        [Fact]
+        public void ARefusedScriptIsNotRetriedOnTheOtherEndpoint()
+        {
+            // A 500 is about the script, and would fail identically on the other spelling.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("bad command", System.Net.HttpStatusCode.InternalServerError);
+
+            Assert.Null(Session(handler).ExecuteScript("x"));
+            Assert.Single(handler.Requests);
+            Assert.True(Logged("refused a script (500"));
+        }
+
+        [Fact]
+        public void ASuccessfulResponseWithNoValueYieldsNothing()
+        {
+            Assert.Null(Session(new StubHttpMessageHandler().Default("{}")).ExecuteScript("x"));
+        }
+
+        [Fact]
+        public void AnUnreachableHubIsReportedWhenRunningAScript()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException("connect failed to https://user:key@hub.example.com")
+            };
+
+            Assert.Null(Session(handler).ExecuteScript("x"));
+            Assert.True(Logged("Could not run a script"));
+            Assert.False(Logged("user:key"));
+        }
+
+        [Fact]
         public void NullArgumentsAreRefusedAtConstruction()
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler();

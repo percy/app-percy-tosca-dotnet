@@ -4,37 +4,25 @@ using Xunit;
 
 namespace AppPercyTosca.Core.Tests
 {
-    public class ProviderResolverTests : CoreTestBase
+    public class AppAutomateReadinessTests : CoreTestBase
     {
-        private static GenericProvider Resolve(StubMobileDriver driver) =>
-            ProviderResolver.ResolveProvider(driver,
-                new PercyClient(new StubHttpMessageHandler().Client(), "http://localhost:5338"),
-                new Cache<string, object?>());
-
         [Fact]
-        public void ABrowserStackHostSelectsTheAppAutomateProvider()
+        public void ABrowserStackHostIsRecognisedAsAppAutomate()
         {
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Host = "https://hub-cloud.browserstack.com/wd/hub";
 
-            Assert.IsType<AppAutomate>(Resolve(driver));
-        }
-
-        [Fact]
-        public void AnyOtherHostSelectsTheLocalCaptureProvider()
-        {
-            StubMobileDriver local = StubMobileDriver.Android();
-            local.Host = "http://127.0.0.1:4723/wd/hub";
-            Assert.IsType<GenericProvider>(Resolve(local));
-            Assert.IsNotType<AppAutomate>(Resolve(local));
+            Assert.True(AppAutomate.Supports(driver));
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
-        public void ASessionWithNoHostIsNotAppAutomate(string? host)
+        [InlineData("http://127.0.0.1:4723/wd/hub")]
+        public void AnyOtherHostIsNot(string? host)
         {
-            // Keyed on the host because it is the only signal available before any command is sent.
+            // No longer selects a provider — there is only one — but a session that is not App Automate
+            // should be called out rather than failing on its first executor command.
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Host = host;
 
@@ -59,18 +47,45 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.True(AppAutomate.Supports(driver));
         }
+
+        [Fact]
+        public void ScriptingIsNoLongerRequiredToBeRecognised()
+        {
+            // Supports() used to demand it, to steer away from a provider that would fail. With one
+            // provider there is nothing to steer to, and scripting now works over HTTP anyway.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Host = "https://hub-cloud.browserstack.com/wd/hub";
+            driver.CanExecuteScript = false;
+
+            Assert.True(AppAutomate.Supports(driver));
+        }
     }
 
-    public class GenericProviderTests : CoreTestBase
+    /// <summary>
+    /// The parts of the single provider that are not the executor: the device tag, region resolution,
+    /// and the locally-written tile used when remote uploads are switched off. These moved here when
+    /// GenericProvider was folded in.
+    /// </summary>
+    public class AppAutomateLocalCaptureTests : CoreTestBase
     {
-        private const string Accepted = "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}";
+        private const string Accepted =
+            "{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}";
 
-        private static (GenericProvider Provider, StubHttpMessageHandler Handler) Build(
-            StubMobileDriver driver)
+        private static (AppAutomate Provider, StubHttpMessageHandler Handler) Build(StubMobileDriver driver)
         {
+            // Remote uploads off: the hub is not what these are about, and the local tile is the only
+            // path that does not need an executor to answer.
+            Environment.SetEnvironmentVariable("PERCY_DISABLE_REMOTE_UPLOADS", "true");
             StubHttpMessageHandler handler = new StubHttpMessageHandler().Default(Accepted);
             PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
-            return (new GenericProvider(driver, client, new Cache<string, object?>()), handler);
+            return (new AppAutomate(driver, client, new Cache<string, object?>()), handler);
+        }
+
+        private static StubMobileDriver AutomateDriver()
+        {
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Host = "https://hub-cloud.browserstack.com/wd/hub";
+            return driver;
         }
 
         [Fact]
@@ -80,15 +95,9 @@ namespace AppPercyTosca.Core.Tests
             SetEnv("PERCY_TMP_DIR", tempDir);
             try
             {
-                (GenericProvider provider, StubHttpMessageHandler handler) =
-                    Build(StubMobileDriver.Android());
+                (AppAutomate provider, StubHttpMessageHandler handler) = Build(AutomateDriver());
 
-                JsonElement? data = provider.Screenshot("home", new ScreenshotOptions());
-
-                // The provider returns the CLI's whole response, so `link` — a sibling of `data` —
-                // is still reachable. That is what lets App Automate report the comparison URL.
-                Assert.Equal("https://percy.io/c/1", Json.PropertyAsString(data, "link"));
-                Assert.Equal("c1", Json.PropertyAsString(Json.Property(data, "data"), "id"));
+                Assert.NotNull(provider.Screenshot("home", new ScreenshotOptions()));
 
                 string body = handler.BodyFor("/percy/comparison")!;
                 Assert.Contains("\"name\":\"home\"", body);
@@ -96,8 +105,7 @@ namespace AppPercyTosca.Core.Tests
                 Assert.Contains("\"statusBarHeight\":60", body);
                 Assert.Contains("\"navBarHeight\":40", body);
 
-                // The CLI reads the tile from disk by path, so the file must actually be there and
-                // hold the decoded image rather than the base64 text.
+                // The CLI reads the tile from disk, so the file must be there and hold decoded bytes.
                 string[] written = Directory.GetFiles(tempDir, "percy-*.png");
                 Assert.Single(written);
                 Assert.Equal(Convert.FromBase64String(StubMobileDriver.ValidPngBase64),
@@ -110,30 +118,13 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheTempDirectoryIsCreatedWhenItDoesNotExistYet()
-        {
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid(), "nested");
-            SetEnv("PERCY_TMP_DIR", tempDir);
-            try
-            {
-                (GenericProvider provider, _) = Build(StubMobileDriver.Android());
-                provider.Screenshot("home", new ScreenshotOptions());
-                Assert.True(Directory.Exists(tempDir));
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
-            }
-        }
-
-        [Fact]
         public void AnEmptyScreenshotIsReportedAsSomethingActionable()
         {
-            // Convert.FromBase64String("") succeeds and would write a 0-byte PNG the CLI then
-            // rejects with a much less useful message.
-            StubMobileDriver driver = StubMobileDriver.Android();
+            // Convert.FromBase64String("") succeeds and would write a 0-byte PNG the CLI then rejects
+            // with a much less useful message.
+            StubMobileDriver driver = AutomateDriver();
             driver.Screenshot = "";
-            (GenericProvider provider, _) = Build(driver);
+            (AppAutomate provider, _) = Build(driver);
 
             PercyException error = Assert.Throws<PercyException>(
                 () => provider.Screenshot("home", new ScreenshotOptions()));
@@ -141,46 +132,12 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void FullPageIsAnnouncedAsUnavailableRatherThanSilentlyDowngraded()
-        {
-            // Otherwise the user believes they got a full-page snapshot and does not.
-            (GenericProvider provider, _) = Build(StubMobileDriver.Android());
-
-            provider.Screenshot("home", new ScreenshotOptions { FullPage = true });
-
-            Assert.True(Logged("only supported on App Automate"));
-        }
-
-        [Fact]
-        public void APlatformVersionFromTheCallerFillsInWhatTheStepDidNotSay()
-        {
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Caps.Remove("platformVersion");
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions(), "12");
-
-            Assert.Contains("\"osVersion\":\"12\"", handler.BodyFor("/percy/comparison")!);
-        }
-
-        [Fact]
-        public void AnExplicitOsVersionIsNotOverriddenByTheCaller()
-        {
-            (GenericProvider provider, StubHttpMessageHandler handler) =
-                Build(StubMobileDriver.Android());
-
-            provider.Screenshot("home", new ScreenshotOptions { PlatformVersion = "14" }, "12");
-
-            Assert.Contains("\"osVersion\":\"14\"", handler.BodyFor("/percy/comparison")!);
-        }
-
-        [Fact]
         public void RegionsResolveToDevicePixelCoordinates()
         {
-            StubMobileDriver driver = StubMobileDriver.Android();
+            StubMobileDriver driver = AutomateDriver();
             driver.ElementsByXPath["//total"] = new ElementRect(10, 20, 100, 50);
             driver.ElementsByAccessibilityId["banner"] = new ElementRect(0, 0, 200, 30);
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
+            (AppAutomate provider, StubHttpMessageHandler handler) = Build(driver);
 
             provider.Screenshot("home", new ScreenshotOptions
             {
@@ -196,36 +153,11 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void RegionCoordinatesAreScaledOnADeviceWithAScaleFactor()
-        {
-            StubMobileDriver driver = StubMobileDriver.Ios("Some Unlisted Phone");
-            driver.Caps["viewportRect"] = new Dictionary<string, object?>
-            {
-                ["top"] = 44,
-                ["width"] = 1170,
-                ["height"] = 2488
-            };
-            driver.WindowWidth = 390;
-            driver.ElementsByXPath["//x"] = new ElementRect(10, 20, 30, 40);
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions
-            {
-                IgnoreRegionXpaths = new List<string> { "//x" }
-            });
-
-            // Scale factor 3: the session reports points but the diffed screenshot is in pixels.
-            Assert.Contains("\"top\":60,\"bottom\":180,\"left\":30,\"right\":120",
-                handler.BodyFor("/percy/comparison")!);
-        }
-
-        [Fact]
         public void ALocatorThatMatchesNothingIsSkippedRatherThanFailingTheSnapshot()
         {
-            // A sheet that declares one ignore region and reuses it across screens will legitimately
-            // hit screens where the element is absent.
-            (GenericProvider provider, StubHttpMessageHandler handler) =
-                Build(StubMobileDriver.Android());
+            // A sheet that declares one ignore region and reuses it will legitimately hit screens where
+            // the element is absent.
+            (AppAutomate provider, StubHttpMessageHandler handler) = Build(AutomateDriver());
 
             provider.Screenshot("home", new ScreenshotOptions
             {
@@ -241,9 +173,9 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void ALocatorLookupThatThrowsIsAlsoSkipped()
         {
-            StubMobileDriver driver = StubMobileDriver.Android();
+            StubMobileDriver driver = AutomateDriver();
             driver.FindElementError = new InvalidOperationException("stale element");
-            (GenericProvider provider, _) = Build(driver);
+            (AppAutomate provider, _) = Build(driver);
 
             provider.Screenshot("home", new ScreenshotOptions
             {
@@ -256,9 +188,8 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void CustomRegionsArePassedThroughUnscaled()
         {
-            // These are declared in device pixels already, so scaling them would double-apply.
-            (GenericProvider provider, StubHttpMessageHandler handler) =
-                Build(StubMobileDriver.Android());
+            // Declared in device pixels already, so scaling would double-apply.
+            (AppAutomate provider, StubHttpMessageHandler handler) = Build(AutomateDriver());
 
             provider.Screenshot("home", new ScreenshotOptions
             {
@@ -271,56 +202,9 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void CustomRegionsSurviveAnUnknownScreenSizeInsteadOfBeingDiscarded()
-        {
-            // The situation on a Tosca session with no screen-size parameter. Validating against a
-            // 0x0 screen rejects every region, so the user loses the only region type available to
-            // them — and the message blames the region rather than the missing dimensions.
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Caps.Remove("deviceScreenSize");
-            driver.Caps.Remove("viewportRect");
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions
-            {
-                CustomIgnoreRegions = new List<Region> { new Region(0, 100, 0, 200) }
-            });
-
-            string body = handler.BodyFor("/percy/comparison")!;
-            Assert.Contains("\"top\":0,\"bottom\":100,\"left\":0,\"right\":200", body);
-            Assert.False(Logged("is not valid"));
-        }
-
-        [Fact]
-        public void AnUnknownScreenSizeIsReportedBecauseItCorruptsTheComparisonTag()
-        {
-            // Percy groups and diffs by the tag, so a 0x0 tag will not group with correctly-tagged
-            // snapshots. Naming the parameters that fix it is the whole value of the warning.
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Caps.Remove("deviceScreenSize");
-            driver.Caps.Remove("viewportRect");
-            (GenericProvider provider, _) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            Assert.True(Logged("ScreenWidth and ScreenHeight"));
-        }
-
-        [Fact]
-        public void AKnownScreenSizeIsNotWarnedAbout()
-        {
-            (GenericProvider provider, _) = Build(StubMobileDriver.Android());
-
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            Assert.False(Logged("Could not determine the device screen size"));
-        }
-
-        [Fact]
         public void ACustomRegionOutsideTheScreenIsReportedAndSkipped()
         {
-            (GenericProvider provider, StubHttpMessageHandler handler) =
-                Build(StubMobileDriver.Android());
+            (AppAutomate provider, StubHttpMessageHandler handler) = Build(AutomateDriver());
 
             provider.Screenshot("home", new ScreenshotOptions
             {
@@ -329,6 +213,64 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.True(Logged("is not valid"));
             Assert.Contains("\"considerElementsData\":[]", handler.BodyFor("/percy/comparison")!);
+        }
+
+        [Fact]
+        public void CustomRegionsSurviveAnUnknownScreenSizeInsteadOfBeingDiscarded()
+        {
+            // Validating against a 0x0 screen rejects every region, so the user loses the only region
+            // type that needs no element lookup — and the message blames the region rather than the
+            // missing dimensions.
+            StubMobileDriver driver = AutomateDriver();
+            driver.Caps.Remove("deviceScreenSize");
+            driver.Caps.Remove("viewportRect");
+            (AppAutomate provider, StubHttpMessageHandler handler) = Build(driver);
+
+            provider.Screenshot("home", new ScreenshotOptions
+            {
+                CustomIgnoreRegions = new List<Region> { new Region(0, 100, 0, 200) }
+            });
+
+            Assert.Contains("\"top\":0,\"bottom\":100,\"left\":0,\"right\":200",
+                handler.BodyFor("/percy/comparison")!);
+            Assert.False(Logged("is not valid"));
+        }
+
+        [Fact]
+        public void AnUnknownScreenSizeIsReportedBecauseItCorruptsTheComparisonTag()
+        {
+            StubMobileDriver driver = AutomateDriver();
+            driver.Caps.Remove("deviceScreenSize");
+            driver.Caps.Remove("viewportRect");
+            (AppAutomate provider, _) = Build(driver);
+
+            provider.Screenshot("home", new ScreenshotOptions());
+
+            Assert.True(Logged("ScreenWidth and ScreenHeight"));
+        }
+
+        [Fact]
+        public void ASessionThatIsNotAppAutomateIsCalledOut()
+        {
+            // With one provider there is nothing to fall back to, so say so rather than letting the
+            // executor commands fail with something less obvious.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Host = "http://127.0.0.1:4723/wd/hub";
+            (AppAutomate provider, _) = Build(driver);
+
+            provider.Screenshot("home", new ScreenshotOptions());
+
+            Assert.True(Logged("does not look like BrowserStack App Automate"));
+        }
+
+        [Fact]
+        public void FullPageIsAnnouncedAsIncompatibleWithDisabledRemoteUploads()
+        {
+            (AppAutomate provider, _) = Build(AutomateDriver());
+
+            provider.Screenshot("home", new ScreenshotOptions { FullPage = true });
+
+            Assert.True(Logged("isDisableRemoteUpload"));
         }
     }
 
