@@ -233,172 +233,24 @@ namespace AppPercyTosca.Core.Tests
             Assert.Empty(ToscaOptions.ParseRegions(null));
         }
 
-        [Fact]
-        public void RawOptionsParseAsAJsonObject()
-        {
-            Dictionary<string, object?> parsed =
-                ToscaOptions.ParseRawOptions("{\"freeze_animated_image\": true, \"n\": 2}");
 
-            Assert.Equal(true, parsed["freeze_animated_image"]);
-            Assert.Equal(2L, parsed["n"]);
-        }
 
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        public void RawOptionsAreEmptyWhenUnset(string? value)
-        {
-            Assert.Empty(ToscaOptions.ParseRawOptions(value));
-        }
 
-        [Theory]
-        [InlineData("[1,2]")]
-        [InlineData("not json")]
-        public void RawOptionsThatAreNotAnObjectAreReportedAndIgnored(string value)
-        {
-            Assert.Empty(ToscaOptions.ParseRawOptions(value));
-            Assert.True(Logged("not a JSON object"));
-        }
 
-        [Fact]
-        public void AutomateOptionsOmitAnythingTheStepDidNotSet()
-        {
-            // Sending an explicit null would override a project-level default rather than defer
-            // to it, so unset parameters must be absent from the bag entirely.
-            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader());
 
-            Assert.Empty(options);
-        }
 
-        [Fact]
-        public void AutomateOptionsUseTheCliSnakeCaseSpellings()
-        {
-            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
-                ("DeviceName", "Pixel 7"),
-                ("Orientation", "portrait"),
-                ("StatusBarHeight", "60"),
-                ("NavBarHeight", "40"),
-                ("TopScrollviewOffset", "5"),
-                ("BottomScrollviewOffset", "6"),
-                ("ScreenLengths", "3"),
-                ("FullScreen", "true"),
-                ("FullPage", "true"),
-                ("IosOptimizedFullpage", "true"),
-                ("Sync", "true"),
-                ("TestCase", "tc"),
-                ("Labels", "l"),
-                ("ThTestCaseExecutionId", "e"),
-                ("ScrollableXpath", "//s"),
-                ("ScrollableId", "sid")));
 
-            Assert.Equal("Pixel 7", options["device_name"]);
-            Assert.Equal("portrait", options["orientation"]);
-            Assert.Equal(60, options["status_bar_height"]);
-            Assert.Equal(40, options["nav_bar_height"]);
-            Assert.Equal(5, options["top_scrollview_offset"]);
-            Assert.Equal(6, options["bottom_scrollview_offset"]);
-            Assert.Equal(3, options["screen_lengths"]);
-            Assert.Equal(true, options["full_screen"]);
-            Assert.Equal(true, options["full_page"]);
-            Assert.Equal(true, options["ios_optimized_fullpage"]);
-            Assert.Equal(true, options["sync"]);
-            Assert.Equal("tc", options["test_case"]);
-            Assert.Equal("l", options["labels"]);
-            Assert.Equal("e", options["th_test_case_execution_id"]);
-            Assert.Equal("//s", options["scrollable_xpath"]);
-            Assert.Equal("sid", options["scrollable_id"]);
-        }
 
-        [Fact]
-        public void AutomateOptionsCarryRegionListsUnderTheKeysTheCliResolves()
-        {
-            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
-                ("IgnoreRegionXpaths", "//a"),
-                ("ConsiderRegionXpaths", "//b"),
-                ("CustomIgnoreRegions", "0,10,0,20"),
-                ("CustomConsiderRegions", "1,11,1,21")));
 
-            Assert.Equal(new[] { "//a" }, Assert.IsType<List<string>>(options["ignore_region_xpaths"]));
-            Assert.Equal(new[] { "//b" }, Assert.IsType<List<string>>(options["consider_region_xpaths"]));
 
-            List<Dictionary<string, object?>> ignored =
-                Assert.IsType<List<Dictionary<string, object?>>>(options["custom_ignore_regions"]);
-            Assert.Equal(10, ignored[0]["bottom"]);
-
-            List<Dictionary<string, object?>> considered =
-                Assert.IsType<List<Dictionary<string, object?>>>(options["custom_consider_regions"]);
-            Assert.Equal(21, considered[0]["right"]);
-        }
-
-        [Fact]
-        public void XPathsAreNotSentUnderTheAppiumElementKey()
-        {
-            // That key means "a list of Appium element objects". Locators sent under it are routed
-            // through local element resolution, which a Tosca session cannot do, so every region is
-            // dropped — the exact silent failure this spelling exists to avoid.
-            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
-                ("IgnoreRegionXpaths", "//a"),
-                ("ConsiderRegionXpaths", "//b")));
-
-            Assert.False(options.ContainsKey(PercyOnAutomate.IgnoreElementKey));
-            Assert.False(options.ContainsKey(PercyOnAutomate.ConsiderElementKey));
-        }
-
-        [Fact]
-        public void FullPageUsesTheSeparatedSpellingTheCliCamelCasesCorrectly()
-        {
-            // The CLI camelCases option keys and reads `fullPage`. "fullpage" has no separator, so it
-            // survives that conversion unchanged and never matches — full page capture would silently
-            // degrade to one screen.
-            Dictionary<string, object?> options =
-                ToscaOptions.BuildAutomateOptions(Reader(("FullPage", "true")));
-
-            Assert.Equal(true, options["full_page"]);
-            Assert.False(options.ContainsKey("fullpage"));
-        }
-
-        [Theory]
-        [InlineData("IgnoreRegionAccessibilityIds")]
-        [InlineData("ConsiderRegionAccessibilityIds")]
-        public void AccessibilityIdRegionsAreReportedAsUnsupportedRatherThanSilentlyDropped(string parameter)
-        {
-            // Resolving them needs a driver Tosca does not expose, and Percy on Automate has no
-            // accessibility-id option — so forwarding them would leave the region unapplied with
-            // nothing said about it.
-            Dictionary<string, object?> options =
-                ToscaOptions.BuildAutomateOptions(Reader((parameter, "id-1")));
-
-            Assert.DoesNotContain("accessibility", string.Join(",", options.Keys));
-            Assert.True(Logged(parameter));
-            Assert.True(Logged("CustomIgnoreRegions"));
-        }
-
-        [Fact]
-        public void UnsetAccessibilityIdParametersAreNotWarnedAbout()
-        {
-            ToscaOptions.BuildAutomateOptions(Reader());
-            Assert.False(Logged("not supported on Tosca"));
-        }
-
-        [Fact]
-        public void TheRawOptionsParameterIsMergedLastSoItCanReachAnythingUnnamed()
-        {
-            Dictionary<string, object?> options = ToscaOptions.BuildAutomateOptions(Reader(
-                ("FullScreen", "true"),
-                ("Options", "{\"full_screen\": false, \"brand_new_cli_option\": \"x\"}")));
-
-            Assert.Equal(false, options["full_screen"]);
-            Assert.Equal("x", options["brand_new_cli_option"]);
-        }
 
         [Fact]
         public void KnownParametersListsEveryParameterTheBuildersRead()
         {
-            // The shim reads this to declare the module's parameter rows, so a parameter added to
-            // Build() without being listed here would be unreachable from Tosca.
+            // The Readme declares the module's parameter rows from this, so a parameter added to
+            // Build() without being listed here would be undocumented and effectively unreachable.
             List<string> read = new List<string>();
             ToscaOptions.Build(name => { read.Add(name); return null; });
-            ToscaOptions.BuildAutomateOptions(name => { read.Add(name); return null; });
 
             Assert.Empty(read.Distinct().Except(ToscaOptions.KnownParameters));
         }

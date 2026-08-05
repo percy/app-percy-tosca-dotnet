@@ -22,17 +22,8 @@ Capture is attempted two ways, in this order:
    Requires `Directory` and `Filename` on the module, and the right task name for your Tosca version
    (discovered automatically; see `ScreenshotTaskName`).
 
-Route 1 is the one to get working. Both need the **Get Appium Session Id** step described below.
+Route 1 is the one to get working, and it needs the **Get Appium Session Id** step described below.
 
-<details>
-<summary>Percy on Automate is also supported, if you ever want it</summary>
-
-Percy on Automate hands the session to the Percy CLI, which reconnects and captures server-side. It
-gains full-page capture and XPath-based regions, because the CLI has a live Appium connection. You get
-it by starting the CLI differently — `percy exec:start` with an `auto_` token instead of
-`percy app:exec:start` — and nothing on the module changes. It is not required for anything below.
-
-</details>
 
 ### What App Percy cannot do on Tosca
 
@@ -46,7 +37,7 @@ Two limits, both from what a Tosca extension can reach rather than from Percy. M
 ## Requirements
 
 - Tosca Commander 24, with Mobile Engine 3.0 installed and its mobile server running
-- `@percy/cli` **1.27.0 or newer** (`/percy/comparison` and `/percy/automateScreenshot` landed there)
+- `@percy/cli` **1.27.0 or newer** (`/percy/comparison` landed there)
 - Node 14+ for the CLI
 
 ## Setup
@@ -62,9 +53,9 @@ $ set PERCY_TOKEN=<your App project token>
 $ percy app:exec:start
 ```
 
-Use an **App** project's token, and `app:exec:start`. (A token starting with `auto_` plus
-`percy exec:start` selects Percy on Automate instead — see the note above.) `Diagnose` prints which
-mode is active.
+Use an **App** project's token and `app:exec:start`. A token starting with `auto_` is an Automate
+project token and selects a mode this SDK does not support — the step reports that plainly rather than
+failing obscurely.
 
 Then register the extension:
 
@@ -117,7 +108,6 @@ older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 | `OsVersion` | OS version |
 | `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Worth setting on App Percy — see below |
 | `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
-| `Directory`, `Filename` | **Required for App Percy.** Any writable folder and file name, e.g. `C:\Percy\tmp` and `percy.png` |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
 
 App Percy captures by asking Tosca's own mobile screenshot task to do it. Which task that is differs
@@ -132,43 +122,29 @@ unavoidable. App Percy captures by delegating to Tosca's own mobile screenshot t
 reads its destination from the test action's `Directory` and `Filename` parameters. There is no way to
 supply them on your behalf: doing so would mean implementing `ISpecialExecutionTaskTestAction`, an
 interface with ~35 members over undocumented Tricentis types. Two rows is the cheaper trade. The file
-is read and deleted immediately. **Percy on Automate needs neither.**
+is read and deleted immediately.
 
 On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
 `DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.
 Percy groups and diffs comparisons by the device tag, so a snapshot tagged `0x0` will not group with
-correctly-tagged ones — the step warns when this happens. Percy on Automate is unaffected: the CLI
-reads the real dimensions off the live session.
+correctly-tagged ones — the step warns when this happens.
 
 ### Capture
 
 | Parameter | Description |
 |---|---|
 | `FullScreen` | `true` if the app is in full-screen mode |
-| `FullPage` | `true` to capture the whole scrollable page (**Percy on Automate only**) |
-| `ScreenLengths` | Number of screens to capture for a full page |
-| `ScrollableXpath`, `ScrollableId` | Which element to scroll for a full page |
-| `TopScrollviewOffset`, `BottomScrollviewOffset` | Pixels to trim while scrolling |
-| `IosOptimizedFullpage` | `true` for the optimised iOS full-page algorithm |
-| `FreezeAnimatedImage` | `true` to freeze animations before capture (**Percy on Automate only**). Worth reaching for first when a snapshot is flaky — an animated splash or spinner is the usual cause |
-| `FreezeImageByXpaths` | XPaths of images to freeze; needs `FreezeAnimatedImage` (**Percy on Automate only**) |
-| `PercyCSS` | CSS injected before capture and removed after, for webview content (**Percy on Automate only**) |
 
 ### Regions
 
-**Custom (pixel) regions work in both modes.** XPath regions require Percy on Automate, where the CLI
-resolves them against the session itself.
+Regions are given in **pixel coordinates**.
 
 | Parameter | Description |
 |---|---|
 | `CustomIgnoreRegions`, `CustomConsiderRegions` | `top,bottom,left,right` in pixels, one region per entry |
-| `IgnoreRegionXpaths`, `ConsiderRegionXpaths` | XPath locators (**Percy on Automate only**) |
-| `IgnoreRegionSelectors`, `ConsiderRegionSelectors` | CSS selectors, for webview content (**Percy on Automate only**) |
 
-Accessibility-id regions are **not supported on Tosca** in either mode, and the step logs a warning
-saying so if you set them. Resolving them is a client-side feature of the other App Percy SDKs — it
-needs a driver to query, which Tosca does not expose — and Percy on Automate has no accessibility-id
-option for the CLI to resolve. Use an XPath, or a custom pixel region.
+XPath and accessibility-id regions are **not available on Tosca**. Resolving them needs a driver to
+query for elements, which a Tosca mobile session does not expose to an extension. Use pixel regions.
 
 Lists are separated by **newlines** if the value contains any, otherwise by **semicolons**. Commas
 are deliberately not separators, because an XPath predicate such as `//*[contains(@id,'total')]`
@@ -184,7 +160,7 @@ separate the four numbers:
 | Parameter | Description |
 |---|---|
 | `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
-| `Options` | Raw JSON object merged into the Percy on Automate options, for reaching a CLI option this SDK has no named parameter for |
+| `Directory`, `Filename` | Destination for the fallback capture route. Only needed if the device session cannot be reached directly |
 | `ScreenshotTaskName`, `ScreenshotEngineId` | Which Tosca task performs the App Percy capture. Only needed if discovery picks the wrong one — see below |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 

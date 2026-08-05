@@ -61,8 +61,7 @@ namespace AppPercyTosca
         /// <summary>
         /// False: <c>Execute Driver Script</c>, the only route for a raw Appium command, is
         /// documented as working against Tricentis' own device cloud only — so it cannot be relied
-        /// on against an App Automate hub, which is where it would matter. Percy on Automate is the
-        /// supported way to get App Automate's full capability set from Tosca.
+        /// on against an App Automate hub, which is where it would matter.
         /// </summary>
         public bool CanExecuteScript => false;
 
@@ -94,7 +93,7 @@ namespace AppPercyTosca
             if (buffers == null)
             {
                 Utils.Log("Could not reach Tosca's buffers, so the Appium session id is not " +
-                    "available. Percy on Automate needs it; App Percy does not.", "debug");
+                    "available and the device cannot be captured directly.", "debug");
                 return null;
             }
 

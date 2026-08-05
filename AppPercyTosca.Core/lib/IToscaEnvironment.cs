@@ -24,15 +24,16 @@ namespace AppPercyTosca.Core
         string? TestConfigurationParameter(string name);
 
         /// <summary>
-        /// Every TCP passed for the run. Used to carry the whole set through to Percy on Automate as
-        /// capabilities, since the CLI knows how to interpret more of them than this SDK does.
+        /// Every TCP passed for the run. Carried through as the session's capabilities, which is where
+        /// the device name, OS and version come from.
         /// </summary>
         IReadOnlyDictionary<string, string?> TestConfigurationParameters();
 
         /// <summary>
-        /// A Tosca buffer by name, or null when unset. This is how the Appium session id reaches
-        /// the extension: the <c>Get Appium Session Id</c> standard module writes it to a buffer,
-        /// and Percy on Automate cannot work without it.
+        /// A Tosca buffer by name, or null when unset. This is how the Appium session id reaches the
+        /// extension: the <c>Get Appium Session Id</c> standard module writes it to a buffer. Capture
+        /// asks the device session for the screen directly using it, so it is the one thing worth
+        /// setting up before anything else.
         /// </summary>
         string? Buffer(string name);
 

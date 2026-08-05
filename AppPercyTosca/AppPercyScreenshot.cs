@@ -35,8 +35,7 @@ namespace AppPercyTosca
         {
             HttpClient http = new HttpClient
             {
-                // Generous on purpose: /percy/comparison uploads a screenshot, and
-                // /percy/automateScreenshot waits for the CLI to drive the remote session.
+                // Generous on purpose: /percy/comparison uploads a screenshot.
                 Timeout = TimeSpan.FromMinutes(10)
             };
             return new PercyClient(http);
@@ -121,9 +120,9 @@ namespace AppPercyTosca
             }
             catch (Exception e)
             {
-                // Only reached when the session asked for errors not to be ignored (percyOptions
-                // ignoreErrors=false, or a missing session id on the Percy on Automate path); the
-                // Core swallows everything else so a visual check cannot fail a passing sheet.
+                // Only reached when the session asked for errors not to be ignored (a
+                // percy.ignoreErrors=false test configuration parameter); the Core swallows everything
+                // else so a visual check cannot fail a passing sheet.
                 string message = Utils.RedactCredentials(e.Message);
                 Utils.Log($"Percy snapshot {snapshotName} failed: {message}");
                 return new UnknownFailedActionResult($"Percy snapshot failed: {message}");
@@ -131,8 +130,7 @@ namespace AppPercyTosca
         }
 
         /// <summary>
-        /// Dispatches to the flow the CLI's session type calls for. Percy on Automate hands the
-        /// session to the CLI to capture remotely; App Percy captures here and uploads a tile.
+        /// Captures one App Percy snapshot: screenshot the device, upload the tile.
         ///
         /// Returns what the Tosca step should report — which is the caller's whole reason for wanting
         /// a return value here, since every outcome below except a throw leaves the step passing.
@@ -160,24 +158,15 @@ namespace AppPercyTosca
 
             if (Env.IsAutomateSession)
             {
-                if (!driver.HasRealSessionId)
-                {
-                    // Refused here rather than posted, because the CLI's failure to attach to a
-                    // made-up session id says nothing about the buffer that is actually missing.
-                    throw new PercyException(
-                        "Percy on Automate needs the Appium session id, which was not found in " +
-                        $"buffer '{ToscaMobileDriver.DefaultSessionIdBuffer}'. Add the " +
-                        "'Get Appium Session Id' standard module to the test case before this step " +
-                        "and have it write to that buffer, or name your own buffer in the " +
-                        "SessionIdBuffer parameter.");
-                }
-                // Rebuilt from the parameters rather than converted from `options`: the CLI owns this
-                // schema, and BuildAutomateOptions omits anything the step left unset so a project
-                // default is deferred to rather than overridden with a null.
-                return SnapshotOutcome.Describe(
-                    OnAutomate(driver).Screenshot(snapshotName, ToscaOptions.BuildAutomateOptions(read)),
-                    snapshotName);
+                // The CLI was started for Percy on Automate, which this SDK does not support. Said here
+                // because the alternative is the CLI rejecting the comparison with an error that never
+                // mentions how it was started.
+                Utils.Log("The Percy CLI is running in Percy on Automate mode, which this SDK does not " +
+                    "support. Restart it for App Percy: use an App project token (not one starting " +
+                    "with \"auto_\") and `percy app:exec:start`.");
+                return "Percy CLI is in Percy on Automate mode; App Percy snapshot skipped";
             }
+
             return SnapshotOutcome.Describe(
                 AppPercyFor(driver).Screenshot(snapshotName, options), snapshotName);
         }
@@ -189,8 +178,6 @@ namespace AppPercyTosca
         private static AppPercy AppPercyFor(ToscaMobileDriver driver) =>
             new AppPercy(driver, Client.Value);
 
-        private static PercyOnAutomate OnAutomate(ToscaMobileDriver driver) =>
-            new PercyOnAutomate(driver, Client.Value);
 
         /// <summary>
         /// What the SDK could and could not read, for the Diagnose parameter. This is the first stop

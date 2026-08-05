@@ -11,8 +11,7 @@ namespace AppPercyTosca.Core
     public class PercyClient
     {
         /// <summary>
-        /// App Percy needs a CLI that can serve /percy/comparison and, for Percy on Automate,
-        /// /percy/automateScreenshot. Both landed in 1.27.
+        /// App Percy needs a CLI that can serve /percy/comparison, which landed in 1.27.
         /// </summary>
         public const int MinimumMinorVersion = 27;
 
@@ -77,9 +76,8 @@ namespace AppPercyTosca.Core
         /// <summary>
         /// Whether Percy is running and new enough, memoized for <see cref="HealthcheckTtl"/>. Also
         /// records the build id/url and session type the CLI reports — which is why the answer
-        /// expiring matters for more than just enablement: a re-check also picks up a CLI that has
-        /// been restarted in a different mode, so the App Percy / Percy on Automate decision follows
-        /// the CLI that is actually running now.
+        /// expiring matters for more than just enablement: a re-check also picks up a CLI that has been
+        /// restarted, including one restarted into a mode this SDK does not support.
         /// </summary>
         /// <remarks>
         /// Deliberately not locked, even though Tosca can run steps concurrently and these two fields
@@ -222,38 +220,6 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
-        /// Posts a Percy on Automate screenshot: the CLI reconnects to the session itself and
-        /// captures server-side, so no image data crosses this boundary. Returns the full response.
-        /// </summary>
-        public JsonElement? PostAutomateScreenshot(
-            string name,
-            string sessionId,
-            string? commandExecutorUrl,
-            IReadOnlyDictionary<string, object?> capabilities,
-            Dictionary<string, object?> options)
-        {
-            try
-            {
-                Dictionary<string, object?> payload = new Dictionary<string, object?>
-                {
-                    ["clientInfo"] = Env.ClientInfo,
-                    ["environmentInfo"] = Env.EnvironmentInfo,
-                    ["sessionId"] = sessionId,
-                    ["commandExecutorUrl"] = commandExecutorUrl,
-                    ["capabilities"] = capabilities,
-                    ["snapshotName"] = name,
-                    ["options"] = options
-                };
-                return Post("/percy/automateScreenshot", payload, name);
-            }
-            catch (Exception error)
-            {
-                Utils.Log($"Could not take screenshot \"{name}\"");
-                Utils.Log(error.ToString(), "debug");
-                return null;
-            }
-        }
 
         /// <summary>
         /// Reports an SDK-side failure to Percy so it shows up in the build rather than only in a

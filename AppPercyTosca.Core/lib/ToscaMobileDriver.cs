@@ -6,10 +6,10 @@ namespace AppPercyTosca.Core
     /// there is nothing better to build on.
     ///
     /// The consequence worth understanding before reading on: this session cannot send raw Appium
-    /// commands and cannot query elements. So the element-based ignore/consider regions and App
-    /// Automate's remote full-page capture are unavailable here, while Percy on Automate — which
-    /// needs only a session id, a hub URL and capabilities, and does all its work server-side — is
-    /// fully supported. That asymmetry is why the README points Tosca users at Percy on Automate.
+    /// commands and cannot query elements. So element-based ignore/consider regions and remote
+    /// full-page capture are unavailable, and regions have to be given in pixels. Capturing the screen
+    /// still works, because that needs only the session id and the server address — both of which
+    /// Tosca does expose.
     /// </summary>
     public class ToscaMobileDriver : IMobileDriver
     {
@@ -20,9 +20,10 @@ namespace AppPercyTosca.Core
         public const string AppiumServerTcp = "AppiumServer";
 
         /// <summary>
-        /// Default buffer the Appium session id is read from. Percy on Automate needs it, and the
-        /// only way to obtain it is the `Get Appium Session Id` standard module, which writes it to
-        /// a buffer the user names — so the name is overridable from the Percy module.
+        /// Default buffer the Appium session id is read from. Capture needs it to ask the device
+        /// session for the screen, and the only way to obtain it is the `Get Appium Session Id`
+        /// standard module, which writes it to a buffer the user names — so the name is overridable
+        /// from the Percy module.
         /// </summary>
         public const string DefaultSessionIdBuffer = "PercyAppiumSessionId";
 
@@ -75,8 +76,8 @@ namespace AppPercyTosca.Core
 
         /// <summary>
         /// The Appium session id from its buffer, or a stable placeholder. The placeholder keeps the
-        /// per-session caches working; it is not good enough for Percy on Automate, which is why
-        /// <see cref="HasRealSessionId"/> exists for callers to check before taking that path.
+        /// per-session caches working; it is not a session anything can be asked about, which is why
+        /// <see cref="HasRealSessionId"/> exists for callers to check first.
         /// </summary>
         public string SessionId
         {
@@ -88,9 +89,9 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Whether a real Appium session id was found. Percy on Automate posts the id to the CLI so
-        /// it can reconnect to the session itself; sending a placeholder would have the CLI fail to
-        /// attach, with an error that says nothing about the missing buffer.
+        /// Whether a real Appium session id was found. Capture asks the automation server for
+        /// <c>/session/{id}/screenshot</c>, so a placeholder would produce a 404 that says nothing
+        /// about the buffer actually being unset.
         /// </summary>
         public bool HasRealSessionId =>
             !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer));

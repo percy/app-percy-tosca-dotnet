@@ -96,6 +96,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(Client(handler).Healthcheck());
             Assert.Equal("build-1", Env.PercyBuildId);
             Assert.Equal("https://percy.io/b/1", Env.PercyBuildUrl);
+            // Recorded so a CLI started for Percy on Automate can be reported as unsupported.
             Assert.Equal("automate", Env.SessionType);
             Assert.True(Env.IsAutomateSession);
         }
@@ -332,41 +333,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(Logged("Could not take screenshot"));
         }
 
-        [Fact]
-        public void PostAutomateScreenshotSendsTheSessionDetailsRatherThanImageData()
-        {
-            StubHttpMessageHandler handler = new StubHttpMessageHandler()
-                .On("/percy/automateScreenshot",
-                    "{\"success\":true,\"link\":\"https://percy.io/c/2\",\"data\":{\"id\":\"c2\"}}");
 
-            JsonElement? data = Client(handler).PostAutomateScreenshot(
-                "cart",
-                "session-9",
-                "https://hub.browserstack.com/wd/hub",
-                new Dictionary<string, object?> { ["platformName"] = "Android" },
-                new Dictionary<string, object?> { ["full_screen"] = true });
-
-            Assert.Equal("https://percy.io/c/2", Json.PropertyAsString(data, "link"));
-
-            string body = handler.BodyFor("/percy/automateScreenshot")!;
-            Assert.Contains("\"sessionId\":\"session-9\"", body);
-            Assert.Contains("\"commandExecutorUrl\":\"https://hub.browserstack.com/wd/hub\"", body);
-            Assert.Contains("\"snapshotName\":\"cart\"", body);
-            Assert.Contains("\"full_screen\":true", body);
-        }
-
-        [Fact]
-        public void PostAutomateScreenshotReturnsNullAndLogsWhenRefused()
-        {
-            StubHttpMessageHandler handler = new StubHttpMessageHandler()
-                .On("/percy/automateScreenshot", "{\"success\":false,\"error\":\"bad session\"}");
-
-            Assert.Null(Client(handler).PostAutomateScreenshot(
-                "cart", "s", "h", new Dictionary<string, object?>(),
-                new Dictionary<string, object?>()));
-
-            Assert.True(Logged("Could not take screenshot \"cart\""));
-        }
 
         [Fact]
         public void FailedEventsAreForwardedToPercy()

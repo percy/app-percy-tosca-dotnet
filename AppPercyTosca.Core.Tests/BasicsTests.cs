@@ -29,7 +29,8 @@ namespace AppPercyTosca.Core.Tests
         [InlineData("AUTOMATE", true)]
         [InlineData("web", false)]
         [InlineData(null, false)]
-        public void TheAutomateSessionTypeSelectsPercyOnAutomate(string? type, bool expected)
+        public void AnAutomateSessionTypeIsRecognisedSoItCanBeReportedAsUnsupported(
+            string? type, bool expected)
         {
             Env.SessionType = type;
             Assert.Equal(expected, Env.IsAutomateSession);

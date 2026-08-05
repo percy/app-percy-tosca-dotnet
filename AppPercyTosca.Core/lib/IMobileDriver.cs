@@ -11,19 +11,12 @@ namespace AppPercyTosca.Core
         public int Width { get; }
         public int Height { get; }
 
-        /// <summary>
-        /// The session's own id for this element, needed by Percy on Automate — the CLI re-resolves
-        /// the element server-side rather than trusting coordinates we computed.
-        /// </summary>
-        public string? Id { get; }
-
-        public ElementRect(int x, int y, int width, int height, string? id = null)
+        public ElementRect(int x, int y, int width, int height)
         {
             X = x;
             Y = y;
             Width = width;
             Height = height;
-            Id = id;
         }
     }
 

@@ -176,8 +176,8 @@ namespace AppPercyTosca.Core.Tests
         [InlineData("   ")]
         public void AMissingSessionIdIsReportedAsSuchRatherThanSubstitutedSilently(string? buffered)
         {
-            // Percy on Automate posts this id so the CLI can reconnect; handing it a placeholder
-            // would fail inside the CLI with an error that never mentions the missing buffer.
+            // Capture asks /session/{id}/screenshot, so a placeholder would 404 with an error that
+            // never mentions the buffer actually being unset.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = buffered;
             ToscaMobileDriver driver = Build(tosca);
@@ -211,8 +211,8 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void EveryParameterIsCarriedThroughUnderItsOwnNameAsWell()
         {
-            // Percy on Automate forwards this dictionary to the CLI, which understands more of the
-            // connection details than this SDK does — dropping the unmapped ones loses information.
+            // The whole parameter set is carried through as capabilities, so a detail this SDK does
+            // not map by name is still available to anything that reads them.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.Tcps["browserstack.user"] = "someone";
 
@@ -586,25 +586,5 @@ namespace AppPercyTosca.Core.Tests
             }
         }
 
-        [Fact]
-        public void APercyOnAutomateSnapshotEndToEndSendsTheSessionAndHub()
-        {
-            // The recommended path on Tosca: nothing is captured locally, so none of the
-            // unavailable driver capabilities matter.
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            StubHttpMessageHandler handler = new StubHttpMessageHandler()
-                .On("/percy/healthcheck",
-                    "{\"success\":true,\"type\":\"automate\",\"build\":{\"id\":\"b\",\"url\":\"u\"}}")
-                .Default("{\"success\":true,\"link\":\"https://percy.io/c/2\",\"data\":{\"id\":\"c2\"}}");
-            PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
-            ToscaMobileDriver driver = Build(tosca);
-
-            Assert.NotNull(new PercyOnAutomate(driver, client).Screenshot("cart"));
-
-            string body = handler.BodyFor("/percy/automateScreenshot")!;
-            Assert.Contains("\"sessionId\":\"session-abc\"", body);
-            Assert.Contains("\"commandExecutorUrl\":\"https://hub-cloud.browserstack.com/wd/hub\"", body);
-            Assert.Contains("\"deviceName\":\"Google Pixel 7\"", body);
-        }
     }
 }

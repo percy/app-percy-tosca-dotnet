@@ -10,8 +10,10 @@ namespace AppPercyTosca.Core
         public const string SdkVersion = "1.0.0";
 
         /// <summary>
-        /// The CLI session type from healthcheck. "automate" selects the Percy on Automate flow
-        /// (the CLI drives the capture) over the App Percy tile flow.
+        /// Value the CLI reports for <c>type</c> when it was started for Percy on Automate rather than
+        /// App Percy. This SDK supports App Percy only, so the value is used to warn rather than to
+        /// choose a path — posting an App Percy comparison to an automate-mode CLI is rejected, and the
+        /// rejection says nothing about the CLI having been started the wrong way.
         /// </summary>
         public const string AutomateSessionType = "automate";
 
@@ -30,6 +32,10 @@ namespace AppPercyTosca.Core
         public static string EnvironmentInfo =>
             string.IsNullOrWhiteSpace(ToscaVersion) ? "tosca" : $"tosca/{ToscaVersion}";
 
+        /// <summary>
+        /// True when the running CLI was started for Percy on Automate, which this SDK does not
+        /// support. Checked so the mismatch can be reported plainly.
+        /// </summary>
         public static bool IsAutomateSession =>
             string.Equals(SessionType, AutomateSessionType, StringComparison.OrdinalIgnoreCase);
 
