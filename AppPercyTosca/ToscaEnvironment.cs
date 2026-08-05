@@ -128,6 +128,18 @@ namespace AppPercyTosca
                 return null;
             }
 
+            // Created up front: the engine may fail silently rather than create a missing folder, and
+            // that failure is indistinguishable from every other "wrote no file" case.
+            try
+            {
+                Directory.CreateDirectory(directory);
+            }
+            catch (Exception e)
+            {
+                Utils.Log($"Cannot use '{directory}' as the screenshot folder: {e.Message}");
+                return null;
+            }
+
             List<(string Task, string Engine)> tried = new List<(string, string)>();
 
             foreach ((string task, string engine) in ScreenshotTaskCandidates())
@@ -148,6 +160,14 @@ namespace AppPercyTosca
                     continue;
                 }
 
+                // Info, not debug: which task actually ran is the first thing anyone diagnosing a
+                // capture needs, and requiring debug logging to learn it made a failure unreadable.
+                Utils.Log($"Capturing via the '{task}' task (engine '{engine}') into {directory}.");
+
+                // Snapshot the folder so the file can be found by what appeared, rather than by
+                // guessing the name the engine chose.
+                HashSet<string> before = SafeListing(directory);
+
                 // Past this point the task exists, so a failure is a real one: do not try another
                 // candidate, because the capture may have partially run.
                 try
@@ -164,20 +184,25 @@ namespace AppPercyTosca
                 }
 
                 string path = Path.Combine(directory, fileName);
-                if (File.Exists(path))
+                if (File.Exists(path)) return path;
+
+                // Not at the expected name: take whatever appeared while the task ran. The engine may
+                // add its own extension, timestamp or index, and any of those is still the screenshot.
+                string? appeared = SafeListing(directory).Except(before)
+                    .OrderByDescending(f => FileWriteTime(f))
+                    .FirstOrDefault();
+                if (appeared != null)
                 {
-                    Utils.Log($"Captured via the '{task}' task under engine '{engine}'.", "debug");
-                    return path;
+                    Utils.Log($"The '{task}' task wrote {appeared} rather than {path}; using it.");
+                    return appeared;
                 }
 
-                // The engine may have appended its own extension, so accept a near match rather than
-                // reporting failure for a file that is right there.
-                string? match = Directory.EnumerateFiles(directory,
-                        Path.GetFileNameWithoutExtension(fileName) + ".*")
-                    .FirstOrDefault();
-                if (match != null) return match;
-
-                Utils.Log($"The '{task}' task ran but wrote no file to {path}.", "debug");
+                // Info: this is the actionable failure, and it was previously invisible without debug
+                // logging — which made the whole capture path look silent.
+                Utils.Log($"The '{task}' task (engine '{engine}') ran without error but wrote no file " +
+                    $"to {directory}. Check that the test is steering a mobile device at this point, " +
+                    "and that this folder is writable by the account running Tosca.");
+                LogAvailableScreenshotTasks();
                 return null;
             }
 
@@ -187,6 +212,31 @@ namespace AppPercyTosca
                 "pair, and run with PERCY_LOGLEVEL=debug to see every task this Tosca install offers.");
             LogAvailableScreenshotTasks();
             return null;
+        }
+
+        /// <summary>Files currently in a folder, or empty when it cannot be listed.</summary>
+        private static HashSet<string> SafeListing(string directory)
+        {
+            try
+            {
+                return new HashSet<string>(Directory.EnumerateFiles(directory), StringComparer.OrdinalIgnoreCase);
+            }
+            catch (Exception)
+            {
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private static DateTime FileWriteTime(string path)
+        {
+            try
+            {
+                return File.GetLastWriteTimeUtc(path);
+            }
+            catch (Exception)
+            {
+                return DateTime.MinValue;
+            }
         }
 
         /// <summary>
@@ -253,10 +303,11 @@ namespace AppPercyTosca
         {
             List<(string Task, string Engine)> available = DiscoverScreenshotTasks();
             Utils.Log(available.Count == 0
-                ? "No screenshot-like special execution tasks were found in the loaded Tricentis assemblies."
-                : "Screenshot-like tasks this install registers: " +
-                    string.Join(", ", available.Select(a => $"'{a.Task}' (engine '{a.Engine}')")),
-                "debug");
+                ? "No screenshot-like special execution tasks were found in the loaded Tricentis " +
+                  "assemblies, so App Percy cannot capture on this install — use Percy on Automate."
+                : "Screenshot-like tasks this install registers, for ScreenshotTaskName / " +
+                  "ScreenshotEngineId: " +
+                    string.Join(", ", available.Select(a => $"'{a.Task}' (engine '{a.Engine}')")));
         }
 
         // Read reflectively rather than by cast: the attributes' property names are not published, and
