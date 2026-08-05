@@ -598,7 +598,7 @@ namespace AppPercyTosca.Core.Tests
         public void TheMostRecentIsUsedWhenNothingReportsItselfRunning()
         {
             // A session flips to "done" between the app finishing and this being asked, so requiring
-            // "running" outright would make the common case fail.
+            // "running" outright would make the common case fail. One candidate, so not ambiguous.
             StubHttpMessageHandler handler = Api(
                 "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"done\"}}]",
                 "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"done\"}}]");
@@ -624,7 +624,7 @@ namespace AppPercyTosca.Core.Tests
         public void NoBuildsMeansNoSession()
         {
             Assert.Null(Finder(Api("[]", "[]")).TryFindSessionId(Hub));
-            Assert.True(Logged("no App Automate builds"));
+            Assert.True(Logged("no usable App Automate build"));
         }
 
         [Fact]
@@ -632,7 +632,7 @@ namespace AppPercyTosca.Core.Tests
         {
             Assert.Null(Finder(Api("[{\"automation_build\":{\"hashed_id\":\"b1\"}}]", "[]"))
                 .TryFindSessionId(Hub));
-            Assert.True(Logged("reported no sessions"));
+            Assert.True(Logged("reported no usable session"));
         }
 
         [Fact]
@@ -666,15 +666,85 @@ namespace AppPercyTosca.Core.Tests
         [InlineData("[{\"automation_build\":{}}]")]
         public void AnUnusableListYieldsNothing(string? body)
         {
-            Assert.Null(AutomateSessionFinder.FirstHashedId(body, "automation_build", false));
+            Assert.Empty(AutomateSessionFinder.HashedIds(body, "automation_build", false));
         }
 
         [Fact]
         public void AnUnwrappedEntryIsAlsoAccepted()
         {
             // Defensive: the wrapper key is the documented shape, but a flat entry is unambiguous.
-            Assert.Equal("s1",
-                AutomateSessionFinder.FirstHashedId("[{\"hashed_id\":\"s1\"}]", "automation_session", false));
+            Assert.Equal(new[] { "s1" },
+                AutomateSessionFinder.HashedIds("[{\"hashed_id\":\"s1\"}]", "automation_session", false));
+        }
+
+        [Fact]
+        public void SeveralRunningSessionsAreRefusedRatherThanGuessedBetween()
+        {
+            // The hazard this whole class carries, and the reason nothing like it exists in the other
+            // App Percy SDKs: they are handed a driver that knows its own session. Capturing the wrong
+            // device would look like a real result and be accepted as a baseline, so ambiguity has to
+            // fail rather than pick.
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"running\"}}]");
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub));
+
+            Assert.True(Logged("2 running sessions"));
+            Assert.True(Logged("s1, s2"));
+            Assert.True(Logged("Get Appium Session Id"));
+        }
+
+        [Fact]
+        public void SeveralRunningBuildsAreRefusedTooRatherThanPickingOne()
+        {
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}," +
+                "{\"automation_build\":{\"hashed_id\":\"b2\",\"status\":\"running\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\"}}]");
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub));
+            Assert.True(Logged("2 running builds"));
+        }
+
+        [Fact]
+        public void SeveralFinishedSessionsAreAlsoAmbiguous()
+        {
+            // The fallback pass is just as capable of picking the wrong one.
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"done\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"done\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"done\"}}]");
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub));
+            Assert.True(Logged("no usable session"));
+        }
+
+        [Fact]
+        public void OneRunningSessionAmongFinishedOnesIsNotAmbiguous()
+        {
+            // Refusing here would make the normal case fail; only genuine ambiguity should.
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}," +
+                "{\"automation_build\":{\"hashed_id\":\"b0\",\"status\":\"done\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s0\",\"status\":\"done\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"}}]");
+
+            Assert.Equal("s1", Finder(handler).TryFindSessionId(Hub));
+        }
+
+        [Fact]
+        public void TheChosenSessionIsNamedAlongWithHowToOverrideIt()
+        {
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\"}}]");
+
+            Finder(handler).TryFindSessionId(Hub);
+
+            Assert.True(Logged("inferred from BrowserStack"));
+            Assert.True(Logged("Get Appium Session Id"));
         }
 
         [Fact]
