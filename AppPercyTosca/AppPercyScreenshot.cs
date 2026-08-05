@@ -108,10 +108,6 @@ namespace AppPercyTosca
                     Parameter(testAction, "SessionId"),
                     (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
 
-                if (ToscaOptions.ParseBool(Parameter(testAction, "Diagnose"), "Diagnose") == true)
-                {
-                    Utils.Log("Percy session diagnostics:" + Environment.NewLine + Describe(driver));
-                }
 
                 // The step passes whether or not a snapshot was recorded — a visual check that could
                 // not run is not a functional regression — but it must not *claim* one was. A green
@@ -180,30 +176,6 @@ namespace AppPercyTosca
             new AppPercy(driver, Client.Value);
 
 
-        /// <summary>
-        /// What the SDK could and could not read, for the Diagnose parameter. This is the first stop
-        /// when a snapshot comes out wrong — nearly every such case is a missing test configuration
-        /// parameter or an unset session-id buffer, and both show up plainly here.
-        /// </summary>
-        private static string Describe(ToscaMobileDriver driver)
-        {
-            IEnumerable<string> lines = new[]
-            {
-                // RedactCredentials turns null into "", so the fallback has to be chosen before
-                // redacting — otherwise a missing AppiumServer prints an empty value, and this dump
-                // exists to make exactly that visible.
-                $"host (AppiumServer): {(string.IsNullOrWhiteSpace(driver.Host) ? "(not found)" : Utils.RedactCredentials(driver.Host))}",
-                $"appium session id:   {(driver.HasRealSessionId ? driver.SessionId : "(not found)")}",
-                $"platform:            {driver.PlatformName ?? "(not found)"}",
-                $"session type:        {Env.SessionType ?? "(app percy)"}",
-                $"can execute scripts: {driver.CanExecuteScript}",
-                "capabilities:"
-            }.Concat(driver.Capabilities.Count == 0
-                ? new[] { "  (none found — set DeviceName, OsName and OsVersion on the module)" }
-                : driver.Capabilities.Select(c => $"  {c.Key} = {Utils.RedactCredentials(c.Value?.ToString())}"));
-
-            return string.Join(Environment.NewLine, lines);
-        }
 
         /// <summary>
         /// Cache key used when no Appium session id is available. Derived from the test action so it

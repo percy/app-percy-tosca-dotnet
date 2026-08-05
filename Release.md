@@ -16,8 +16,8 @@ uploads whatever is committed, so the build has to happen before the tag.
    The Core is compiled into that assembly, so `AppPercyTosca_v8.dll` is the whole extension — there
    is no second DLL to ship.
 3. Sanity-check it in Tosca: drop it in the extension folder, restart Commander, and run a
-   AppPercyScreenshot step with `Diagnose` set to `true`. CI cannot cover this step, and it is the one
-   that catches a Tricentis signature having changed.
+   AppPercyScreenshot step against a real device, with `PERCY_LOGLEVEL=debug` set. CI cannot cover this
+   step, and it is the one that catches a Tricentis signature having changed.
 4. **Export the module as a Tosca subset** and commit it as `AppPercyScreenshot.tsu` in the repository
    root, the way the web SDK ships `PercySnapshot.tsu`. Do this from the module you just verified in
    step 3, so what ships is a configuration known to work.

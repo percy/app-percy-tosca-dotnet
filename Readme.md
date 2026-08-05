@@ -83,7 +83,6 @@ than a typo. The minimum viable module is three rows:
 | Row | Value | Notes |
 |---|---|---|
 | `SnapshotName` | e.g. `Home` | Required; must be unique per snapshot |
-| `Diagnose` | `true` | Worth leaving on until the first snapshot lands |
 | `SessionIdBuffer` | `PercyAppiumSessionId` | Only if you named your buffer something else |
 
 > **Not yet shipped:** the web SDK ([percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet))
@@ -187,13 +186,12 @@ separate the four numbers:
 |---|---|
 | `SessionId` | The Appium session id. Use `{B[PercyAppiumSessionId]}` to pass a buffer written by the *Get Appium Session Id* module |
 | `SessionIdBuffer` | Buffer for the SDK to read itself instead (default `PercyAppiumSessionId`) |
-| `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 
 ## Troubleshooting
 
-Set `Diagnose` to `true` on the module and run the step. It logs the hub URL, the session id, the
-resolved platform and every capability found — enough to identify almost every problem, since nearly
-all of them are a missing test configuration parameter or an unset session-id buffer.
+Set `PERCY_LOGLEVEL=debug` as a **system** environment variable and restart Commander. Nearly every
+problem here is a missing test configuration parameter or an unset session id, and each of those
+reports itself by name in the log.
 
 For more detail, set `PERCY_LOGLEVEL=debug` before starting Tosca Commander.
 

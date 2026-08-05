@@ -15,9 +15,9 @@ namespace AppPercyTosca.Core
     {
         /// <summary>
         /// Every parameter name an AppPercyScreenshot module can carry, in the order the Readme
-        /// documents them — including the ones the shim reads itself (SnapshotName, SessionIdBuffer,
-        /// Diagnose, Directory, Filename) rather than only those Build reads. It is the module's
-        /// parameter manifest, and a test asserts Build never reads a name missing from it.
+        /// documents them — including the ones the shim reads itself (SnapshotName, SessionId,
+        /// SessionIdBuffer) rather than only those Build reads. It is the module's parameter manifest,
+        /// and a test asserts Build never reads a name missing from it.
         /// </summary>
         public static readonly string[] KnownParameters =
         {
@@ -27,7 +27,7 @@ namespace AppPercyTosca.Core
             "ScrollableXpath", "ScrollableId", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
-            "SessionId", "SessionIdBuffer", "Diagnose"
+            "SessionId", "SessionIdBuffer"
         };
 
         /// <summary>
