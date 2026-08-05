@@ -281,6 +281,8 @@ namespace AppPercyTosca.Core
                 }
             });
 
+            string? payloadText = result?.GetRawText();
+
             // A refusal comes back as {"success": false, "message": ...} with no "result" key.
             // Reading it blindly would turn the hub's explanation into a null reference and throw
             // away the only account of why the snapshot did not happen.
@@ -289,9 +291,13 @@ namespace AppPercyTosca.Core
             {
                 string? message = Json.PropertyAsString(result, "message");
                 bool refused = Json.Property(result, "success")?.ValueKind == JsonValueKind.False;
-                throw new PercyException(refused
-                    ? $"percyScreenshot {screenshotType} was refused by BrowserStack: {message ?? "no message"}"
-                    : $"percyScreenshot {screenshotType} returned no result: {message ?? "no message"}");
+                // The raw response is included because "no message" on its own has sent debugging in
+                // the wrong direction: it reads as a hub problem when it is usually the session id or
+                // the command being rejected outright.
+                throw new PercyException((refused
+                    ? $"percyScreenshot {screenshotType} was refused by BrowserStack"
+                    : $"percyScreenshot {screenshotType} returned no result") +
+                    $": {message ?? "no message"}. The hub replied: {Truncate(payloadText)}");
             }
 
             // The hub double-encodes `result`: a JSON string containing the tile array.
@@ -309,8 +315,26 @@ namespace AppPercyTosca.Core
                     ["arguments"] = arguments
                 });
 
+            // Logged both ways. This exchange decides whether a snapshot happens at all, and until now
+            // it was the only part of the flow that left no trace — a refusal surfaced as a downstream
+            // "returned no result" with nothing to say what was asked or what came back.
+            Utils.Log($"browserstack_executor -> {Truncate(command)}", "debug");
+
             string? response = Driver.ExecuteScript(command);
+
+            Utils.Log($"browserstack_executor <- {Truncate(response)}", "debug");
             return Json.TryParse(response);
+        }
+
+        /// <summary>
+        /// Caps a logged payload. A fullpage response carries a tile array and the request carries the
+        /// whole option set, and neither should turn a log line into a page.
+        /// </summary>
+        private static string Truncate(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "(nothing)";
+            string redacted = Utils.RedactCredentials(text.Trim());
+            return redacted.Length <= 500 ? redacted : redacted.Substring(0, 500) + "…";
         }
 
         /// <summary>

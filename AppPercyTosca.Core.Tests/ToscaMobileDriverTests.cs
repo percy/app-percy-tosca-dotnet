@@ -39,7 +39,8 @@ namespace AppPercyTosca.Core.Tests
     {
         private static ToscaMobileDriver Build(
             StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null,
-            StubHttpMessageHandler? deviceHttp = null, Func<string?, string?>? discover = null) =>
+            StubHttpMessageHandler? deviceHttp = null,
+            Func<string?, AutomateSessionFinder.Hints, string?>? discover = null) =>
             new ToscaMobileDriver(tosca, options ?? new ScreenshotOptions(), buffer, null,
                 deviceHttp == null
                     ? null
@@ -149,7 +150,7 @@ namespace AppPercyTosca.Core.Tests
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
 
-            ToscaMobileDriver driver = Build(tosca, discover: _ => "discovered-1");
+            ToscaMobileDriver driver = Build(tosca, discover: (_, _) => "discovered-1");
 
             Assert.Equal("discovered-1", driver.SessionId);
             Assert.True(driver.HasRealSessionId);
@@ -163,7 +164,7 @@ namespace AppPercyTosca.Core.Tests
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             bool asked = false;
 
-            ToscaMobileDriver driver = Build(tosca, discover: _ => { asked = true; return "discovered"; });
+            ToscaMobileDriver driver = Build(tosca, discover: (_, _) => { asked = true; return "discovered"; });
 
             Assert.Equal("session-abc", driver.SessionId);
             Assert.False(asked);
@@ -177,12 +178,26 @@ namespace AppPercyTosca.Core.Tests
             tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
             int calls = 0;
 
-            ToscaMobileDriver driver = Build(tosca, discover: _ => { calls++; return null; });
+            ToscaMobileDriver driver = Build(tosca, discover: (_, _) => { calls++; return null; });
 
             Assert.False(driver.HasRealSessionId);
             _ = driver.SessionId;
             _ = driver.SessionId;
             Assert.Equal(1, calls);
+        }
+
+        [Fact]
+        public void DiscoveryIsHandedTheDeviceDetailsThatDistinguishSessions()
+        {
+            // Without these, five running sessions on a shared account are indistinguishable.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
+            AutomateSessionFinder.Hints? seen = null;
+
+            _ = Build(tosca, discover: (_, hints) => { seen = hints; return null; }).SessionId;
+
+            Assert.Equal("Google Pixel 7", seen!.DeviceName);
+            Assert.Equal("13.0", seen.OsVersion);
         }
 
         [Fact]
@@ -192,7 +207,7 @@ namespace AppPercyTosca.Core.Tests
             tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
             string? seen = null;
 
-            _ = Build(tosca, discover: hub => { seen = hub; return null; }).SessionId;
+            _ = Build(tosca, discover: (hub, _) => { seen = hub; return null; }).SessionId;
 
             Assert.Equal("https://hub-cloud.browserstack.com/wd/hub", seen);
         }

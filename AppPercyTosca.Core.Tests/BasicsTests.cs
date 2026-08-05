@@ -431,8 +431,7 @@ namespace AppPercyTosca.Core.Tests
         private static StubHttpMessageHandler Api(string builds, string sessions)
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler();
-            handler.On("/builds.json?limit=5", builds);
-            handler.On("/builds.json?limit=5", builds);
+            handler.On("/builds.json?limit=10", builds);
             handler.Default(sessions);
             return handler;
         }
@@ -514,7 +513,7 @@ namespace AppPercyTosca.Core.Tests
         public void NoBuildsMeansNoSession()
         {
             Assert.Null(Finder(Api("[]", "[]")).TryFindSessionId(Hub));
-            Assert.True(Logged("no usable App Automate build"));
+            Assert.True(Logged("no App Automate builds"));
         }
 
         [Fact]
@@ -522,7 +521,7 @@ namespace AppPercyTosca.Core.Tests
         {
             Assert.Null(Finder(Api("[{\"automation_build\":{\"hashed_id\":\"b1\"}}]", "[]"))
                 .TryFindSessionId(Hub));
-            Assert.True(Logged("reported no usable session"));
+            Assert.True(Logged("no sessions across"));
         }
 
         [Fact]
@@ -556,15 +555,109 @@ namespace AppPercyTosca.Core.Tests
         [InlineData("[{\"automation_build\":{}}]")]
         public void AnUnusableListYieldsNothing(string? body)
         {
-            Assert.Empty(AutomateSessionFinder.HashedIds(body, "automation_build", false));
+            Assert.Empty(AutomateSessionFinder.Entries(body, "automation_build"));
         }
 
         [Fact]
         public void AnUnwrappedEntryIsAlsoAccepted()
         {
             // Defensive: the wrapper key is the documented shape, but a flat entry is unambiguous.
-            Assert.Equal(new[] { "s1" },
-                AutomateSessionFinder.HashedIds("[{\"hashed_id\":\"s1\"}]", "automation_session", false));
+            Assert.Equal("s1",
+                AutomateSessionFinder.Entries("[{\"hashed_id\":\"s1\"}]", "automation_session")[0].Id);
+        }
+
+        [Fact]
+        public void DeviceAndOsAreReadOffEachSession()
+        {
+            AutomateSessionFinder.Session session = AutomateSessionFinder.Entries(
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"," +
+                "\"device\":\"Google Pixel 7\",\"os_version\":\"13.0\"}}]",
+                "automation_session")[0];
+
+            Assert.Equal("Google Pixel 7", session.Device);
+            Assert.Equal("13.0", session.OsVersion);
+            Assert.True(session.Running);
+        }
+
+        [Fact]
+        public void SeveralRunningBuildsAreAllSearchedRatherThanRefusedOutright()
+        {
+            // The situation on a shared account: five builds in flight. Refusing at the build stage
+            // never even looks at the session that belongs to this test.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler();
+            handler.On("/builds.json?limit=10",
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}," +
+                "{\"automation_build\":{\"hashed_id\":\"b2\",\"status\":\"running\"}}]");
+            handler.On("/builds/b1/sessions.json?limit=10",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"," +
+                "\"device\":\"Samsung Galaxy S22\",\"os_version\":\"12.0\"}}]");
+            handler.Default(
+                "[{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"running\"," +
+                "\"device\":\"Google Pixel 7\",\"os_version\":\"13.0\"}}]");
+
+            string? found = Finder(handler).TryFindSessionId(Hub,
+                new AutomateSessionFinder.Hints { DeviceName = "Pixel 7", OsVersion = "13" });
+
+            Assert.Equal("s2", found);
+        }
+
+        [Fact]
+        public void TheDeviceUnderTestNarrowsSeveralRunningSessionsToOne()
+        {
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"," +
+                "\"device\":\"Samsung Galaxy S22\",\"os_version\":\"12.0\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"running\"," +
+                "\"device\":\"Google Pixel 7\",\"os_version\":\"13.0\"}}]");
+
+            Assert.Equal("s2", Finder(handler).TryFindSessionId(Hub,
+                new AutomateSessionFinder.Hints { DeviceName = "Google Pixel 7" }));
+        }
+
+        [Fact]
+        public void NarrowingIsLooseEnoughForPartialDeviceNamesAndOsPointReleases()
+        {
+            // A test configuration says "Pixel 7" and "13" where BrowserStack says "Google Pixel 7" and
+            // "13.0"; requiring equality would match nothing and refuse.
+            AutomateSessionFinder.Session session = new AutomateSessionFinder.Session
+            {
+                Id = "s", Device = "Google Pixel 7", OsVersion = "13.0"
+            };
+
+            Assert.True(AutomateSessionFinder.Matches(session,
+                new AutomateSessionFinder.Hints { DeviceName = "Pixel 7", OsVersion = "13" }));
+            Assert.False(AutomateSessionFinder.Matches(session,
+                new AutomateSessionFinder.Hints { DeviceName = "iPhone 14" }));
+        }
+
+        [Fact]
+        public void AHintTheSessionDoesNotReportCannotRuleItOut()
+        {
+            // Absence is not disagreement: BrowserStack may not report an app for a session.
+            AutomateSessionFinder.Session session = new AutomateSessionFinder.Session { Id = "s" };
+
+            Assert.True(AutomateSessionFinder.Matches(session,
+                new AutomateSessionFinder.Hints { DeviceName = "Pixel 7", App = "bs://abc" }));
+        }
+
+        [Fact]
+        public void WhenNarrowingMatchesNothingTheUnnarrowedCandidatesAreStillReported()
+        {
+            // Better to say "these two, and your device matched neither" than to silently report none.
+            StubHttpMessageHandler handler = Api(
+                "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}]",
+                "[{\"automation_session\":{\"hashed_id\":\"s1\",\"status\":\"running\"," +
+                "\"device\":\"Samsung Galaxy S22\"}}," +
+                "{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"running\"," +
+                "\"device\":\"Google Pixel 7\"}}]");
+
+            Assert.Null(Finder(handler).TryFindSessionId(Hub,
+                new AutomateSessionFinder.Hints { DeviceName = "iPhone 14" }));
+
+            Assert.True(Logged("2 candidate sessions"));
+            Assert.True(Logged("iPhone 14"));
+            Assert.True(Logged("Set DeviceName and OsVersion"));
         }
 
         [Fact]
@@ -581,21 +674,21 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.Null(Finder(handler).TryFindSessionId(Hub));
 
-            Assert.True(Logged("2 running sessions"));
-            Assert.True(Logged("s1, s2"));
+            Assert.True(Logged("2 candidate sessions"));
             Assert.True(Logged("Get Appium Session Id"));
         }
 
         [Fact]
-        public void SeveralRunningBuildsAreRefusedTooRatherThanPickingOne()
+        public void TheSameSessionSurfacingTwiceIsNotAmbiguity()
         {
             StubHttpMessageHandler handler = Api(
                 "[{\"automation_build\":{\"hashed_id\":\"b1\",\"status\":\"running\"}}," +
                 "{\"automation_build\":{\"hashed_id\":\"b2\",\"status\":\"running\"}}]",
                 "[{\"automation_session\":{\"hashed_id\":\"s1\"}}]");
 
-            Assert.Null(Finder(handler).TryFindSessionId(Hub));
-            Assert.True(Logged("2 running builds"));
+            // Searching two builds can list one session twice; deduping by id keeps that from reading
+            // as two candidates.
+            Assert.Equal("s1", Finder(handler).TryFindSessionId(Hub));
         }
 
         [Fact]
@@ -608,7 +701,7 @@ namespace AppPercyTosca.Core.Tests
                 "{\"automation_session\":{\"hashed_id\":\"s2\",\"status\":\"done\"}}]");
 
             Assert.Null(Finder(handler).TryFindSessionId(Hub));
-            Assert.True(Logged("no usable session"));
+            Assert.True(Logged("2 candidate sessions"));
         }
 
         [Fact]

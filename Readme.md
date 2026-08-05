@@ -99,16 +99,20 @@ Direct capture needs the session id. There are two ways to supply it, and either
 → Mobile) before your AppPercyScreenshot step, writing to a buffer named `PercyAppiumSessionId` — or
 name your own buffer and pass it as `SessionIdBuffer`.
 
-**From BrowserStack, on App Automate.** That module is not always usable against a cloud connection.
-Embed your credentials in the `AppiumServer` test configuration parameter:
+**From BrowserStack.** That module is not always usable against a cloud connection. Embed your
+credentials in the `AppiumServer` test configuration parameter:
 
 ```
 https://<user>:<access-key>@hub-cloud.browserstack.com/wd/hub
 ```
 
-The SDK then asks App Automate's REST API which session is running and uses that. A buffered id always
-wins over a discovered one, because it came from the session actually under test whereas discovery
-infers from "what is running on this account" — so it is only reliable when one session is.
+The SDK then asks App Automate's REST API which sessions are running. On a shared account several
+usually are, so it narrows them by the device and OS this test asked for — `DeviceName` and `OSVersion`
+from your test configuration parameters, or the same names on the Percy module. **If more than one
+session still matches, it refuses rather than guessing**, naming the candidates: capturing the wrong
+device would produce a plausible-looking snapshot that gets accepted as a baseline.
+
+A buffered id always wins over a discovered one, since it came from the session actually under test.
 
 Without either, capture falls back to Tosca's own screenshot task, which is the weaker route.
 

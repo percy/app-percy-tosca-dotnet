@@ -46,7 +46,7 @@ namespace AppPercyTosca.Core
         private readonly IToscaEnvironment _tosca;
         private readonly ScreenshotOptions _options;
         private readonly Func<string, string, WebDriverSession>? _webDriver;
-        private readonly Func<string?, string?>? _discoverSessionId;
+        private readonly Func<string?, AutomateSessionFinder.Hints, string?>? _discoverSessionId;
         private string? _discoveredSessionId;
         private bool _discoveryAttempted;
         private readonly string? _sessionIdBuffer;
@@ -68,7 +68,7 @@ namespace AppPercyTosca.Core
             string? sessionIdBuffer = null,
             string? fallbackSessionId = null,
             Func<string, string, WebDriverSession>? webDriver = null,
-            Func<string?, string?>? discoverSessionId = null)
+            Func<string?, AutomateSessionFinder.Hints, string?>? discoverSessionId = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -109,7 +109,14 @@ namespace AppPercyTosca.Core
             if (_discoveryAttempted || _discoverSessionId == null) return _discoveredSessionId;
 
             _discoveryAttempted = true;
-            _discoveredSessionId = _discoverSessionId(Host);
+            // The device details this test asked for are what tell one running session from another on
+            // a shared account, so they are handed over rather than leaving the lookup to guess.
+            _discoveredSessionId = _discoverSessionId(Host, new AutomateSessionFinder.Hints
+            {
+                DeviceName = _options.DeviceName ?? _capabilities.GetString("deviceName"),
+                OsVersion = _options.PlatformVersion ?? _capabilities.GetString("platformVersion"),
+                App = _capabilities.GetString("app")
+            });
             return _discoveredSessionId;
         }
 

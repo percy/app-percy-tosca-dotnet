@@ -69,12 +69,48 @@ namespace AppPercyTosca.Core
             }
         }
 
+        /// <summary>What the session under test should look like, from the test configuration.</summary>
+        public class Hints
+        {
+            public string? DeviceName { get; init; }
+            public string? OsVersion { get; init; }
+            public string? App { get; init; }
+
+            public bool Any => !string.IsNullOrWhiteSpace(DeviceName)
+                || !string.IsNullOrWhiteSpace(OsVersion) || !string.IsNullOrWhiteSpace(App);
+
+            public override string ToString() => string.Join(" ", new[]
+            {
+                DeviceName, OsVersion, App
+            }.Where(v => !string.IsNullOrWhiteSpace(v)));
+        }
+
+        /// <summary>One session as BrowserStack describes it.</summary>
+        internal class Session
+        {
+            public string Id { get; init; } = "";
+            public string? Status { get; init; }
+            public string? Device { get; init; }
+            public string? OsVersion { get; init; }
+            public string? App { get; init; }
+
+            public bool Running =>
+                Status?.IndexOf("running", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            public override string ToString() =>
+                $"{Id} ({string.Join(" ", new[] { Device, OsVersion }.Where(v => v != null))})";
+        }
+
         /// <summary>
-        /// Returns the session id of the running App Automate session, or null. Prefers a session
-        /// BrowserStack reports as running; falls back to the most recent, since a session can flip to
-        /// "done" between the app finishing and this being asked.
+        /// Returns the session id of the App Automate session under test, or null.
+        ///
+        /// Several sessions running on one account is the normal case for a shared BrowserStack
+        /// account, so "the one that is running" is not on its own an answer. The test configuration
+        /// already says which device and OS this test asked for, and BrowserStack reports the same for
+        /// each session — so those narrow the field, and only genuine ambiguity after narrowing is
+        /// refused.
         /// </summary>
-        public string? TryFindSessionId(string? hubUrl)
+        public string? TryFindSessionId(string? hubUrl, Hints? hints = null)
         {
             (string User, string Key)? credentials = CredentialsFrom(hubUrl);
             if (credentials == null)
@@ -88,31 +124,40 @@ namespace AppPercyTosca.Core
 
             try
             {
-                string builds = Get("/builds.json?limit=5", credentials.Value);
-                string? buildId = Unambiguous(HashedIds(builds, "automation_build", running: true), "build")
-                    ?? Unambiguous(HashedIds(builds, "automation_build", running: false), "build");
-                if (buildId == null)
+                List<string> buildIds = CandidateBuildIds(Get("/builds.json?limit=10", credentials.Value));
+                if (buildIds.Count == 0)
                 {
-                    Utils.Log("BrowserStack reported no usable App Automate build for this account, so " +
-                        "the session id could not be discovered.");
+                    Utils.Log("BrowserStack reported no App Automate builds for this account, so the " +
+                        "session id could not be discovered.");
                     return null;
                 }
 
-                string sessions = Get($"/builds/{buildId}/sessions.json?limit=5", credentials.Value);
-                string? sessionId =
-                    Unambiguous(HashedIds(sessions, "automation_session", running: true), "session")
-                    ?? Unambiguous(HashedIds(sessions, "automation_session", running: false), "session");
-
-                if (sessionId == null)
+                // Every candidate build is searched, not just one. With several builds in flight,
+                // picking a build first and then refusing on its sessions would refuse before ever
+                // looking at the session that matches this test.
+                List<Session> sessions = new List<Session>();
+                foreach (string buildId in buildIds)
                 {
-                    Utils.Log($"BrowserStack build {buildId} reported no usable session.");
+                    sessions.AddRange(
+                        SessionsIn(Get($"/builds/{buildId}/sessions.json?limit=10", credentials.Value)));
+                }
+
+                // By id: searching several builds can surface the same session twice, and a duplicate
+                // is not ambiguity.
+                sessions = sessions.GroupBy(x => x.Id).Select(g => g.First()).ToList();
+
+                List<Session> running = sessions.Where(x => x.Running).ToList();
+                // Falling back to all of them because a session flips to "done" between the app
+                // finishing and this being asked.
+                List<Session> candidates = running.Count > 0 ? running : sessions;
+
+                if (candidates.Count == 0)
+                {
+                    Utils.Log($"BrowserStack reported no sessions across {buildIds.Count} build(s).");
                     return null;
                 }
 
-                Utils.Log($"Using App Automate session {sessionId} (build {buildId}), inferred from " +
-                    "BrowserStack as the only one running. If that is not the session under test, " +
-                    "supply the id through the 'Get Appium Session Id' module instead.");
-                return sessionId;
+                return Choose(candidates, hints);
             }
             catch (Exception e)
             {
@@ -148,54 +193,99 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Every hashed_id in one of BrowserStack's list responses, which wrap each entry in a
-        /// single-key object — [{"automation_build": {...}}]. With <paramref name="running"/> set, only
-        /// entries whose status says they are running are returned; that pass is tried first so a stale
-        /// build is never preferred over the live one.
+        /// Narrows the candidates by what the test configuration asked for, and returns the single
+        /// survivor.
+        ///
+        /// Refusing when several survive is the point. Picking one would capture whichever session
+        /// happened to be listed first, and a snapshot of the wrong device is worse than no snapshot:
+        /// it looks like a real result and would be accepted as a baseline. The other App Percy SDKs
+        /// never face this because their driver knows its own session.
         /// </summary>
-        internal static List<string> HashedIds(string? body, string wrapper, bool running)
+        private static string? Choose(List<Session> candidates, Hints? hints)
         {
-            List<string> ids = new List<string>();
+            List<Session> narrowed = candidates;
+
+            if (hints != null && hints.Any && candidates.Count > 1)
+            {
+                List<Session> matching = candidates.Where(c => Matches(c, hints)).ToList();
+                if (matching.Count > 0)
+                {
+                    Utils.Log($"Narrowed {candidates.Count} candidate session(s) to {matching.Count} " +
+                        $"matching '{hints}' from the test configuration.", "debug");
+                    narrowed = matching;
+                }
+            }
+
+            if (narrowed.Count == 1)
+            {
+                Utils.Log($"Using App Automate session {narrowed[0]}, inferred from BrowserStack. If " +
+                    "that is not the session under test, supply the id through the 'Get Appium Session " +
+                    "Id' module instead.");
+                return narrowed[0].Id;
+            }
+
+            Utils.Log($"BrowserStack reports {narrowed.Count} candidate sessions " +
+                $"({string.Join("; ", narrowed)}) and the test configuration does not distinguish them" +
+                (hints != null && hints.Any ? $" (looking for '{hints}')" : "") +
+                ". Set DeviceName and OsVersion on the Percy module to match the device under test, " +
+                "supply the session id through the 'Get Appium Session Id' module, or run one at a time.");
+            return null;
+        }
+
+        /// <summary>
+        /// Whether a session looks like the one asked for. Every hint that is set must agree; a hint
+        /// BrowserStack does not report cannot rule a session out, since absence is not disagreement.
+        /// </summary>
+        internal static bool Matches(Session session, Hints hints) =>
+            Agrees(session.Device, hints.DeviceName)
+            && Agrees(session.OsVersion, hints.OsVersion)
+            && Agrees(session.App, hints.App);
+
+        private static bool Agrees(string? reported, string? wanted)
+        {
+            if (string.IsNullOrWhiteSpace(wanted) || string.IsNullOrWhiteSpace(reported)) return true;
+            // Loose both ways: "Google Pixel 7" vs "Pixel 7", and "13" vs "13.0".
+            return reported.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0
+                || wanted.IndexOf(reported, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>Build ids worth searching: the running ones, or all of them if none are.</summary>
+        internal static List<string> CandidateBuildIds(string? body)
+        {
+            List<Session> builds = Entries(body, "automation_build");
+            List<Session> running = builds.Where(b => b.Running).ToList();
+            return (running.Count > 0 ? running : builds).Select(b => b.Id).ToList();
+        }
+
+        internal static List<Session> SessionsIn(string? body) => Entries(body, "automation_session");
+
+        /// <summary>
+        /// Reads BrowserStack's list responses, which wrap each entry in a single-key object —
+        /// [{"automation_build": {...}}].
+        /// </summary>
+        internal static List<Session> Entries(string? body, string wrapper)
+        {
+            List<Session> entries = new List<Session>();
             JsonElement? parsed = Json.TryParse(body);
-            if (parsed == null || parsed.Value.ValueKind != JsonValueKind.Array) return ids;
+            if (parsed == null || parsed.Value.ValueKind != JsonValueKind.Array) return entries;
 
             foreach (JsonElement entry in parsed.Value.EnumerateArray())
             {
                 JsonElement? inner = Json.Property(entry, wrapper) ?? entry;
-                string? hashedId = Json.PropertyAsString(inner, "hashed_id");
-                if (string.IsNullOrWhiteSpace(hashedId)) continue;
+                string? id = Json.PropertyAsString(inner, "hashed_id");
+                if (string.IsNullOrWhiteSpace(id)) continue;
 
-                if (running)
+                entries.Add(new Session
                 {
-                    string? status = Json.PropertyAsString(inner, "status");
-                    if (status == null ||
-                        status.IndexOf("running", StringComparison.OrdinalIgnoreCase) < 0)
-                    {
-                        continue;
-                    }
-                }
-                ids.Add(hashedId);
+                    Id = id,
+                    Status = Json.PropertyAsString(inner, "status"),
+                    Device = Json.PropertyAsString(inner, "device"),
+                    OsVersion = Json.PropertyAsString(inner, "os_version"),
+                    App = Json.PropertyAsString(inner, "app_details")
+                        ?? Json.PropertyAsString(inner, "app")
+                });
             }
-            return ids;
-        }
-
-        /// <summary>
-        /// The single candidate, or null when there are none or several.
-        ///
-        /// Refusing on several is the point. Picking one would capture whichever session happened to be
-        /// listed first, and a snapshot of the wrong device is worse than no snapshot: it looks like a
-        /// real result and would be accepted as a baseline. The other App Percy SDKs never face this
-        /// because their driver knows its own session.
-        /// </summary>
-        private static string? Unambiguous(List<string> candidates, string what)
-        {
-            if (candidates.Count == 0) return null;
-            if (candidates.Count == 1) return candidates[0];
-
-            Utils.Log($"BrowserStack reports {candidates.Count} running {what}s " +
-                $"({string.Join(", ", candidates)}), so which one is under test cannot be inferred. " +
-                "Supply the session id through the 'Get Appium Session Id' module, or run one at a time.");
-            return null;
+            return entries;
         }
     }
 }
