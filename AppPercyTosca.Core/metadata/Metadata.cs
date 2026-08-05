@@ -30,24 +30,6 @@ namespace AppPercyTosca.Core
             _screenHeight = options.ScreenHeight;
         }
 
-        private int _fallbackWidth;
-        private int _fallbackHeight;
-
-        /// <summary>
-        /// Supplies the screen size measured from the captured screenshot, used only when nothing
-        /// better is available. Called after capture, which is why it is a setter rather than a
-        /// constructor argument: on Tosca the screenshot is frequently the only thing that knows how
-        /// big the screen is, and it does not exist yet when this object is built.
-        /// </summary>
-        public void UseFallbackScreenSize(int width, int height)
-        {
-            if (width > 0) _fallbackWidth = width;
-            if (height > 0) _fallbackHeight = height;
-        }
-
-        protected int FallbackScreenWidth => _fallbackWidth;
-        protected int FallbackScreenHeight => _fallbackHeight;
-
         protected string? SuppliedDeviceName => _deviceName;
         protected int SuppliedStatusBar => _statusBar;
         protected int SuppliedNavBar => _navBar;

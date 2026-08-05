@@ -110,7 +110,7 @@ older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
 | `DeviceName` | Device label used for the Percy tag and dimension lookup |
 | `OsName` | `Android` or `iOS`. Required if Tosca reports no platform |
 | `OsVersion` | OS version |
-| `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Rarely needed — measured from the screenshot automatically |
+| `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Worth setting on App Percy — see below |
 | `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
 | `Directory`, `Filename` | **Required for App Percy.** Any writable folder and file name, e.g. `C:\Percy\tmp` and `percy.png` |
 | `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
@@ -122,14 +122,11 @@ supply them on your behalf: doing so would mean implementing `ISpecialExecutionT
 interface with ~35 members over undocumented Tricentis types. Two rows is the cheaper trade. The file
 is read and deleted immediately. **Percy on Automate needs neither.**
 
-You should not normally need `ScreenWidth`/`ScreenHeight`. On the App Percy path the screen size is
-read from the captured screenshot's own PNG header, which is the most reliable statement of it
-available — so it works even when Tosca reports no size and the device is absent from the built-in
-table. The order of preference is: what you set on the module, then a `DeviceScreenSize` /
-`ScreenResolution` / `Resolution` test configuration parameter, then the measurement. Set them
-explicitly only to override a wrong value, or if the step warns that it could not determine the size
-(which now means the capture was not a readable PNG). Percy on Automate is unaffected: the CLI reads
-the real dimensions off the live session.
+On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
+`DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.
+Percy groups and diffs comparisons by the device tag, so a snapshot tagged `0x0` will not group with
+correctly-tagged ones — the step warns when this happens. Percy on Automate is unaffected: the CLI
+reads the real dimensions off the live session.
 
 ### Capture
 

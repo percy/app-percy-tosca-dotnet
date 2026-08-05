@@ -42,14 +42,6 @@ namespace AppPercyTosca.Core
 
             Metadata = MetadataResolver.Resolve(Driver, options, SessionCache);
 
-            // Capture first, then measure. The screenshot is the most reliable statement of how big
-            // the screen is — often the only one, since a Tosca mobile session reports no size — and
-            // it costs nothing to read. Doing it in this order means both the comparison tag and
-            // custom-region validation below get real dimensions instead of zeros, rather than making
-            // the user type them onto the module.
-            List<Tile> tiles = CaptureTiles(options);
-            MeasureScreenFromTiles(tiles);
-
             Dictionary<string, object?> tag = Metadata.GetTag();
             List<Dictionary<string, object?>> ignored = FindRegions(
                 options.IgnoreRegionXpaths,
@@ -59,6 +51,8 @@ namespace AppPercyTosca.Core
                 options.ConsiderRegionXpaths,
                 options.ConsiderRegionAccessibilityIds,
                 options.CustomConsiderRegions);
+
+            List<Tile> tiles = CaptureTiles(options);
 
             return Client.PostScreenshot(
                 name,
@@ -89,30 +83,6 @@ namespace AppPercyTosca.Core
                 new Tile(localFilePath, Metadata.StatBarHeight(), Metadata.NavBarHeight(),
                     0, 0, options.FullScreen)
             };
-        }
-
-        /// <summary>
-        /// Tells the metadata layer how big the screen is, measured from the tile just captured.
-        ///
-        /// Only ever a fallback: anything the step declared or the session reported still wins. This
-        /// covers the case that is otherwise unserviceable — a session with no screen-size capability
-        /// and a device absent from the static table — which on Tosca is the normal case rather than
-        /// an edge one.
-        ///
-        /// Skipped for a remotely-uploaded tile, which has a content hash and no local file; that path
-        /// has real device capabilities to read instead.
-        /// </summary>
-        private void MeasureScreenFromTiles(List<Tile> tiles)
-        {
-            string? path = tiles.FirstOrDefault(t => t.LocalFilePath != null)?.LocalFilePath;
-            if (path == null) return;
-
-            (int Width, int Height)? size = PngSize.TryReadFile(path);
-            if (size == null) return;
-
-            Metadata.UseFallbackScreenSize(size.Value.Width, size.Value.Height);
-            Utils.Log($"Measured the device screen as {size.Value.Width}x{size.Value.Height} from the " +
-                "screenshot.", "debug");
         }
 
         /// <summary>

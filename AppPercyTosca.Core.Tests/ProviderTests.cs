@@ -270,81 +270,15 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("\"top\":0,\"bottom\":100,\"left\":0,\"right\":200", body);
         }
 
-        /// <summary>
-        /// Base64 of a PNG header declaring the given size. Only the first 24 bytes are ever read, so
-        /// this is a complete stand-in for a real screenshot as far as measurement is concerned.
-        /// </summary>
-        private static string FakePng(int width, int height)
-        {
-            byte[] bytes = new byte[24];
-            new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }.CopyTo(bytes, 0);
-            bytes[11] = 13;                                  // IHDR chunk length
-            System.Text.Encoding.ASCII.GetBytes("IHDR").CopyTo(bytes, 12);
-            BitConverter.GetBytes(width).Reverse().ToArray().CopyTo(bytes, 16);
-            BitConverter.GetBytes(height).Reverse().ToArray().CopyTo(bytes, 20);
-            return Convert.ToBase64String(bytes);
-        }
-
         [Fact]
-        public void TheScreenSizeIsMeasuredFromTheScreenshotWhenNothingElseKnowsIt()
+        public void CustomRegionsSurviveAnUnknownScreenSizeInsteadOfBeingDiscarded()
         {
-            // The normal case on Tosca: no screen-size capability and a device absent from the static
-            // table. The screenshot itself states the size, so the user should not have to type it.
+            // The situation on a Tosca session with no screen-size parameter. Validating against a
+            // 0x0 screen rejects every region, so the user loses the only region type available to
+            // them — and the message blames the region rather than the missing dimensions.
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Caps.Remove("deviceScreenSize");
             driver.Caps.Remove("viewportRect");
-            driver.Screenshot = FakePng(1080, 2340);
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            string body = handler.BodyFor("/percy/comparison")!;
-            Assert.Contains("\"width\":1080", body);
-            Assert.Contains("\"height\":2340", body);
-            Assert.False(Logged("Could not determine the device screen size"));
-        }
-
-        [Fact]
-        public void AnExplicitScreenSizeStillWinsOverTheMeasuredOne()
-        {
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Caps.Remove("deviceScreenSize");
-            driver.Caps.Remove("viewportRect");
-            driver.Screenshot = FakePng(1080, 2340);
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home",
-                new ScreenshotOptions { ScreenWidth = 720, ScreenHeight = 1280 });
-
-            string body = handler.BodyFor("/percy/comparison")!;
-            Assert.Contains("\"width\":720", body);
-            Assert.Contains("\"height\":1280", body);
-        }
-
-        [Fact]
-        public void ASessionReportedSizeStillWinsOverTheMeasuredOne()
-        {
-            // deviceScreenSize describes the whole screen; a screenshot may be cropped, so the
-            // capability is the better source when present.
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Screenshot = FakePng(999, 999);
-            (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            Assert.Contains("\"width\":1080", handler.BodyFor("/percy/comparison")!);
-        }
-
-        [Fact]
-        public void CustomRegionsSurviveAnUnmeasurableScreenInsteadOfBeingDiscarded()
-        {
-            // Validating against a 0x0 screen rejects every region, so the user loses the only region
-            // type available on this path — and the message blames the region rather than the missing
-            // dimensions. Reached when the capture is not a readable PNG.
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Caps.Remove("deviceScreenSize");
-            driver.Caps.Remove("viewportRect");
-            driver.Screenshot = Convert.ToBase64String(new byte[] { 1, 2, 3, 4 });
             (GenericProvider provider, StubHttpMessageHandler handler) = Build(driver);
 
             provider.Screenshot("home", new ScreenshotOptions
@@ -358,15 +292,13 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void AnUnmeasurableScreenIsStillReportedBecauseItCorruptsTheComparisonTag()
+        public void AnUnknownScreenSizeIsReportedBecauseItCorruptsTheComparisonTag()
         {
             // Percy groups and diffs by the tag, so a 0x0 tag will not group with correctly-tagged
-            // snapshots. Now only reachable when the capture is not a readable PNG, since otherwise
-            // the size is measured from it.
+            // snapshots. Naming the parameters that fix it is the whole value of the warning.
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Caps.Remove("deviceScreenSize");
             driver.Caps.Remove("viewportRect");
-            driver.Screenshot = Convert.ToBase64String(new byte[] { 1, 2, 3, 4 });
             (GenericProvider provider, _) = Build(driver);
 
             provider.Screenshot("home", new ScreenshotOptions());
