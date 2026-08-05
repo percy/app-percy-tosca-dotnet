@@ -18,9 +18,13 @@ Capture is attempted two ways, in this order:
    the server in your `AppiumServer` test configuration parameter, using the Appium session id from a
    Tosca buffer. This needs no Tricentis API at all, which is why it is preferred: it does not depend
    on internals that change between Tosca releases.
-2. **Via Tosca's own mobile screenshot task** — used when the session cannot be reached directly.
-   Requires `Directory` and `Filename` on the module, and the right task name for your Tosca version
-   (discovered automatically; see `ScreenshotTaskName`).
+2. **Via Tosca's own screenshot task** — used when the session cannot be reached directly. Requires
+   `Directory`, `Filename` and `Environment` on the module, and the right task name for your Tosca
+   version (discovered automatically; see `ScreenshotTaskName`).
+
+   This route is the weaker one and worth avoiding. On a Tosca 24.2.1 install the only screenshot task
+   registered is the generic `PrintScreen` (engine `Framework`) — no mobile-specific task is
+   discoverable — and that one captures nothing unless `Environment` tells it to target the device.
 
 Route 1 is the one to get working, and it needs the **Get Appium Session Id** step described below.
 
@@ -161,6 +165,7 @@ separate the four numbers:
 |---|---|
 | `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
 | `Directory`, `Filename` | Destination for the fallback capture route. Only needed if the device session cannot be reached directly |
+| `Environment` | What the fallback task should capture. Tosca's generic `PrintScreen` needs this to target the mobile device; the built-in PrintScreen module lists the valid values |
 | `ScreenshotTaskName`, `ScreenshotEngineId` | Which Tosca task performs the App Percy capture. Only needed if discovery picks the wrong one — see below |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 

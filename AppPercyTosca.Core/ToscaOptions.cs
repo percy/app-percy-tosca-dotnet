@@ -28,8 +28,8 @@ namespace AppPercyTosca.Core
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
             "SessionIdBuffer", "Diagnose",
-            // Read by Tosca's own screenshot task off the same test action, not by the builders below.
-            "Directory", "Filename",
+            // Read by Tosca's own screenshot task off the same test action, not by Build below.
+            "Directory", "Filename", "Environment",
             // Overrides for which Tosca task performs the capture, read by the shim.
             "ScreenshotTaskName", "ScreenshotEngineId"
         };

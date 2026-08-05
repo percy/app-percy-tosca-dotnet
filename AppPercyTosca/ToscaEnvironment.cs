@@ -165,6 +165,18 @@ namespace AppPercyTosca
                 // capture needs, and requiring debug logging to learn it made a failure unreadable.
                 Utils.Log($"Capturing via the '{task}' task (engine '{engine}') into {directory}.");
 
+                // Tosca's generic PrintScreen decides *what* to capture from an Environment
+                // parameter, and delegates to the mobile engine only when told to. Without it, it
+                // runs happily and captures nothing — which is indistinguishable from a broken
+                // device unless the missing parameter is named.
+                if (Parameter("Environment") == null)
+                {
+                    Utils.Log($"The '{task}' task also reads an Environment parameter to decide what " +
+                        "to capture, and the Percy module does not have one. If nothing is written " +
+                        "below, add an Environment row set to the value your Tosca uses for mobile " +
+                        "(the built-in PrintScreen module lists the valid values).");
+                }
+
                 // Snapshot the folder so the file can be found by what appeared, rather than by
                 // guessing the name the engine chose.
                 HashSet<string> before = SafeListing(directory);
