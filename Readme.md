@@ -184,7 +184,6 @@ separate the four numbers:
 | Parameter | Description |
 |---|---|
 | `SessionIdBuffer` | Buffer holding the Appium session id (default `PercyAppiumSessionId`) |
-| `Directory`, `Filename` | Destination for the `PERCY_DISABLE_REMOTE_UPLOADS` capture route only |
 | `Diagnose` | `true` to log everything the SDK could and could not read from Tosca |
 
 ## Troubleshooting

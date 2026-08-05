@@ -202,14 +202,7 @@ namespace AppPercyTosca
                 ? new[] { "  (none found — set DeviceName, OsName and OsVersion on the module)" }
                 : driver.Capabilities.Select(c => $"  {c.Key} = {Utils.RedactCredentials(c.Value?.ToString())}"));
 
-            // Appended because it answers a question the rest of this cannot: whether a driver object
-            // is reachable at all. If one turns out to be, full page capture becomes possible — the
-            // providers are already written for it and only ExecuteScript is missing.
-            return string.Join(Environment.NewLine, lines) + Environment.NewLine +
-                "automation assemblies loaded: " +
-                string.Join(", ", ToscaEnvironment.LoadedAutomationAssemblies()) +
-                Environment.NewLine +
-                DriverProbe.Describe(ToscaEnvironment.AutomationTypes());
+            return string.Join(Environment.NewLine, lines);
         }
 
         /// <summary>

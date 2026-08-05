@@ -12,16 +12,6 @@ namespace AppPercyTosca.Core.Tests
         public Dictionary<string, string?> Tcps { get; } = new Dictionary<string, string?>();
         public Dictionary<string, string?> Buffers { get; } = new Dictionary<string, string?>();
 
-        /// <summary>Base64 written to the captured file; null makes capture fail.</summary>
-        public string? ScreenshotBase64 { get; set; } = StubMobileDriver.ValidPngBase64;
-
-        /// <summary>Set to report a path the engine never actually wrote.</summary>
-        public string? ReportPathWithoutWriting { get; set; }
-
-        public bool CanExecuteScript { get; set; }
-        public string? ScriptResult { get; set; }
-        public List<string> Scripts { get; } = new List<string>();
-        public List<string> Captured { get; } = new List<string>();
 
         public string? TestConfigurationParameter(string name) =>
             Tcps.TryGetValue(name, out string? value) ? value : null;
@@ -31,30 +21,6 @@ namespace AppPercyTosca.Core.Tests
         public string? Buffer(string name) =>
             Buffers.TryGetValue(name, out string? value) ? value : null;
 
-        /// <summary>
-        /// Where the file lands is the shim's business on Tosca — the mobile engine's own task reads
-        /// its destination from module parameters — so the stub picks a directory the same way a
-        /// module would.
-        /// </summary>
-        public string Directory_ { get; set; } = Path.GetTempPath();
-
-        public string? CaptureScreenshot()
-        {
-            if (ReportPathWithoutWriting != null) return ReportPathWithoutWriting;
-            if (ScreenshotBase64 == null) return null;
-
-            Directory.CreateDirectory(Directory_);
-            string path = Path.Combine(Directory_, $"percy-stub-{Guid.NewGuid()}.png");
-            File.WriteAllBytes(path, Convert.FromBase64String(ScreenshotBase64));
-            Captured.Add(path);
-            return path;
-        }
-
-        public string? ExecuteScript(string script)
-        {
-            Scripts.Add(script);
-            return ScriptResult;
-        }
 
         /// <summary>An App Automate mobile session with the TCPs Tosca sets for one.</summary>
         public static StubToscaEnvironment AppAutomate()
@@ -126,28 +92,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("browserstack_executor", device.Requests[0].Body!);
         }
 
-        [Fact]
-        public void ToscasOwnScriptingIsStillUsedIfItEverBecomesAvailable()
-        {
-            // Kept as a fallback rather than removed: a future Tosca that does pass scripts through
-            // should need no change here.
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            tosca.CanExecuteScript = true;
-            ToscaMobileDriver driver = Build(tosca);
 
-            Assert.True(driver.CanExecuteScript);
-            driver.ExecuteScript("browserstack_executor: {}");
-            Assert.Equal(new[] { "browserstack_executor: {}" }, tosca.Scripts);
-        }
-
-        [Fact]
-        public void ScriptsAreNotAttemptedWhenThereIsNoRouteForThem()
-        {
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-
-            Assert.Null(Build(tosca).ExecuteScript("mobile: viewportRect"));
-            Assert.Empty(tosca.Scripts);
-        }
 
         [Fact]
         public void TheSessionIdComesFromItsBuffer()
@@ -411,8 +356,9 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void TheScreenIsCapturedFromTheDeviceSessionWhenItCanBeReached()
         {
-            // Preferred over Tosca's own screenshot task: it depends only on the WebDriver standard,
-            // not on a task name that differs between Tosca releases.
+            // The only capture route. Tosca's own screenshot task used to be a fallback here; it
+            // depended on a task name that differs between releases and bought nothing once the
+            // session turned out to be reachable directly.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
 
@@ -420,31 +366,19 @@ namespace AppPercyTosca.Core.Tests
                 Build(tosca, deviceHttp: device).GetScreenshotBase64());
 
             Assert.Contains("/session/session-abc/screenshot", device.Requests[0].Url);
-            // Tosca's task was never asked, so a wrong task name cannot break this path.
-            Assert.Empty(tosca.Captured);
         }
 
+
         [Fact]
-        public void ADeviceSessionThatRefusesFallsBackToToscasOwnTask()
+        public void WithNoRouteToTheDeviceCaptureFailsWithSomethingActionable()
         {
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
-            try
-            {
-                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                tosca.Directory_ = tempDir;
-                StubHttpMessageHandler device = new StubHttpMessageHandler()
-                    .Default("no session", System.Net.HttpStatusCode.NotFound);
+            StubToscaEnvironment tosca = new StubToscaEnvironment();
 
-                Assert.Equal(StubMobileDriver.ValidPngBase64,
-                    Build(tosca, deviceHttp: device).GetScreenshotBase64());
+            PercyException error = Assert.Throws<PercyException>(
+                () => Build(tosca).GetScreenshotBase64());
 
-                Assert.True(Logged("refused a screenshot"));
-                Assert.Single(tosca.Captured);
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
-            }
+            Assert.Contains("AppiumServer", error.Message);
+            Assert.Contains("Get Appium Session Id", error.Message);
         }
 
         [Fact]
@@ -454,7 +388,7 @@ namespace AppPercyTosca.Core.Tests
             tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = null;
             StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
 
-            Build(tosca, deviceHttp: device).GetScreenshotBase64();
+            Assert.Throws<PercyException>(() => Build(tosca, deviceHttp: device).GetScreenshotBase64());
 
             Assert.Empty(device.Requests);
             Assert.True(Logged("Get Appium Session Id"));
@@ -468,126 +402,16 @@ namespace AppPercyTosca.Core.Tests
             tosca.Tcps.Remove("AppiumServer");
             StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
 
-            Build(tosca, deviceHttp: device).GetScreenshotBase64();
+            Assert.Throws<PercyException>(() => Build(tosca, deviceHttp: device).GetScreenshotBase64());
 
             Assert.Empty(device.Requests);
             Assert.True(Logged("No AppiumServer"));
         }
 
-        [Fact]
-        public void AScreenshotIsCapturedThroughTheEngineAndReturnedAsBase64()
-        {
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
-            SetEnv("PERCY_TMP_DIR", tempDir);
-            try
-            {
-                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                tosca.Directory_ = tempDir;
 
-                Assert.Equal(StubMobileDriver.ValidPngBase64, Build(tosca).GetScreenshotBase64());
 
-                // The engine's scratch copy is cleaned up; only the tile the CLI reads survives.
-                Assert.Single(tosca.Captured);
-                Assert.False(File.Exists(tosca.Captured[0]));
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
-            }
-        }
 
-        [Fact]
-        public void AnEngineThatProducesNoScreenshotSaysWhatToCheck()
-        {
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            tosca.ScreenshotBase64 = null;
 
-            PercyException error = Assert.Throws<PercyException>(
-                () => Build(tosca).GetScreenshotBase64());
-            Assert.Contains("did not produce a screenshot", error.Message);
-            Assert.Contains("Mobile Engine 3.0 server", error.Message);
-            // Names the two module rows the engine's task needs, since a missing one is the likeliest
-            // cause and nothing else in the log would say so.
-            Assert.Contains("Directory and Filename", error.Message);
-        }
-
-        [Fact]
-        public void AReportedPathWithNoFileBehindItIsNamed()
-        {
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            tosca.ReportPathWithoutWriting = Path.Combine(Path.GetTempPath(), "percy-never-written.png");
-
-            PercyException error = Assert.Throws<PercyException>(
-                () => Build(tosca).GetScreenshotBase64());
-            Assert.Contains("percy-never-written.png", error.Message);
-            Assert.Contains("no file is there", error.Message);
-        }
-
-        [Fact]
-        public void ADirectoryAtTheReportedPathIsTreatedAsNoFile()
-        {
-            // File.Exists is false for a directory, so this lands on the "no file is there" branch
-            // rather than attempting to read it — which is the right outcome, and worth pinning
-            // because the alternative is an IOException with no mention of the path.
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
-            Directory.CreateDirectory(tempDir);
-            try
-            {
-                string asDirectory = Path.Combine(tempDir, "not-a-file.png");
-                Directory.CreateDirectory(asDirectory);
-                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                tosca.ReportPathWithoutWriting = asDirectory;
-
-                PercyException error = Assert.Throws<PercyException>(
-                    () => Build(tosca).GetScreenshotBase64());
-                Assert.Contains("no file is there", error.Message);
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
-            }
-        }
-
-        [Fact]
-        public void AnUndeletableScratchFileDoesNotFailTheSnapshot()
-        {
-            // Deleting the engine's scratch copy is best-effort: the tile the CLI reads is written
-            // separately, so a file we cannot remove costs a stray temp file and must not fail an
-            // otherwise-good snapshot.
-            //
-            // Made undeletable by removing write permission from the containing directory, which is
-            // what governs deletion on Unix. Windows does not work that way, so the test declares
-            // itself inapplicable there rather than asserting something untrue.
-            // Returning rather than skipping avoids a test-framework extension package for one
-            // case; CI runs on Linux, where the assertions below do apply.
-            if (OperatingSystem.IsWindows()) return;
-
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
-            SetEnv("PERCY_TMP_DIR", tempDir);
-            SetEnv("PERCY_LOGLEVEL", "debug");
-            Directory.CreateDirectory(tempDir);
-            try
-            {
-                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                tosca.Directory_ = tempDir;
-                string path = tosca.CaptureScreenshot()!;
-                tosca.ReportPathWithoutWriting = path;
-                File.SetUnixFileMode(tempDir, UnixFileMode.UserRead | UnixFileMode.UserExecute);
-
-                // The screenshot still comes back; only the cleanup failed.
-                Assert.Equal(StubMobileDriver.ValidPngBase64, Build(tosca).GetScreenshotBase64());
-                Assert.True(Logged("Could not delete the temporary screenshot"));
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir))
-                {
-                    File.SetUnixFileMode(tempDir,
-                        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-                    Directory.Delete(tempDir, true);
-                }
-            }
-        }
 
         [Fact]
         public void ElementRegionsAreUnavailableAndSayWhatToUseInstead()
@@ -615,43 +439,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Single(Logs.Where(entry => entry.Message.Contains("not supported on Tosca")));
         }
 
-        [Fact]
-        public void ASnapshotEndToEndPostsATileWithTheDeviceTagFromTheTestConfiguration()
-        {
-            string tempDir = Path.Combine(Path.GetTempPath(), "percy-tests-" + Guid.NewGuid());
-            SetEnv("PERCY_TMP_DIR", tempDir);
-            // The point here is the tag built from test configuration parameters, not the executor, so
-            // capture takes the local-tile path.
-            SetEnv("PERCY_DISABLE_REMOTE_UPLOADS", "true");
-            try
-            {
-                StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-                tosca.Directory_ = tempDir;
-                tosca.Tcps["ScreenResolution"] = "1080x2340";
-                StubHttpMessageHandler handler = new StubHttpMessageHandler()
-                    .On("/percy/healthcheck", "{\"success\":true,\"build\":{\"id\":\"b\",\"url\":\"u\"}}")
-                    .Default("{\"success\":true,\"link\":\"https://percy.io/c/1\",\"data\":{\"id\":\"c1\"}}");
-                PercyClient client = new PercyClient(handler.Client(), "http://localhost:5338");
-
-                ScreenshotOptions options = new ScreenshotOptions { StatusBarHeight = 60, NavBarHeight = 40 };
-                ToscaMobileDriver driver = Build(tosca, options);
-
-                Assert.NotNull(new AppPercy(driver, client).Screenshot("home", options));
-
-                string body = handler.BodyFor("/percy/comparison")!;
-                Assert.Contains("\"name\":\"Google Pixel 7\"", body);
-                Assert.Contains("\"osName\":\"Android\"", body);
-                Assert.Contains("\"osVersion\":\"13.0\"", body);
-                Assert.Contains("\"width\":1080", body);
-                Assert.Contains("\"height\":2340", body);
-                Assert.Contains("\"statusBarHeight\":60", body);
-                Assert.Contains($"\"clientInfo\":\"{Env.ClientInfo}\"", body);
-            }
-            finally
-            {
-                if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
-            }
-        }
 
     }
 }

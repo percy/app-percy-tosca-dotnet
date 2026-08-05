@@ -159,19 +159,12 @@ namespace AppPercyTosca.Core
         /// uses. Scripting was never unavailable — only unavailable *through Tosca* — and it is what
         /// makes App Automate's own capture, and therefore full page, reachable.
         /// </summary>
-        public bool CanExecuteScript => Session() != null || _tosca.CanExecuteScript;
+        public bool CanExecuteScript => Session() != null;
 
-        public string? ExecuteScript(string script)
-        {
-            WebDriverSession? session = Session();
-            if (session != null) return session.ExecuteScript(script);
-
-            // Left as a fallback in case a future Tosca does pass scripts through.
-            return _tosca.CanExecuteScript ? _tosca.ExecuteScript(script) : null;
-        }
+        public string? ExecuteScript(string script) => Session()?.ExecuteScript(script);
 
         /// <summary>
-        /// Captures the screen through the mobile engine and returns it base64-encoded.
+        /// Captures the screen.
         ///
         /// This reads the PNG back off disk and re-encodes it, only for the caller to decode and
         /// write it out again. That round trip is deliberate: it keeps the capture path identical to
@@ -180,35 +173,14 @@ namespace AppPercyTosca.Core
         /// </summary>
         public string GetScreenshotBase64()
         {
-            // Preferred when both facts are available, because it depends only on the WebDriver
-            // standard rather than on a Tosca task name that changes between releases.
             string? fromSession = TryCaptureOverWebDriver();
             if (fromSession != null) return fromSession;
 
-            string? path = _tosca.CaptureScreenshot();
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new PercyException(
-                    "The Tosca mobile engine did not produce a screenshot. Check that the test is " +
-                    "steering a mobile device, that the Mobile Engine 3.0 server is running, and that " +
-                    "either the Appium session id is available in a buffer (the 'Get Appium Session " +
-                    "Id' module) so the device can be captured directly, or the Percy module has " +
-                    "Directory and Filename parameters for Tosca's own screenshot task to write to.");
-            }
-            if (!File.Exists(path))
-            {
-                throw new PercyException(
-                    $"The Tosca mobile engine reported a screenshot at {path} but no file is there.");
-            }
-
-            try
-            {
-                return Convert.ToBase64String(File.ReadAllBytes(path));
-            }
-            finally
-            {
-                TryDelete(path);
-            }
+            throw new PercyException(
+                "Could not capture the device screen. Check that the AppiumServer test configuration " +
+                "parameter points at your BrowserStack hub, that the Appium session id is available " +
+                "(the 'Get Appium Session Id' module, or credentials in AppiumServer so it can be " +
+                "looked up), and that the test is steering a device at this point.");
         }
 
         /// <summary>
@@ -355,18 +327,5 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        private static void TryDelete(string path)
-        {
-            try
-            {
-                File.Delete(path);
-            }
-            catch (Exception e)
-            {
-                // The tile the CLI reads is written separately; this is only the engine's scratch
-                // copy, so a locked file costs a stray temp file and nothing else.
-                Utils.Log($"Could not delete the temporary screenshot {path}: {e.Message}", "debug");
-            }
-        }
     }
 }
