@@ -184,7 +184,19 @@ all of them are a missing test configuration parameter or an unset session-id bu
 For more detail, set `PERCY_LOGLEVEL=debug` before starting Tosca Commander.
 
 Log output goes to the Percy CLI (so it appears alongside the rest of the build) and is mirrored to
-`%TEMP%\percy.txt`, which is where to look when the CLI itself is what failed.
+**`%TEMP%\percy.txt`**, which is where to look when the CLI itself is what failed. Every line is
+timestamped. Set `PERCY_LOG_FILE` to pin it somewhere else — worth doing, because `%TEMP%` resolves
+per-account and Tosca may not run as you.
+
+The first line written is an `assembly loaded:` entry, recorded when the CLR loads the extension —
+before Tosca has decided whether to register anything. That makes an empty or missing log file
+diagnostic in itself:
+
+| `percy.txt` | Meaning |
+|---|---|
+| missing, or no `assembly loaded:` line | Tosca never loaded the DLL. Check the extension folder, the registered path, and that Commander was fully restarted — not the code |
+| has `assembly loaded:` but nothing else | The DLL loaded but the task was not registered, or no step ran. Compare the module's `Engine` and `SpecialExecutionTask` values against `Percy` and `AppPercyScreenshot` |
+| has later lines | The extension is running; read on for the actual problem |
 
 A failed snapshot does **not** fail the Tosca step: a visual check that could not run is not a
 functional regression, and failing the step would stop the rest of the sheet. To change that, add a
