@@ -210,6 +210,93 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void TheBarsAreBuiltFromTheSessionsSystemBarsWhenNoViewportIsReported()
+        {
+            // The route that actually answers on Android. Without it nothing is cropped and the status
+            // bar clock differs on every run — which reads as unstable snapshots, not a missing fact.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("/session/session-abc", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/window/rect", "{\"value\":{\"width\":1080,\"height\":2400}}")
+                .On("/execute/sync", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/execute", "gone", System.Net.HttpStatusCode.NotFound)
+                .Default("{\"value\":{\"statusBar\":{\"height\":72},\"navigationBar\":{\"height\":48}}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
+                new Cache<string, object?>());
+
+            Assert.Equal(72, metadata.StatBarHeight());
+            Assert.Equal(48, metadata.NavBarHeight());
+            Assert.Equal(1080, metadata.DeviceScreenWidth());
+            Assert.Equal(2400, metadata.DeviceScreenHeight());
+        }
+
+        [Fact]
+        public void AReportedViewportIsPreferredOverTheBarHeights()
+        {
+            // It states the usable area directly rather than by subtraction.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("/session/session-abc", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/window/rect", "{\"value\":{\"width\":1080,\"height\":2400}}")
+                .Default("{\"value\":\"{\\\"top\\\":60,\\\"left\\\":0," +
+                    "\\\"width\\\":1080,\\\"height\\\":2300}\"}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
+                new Cache<string, object?>());
+
+            Assert.Equal(60, metadata.StatBarHeight());
+            Assert.Equal(40, metadata.NavBarHeight());
+        }
+
+        [Fact]
+        public void TheScreenSizeComesFromTheSessionWindowWhenNoCapabilityCarriesIt()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("/session/session-abc", "gone", System.Net.HttpStatusCode.NotFound)
+                .Default("{\"value\":{\"width\":828,\"height\":1792}}");
+
+            Assert.Equal("828x1792",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceScreenSize"));
+        }
+
+        [Fact]
+        public void NoViewportAndNoBarsIsWarnedAboutBecauseNothingWillBeCropped()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("gone", System.Net.HttpStatusCode.NotFound);
+
+            _ = Build(tosca, deviceHttp: device).Capabilities;
+
+            Assert.True(Logged("status bar clock to differ between runs"));
+            Assert.True(Logged("StatusBarHeight and NavBarHeight"));
+        }
+
+        [Fact]
+        public void BarHeightsWithNoScreenSizeStillGiveTheStatusBar()
+        {
+            // Partial is better than nothing: the status bar is what causes the flake.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("/session/session-abc", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/window/rect", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/window/current/size", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/execute/sync", "gone", System.Net.HttpStatusCode.NotFound)
+                .On("/execute", "gone", System.Net.HttpStatusCode.NotFound)
+                .Default("{\"value\":{\"statusBar\":{\"height\":72}}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
+                new Cache<string, object?>());
+
+            Assert.Equal(72, metadata.StatBarHeight());
+        }
+
+        [Fact]
         public void TheSessionsAnswerOutranksTheTestConfigurationsRequest()
         {
             // Both may have an opinion; the session describes the device that was actually allocated

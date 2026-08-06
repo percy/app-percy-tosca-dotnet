@@ -1,3 +1,7 @@
+// The IMobileDriver.Capabilities property shadows the static Capabilities helper class, so the
+// helpers are reached through this alias rather than by name.
+using Caps = AppPercyTosca.Core.Capabilities;
+
 namespace AppPercyTosca.Core
 {
     /// <summary>
@@ -290,18 +294,7 @@ namespace AppPercyTosca.Core
                 if (!string.IsNullOrWhiteSpace(tcp.Value)) capabilities[tcp.Key] = tcp.Value;
             }
 
-            // Overlaid on the parameters: same keys the other App Percy SDKs read off their driver
-            // (deviceScreenSize, viewportRect, platformVersion, deviceName), so nothing downstream
-            // needs a Tosca-specific path.
-            IReadOnlyDictionary<string, object?>? fromSession = Session()?.TryGetCapabilities();
-            if (fromSession != null)
-            {
-                foreach (KeyValuePair<string, object?> capability in fromSession)
-                {
-                    if (capability.Value != null) capabilities[capability.Key] = capability.Value;
-                }
-                Utils.Log($"Read {fromSession.Count} capabilities from the device session.", "debug");
-            }
+            FillDeviceFactsFromSession(capabilities);
 
             foreach ((string capability, string[] names) in CapabilityMap)
             {
@@ -336,6 +329,83 @@ namespace AppPercyTosca.Core
                     "OsVersion, ScreenWidth and ScreenHeight on the Percy module.", "warn");
             }
             return capabilities;
+        }
+
+        /// <summary>
+        /// Fills in the device facts the tag needs by asking the session, under the same capability
+        /// names the other App Percy SDKs read off their driver — so the metadata layer needs no
+        /// Tosca-specific path and derives the bars exactly as it does everywhere else.
+        ///
+        /// Four probes rather than one because there is no single endpoint that answers all of it.
+        /// GET /session/{id} would, but W3C dropped it, so it is tried first and not relied on; the rest
+        /// are the documented per-fact routes. Each is independent: one refusing costs its own detail
+        /// only, and says so.
+        /// </summary>
+        private void FillDeviceFactsFromSession(Dictionary<string, object?> capabilities)
+        {
+            WebDriverSession? session = Session();
+            if (session == null) return;
+
+            IReadOnlyDictionary<string, object?>? reported = session.TryGetCapabilities();
+            if (reported != null)
+            {
+                foreach (KeyValuePair<string, object?> capability in reported)
+                {
+                    if (capability.Value != null) capabilities[capability.Key] = capability.Value;
+                }
+                Utils.Log($"Read {reported.Count} capabilities from the device session.", "debug");
+            }
+
+            // The full screen size. Android reports it as "WxH"; this is also what iOS falls back to
+            // when the device is absent from the built-in table.
+            (int Width, int Height)? window = session.TryGetWindowSize();
+            if (window != null && !capabilities.ContainsKey("deviceScreenSize"))
+            {
+                capabilities["deviceScreenSize"] = $"{window.Value.Width}x{window.Value.Height}";
+                Utils.Log($"Device screen is {window.Value.Width}x{window.Value.Height}, " +
+                    "from the session window.", "debug");
+            }
+
+            if (capabilities.ContainsKey("viewportRect")) return;
+
+            // Preferred: the usable area stated directly.
+            IReadOnlyDictionary<string, object?>? viewport = session.TryGetViewportRect();
+            if (viewport != null)
+            {
+                capabilities["viewportRect"] = viewport;
+                Utils.Log("Read the viewport rect from the session.", "debug");
+                return;
+            }
+
+            // Otherwise build it from the bar heights, which is the one route that reliably answers on
+            // Android. Without it nothing is cropped and the status bar clock differs on every run.
+            (int StatusBar, int NavigationBar)? bars = session.TryGetSystemBars();
+            if (bars == null)
+            {
+                Utils.Log("The session reported no viewport or system bars, so the status and " +
+                    "navigation bars cannot be cropped. Set StatusBarHeight and NavBarHeight on the " +
+                    "Percy module, or expect the status bar clock to differ between runs.", "warn");
+                return;
+            }
+
+            int? screenHeight = window?.Height
+                ?? Caps.ToInt(capabilities.GetString("deviceScreenSize")?.Split('x').LastOrDefault());
+            if (screenHeight == null)
+            {
+                // Bar heights alone are still worth having; the metadata layer reads top from here.
+                capabilities["viewportRect"] = new Dictionary<string, object?> { ["top"] = bars.Value.StatusBar };
+                return;
+            }
+
+            capabilities["viewportRect"] = new Dictionary<string, object?>
+            {
+                ["top"] = bars.Value.StatusBar,
+                ["left"] = 0,
+                ["width"] = window?.Width,
+                ["height"] = screenHeight.Value - bars.Value.StatusBar - bars.Value.NavigationBar
+            };
+            Utils.Log($"Status bar {bars.Value.StatusBar}px, navigation bar " +
+                $"{bars.Value.NavigationBar}px, from the session's system bars.", "debug");
         }
 
         /// <summary>

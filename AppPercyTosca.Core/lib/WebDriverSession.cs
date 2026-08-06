@@ -57,6 +57,9 @@ namespace AppPercyTosca.Core
         /// </summary>
         public IReadOnlyDictionary<string, object?>? TryGetCapabilities()
         {
+            // W3C dropped GET /session/{id} — it was JSON Wire Protocol — so this 404s on Appium 2 and
+            // on BrowserStack. Still tried, because a server that does answer gives everything at once;
+            // callers must not depend on it, and the specific endpoints above exist for that reason.
             string? body = Get($"{_serverUrl}/session/{_sessionId}", "capabilities");
             JsonElement? value = Json.Property(Json.TryParse(body), "value");
             if (value == null) return null;
@@ -68,6 +71,60 @@ namespace AppPercyTosca.Core
 
             object? nested = capabilities.TryGetValue("capabilities", out object? inner) ? inner : null;
             return Capabilities.AsDictionary(nested) ?? capabilities;
+        }
+
+        /// <summary>
+        /// The status bar and navigation bar heights, or null.
+        ///
+        /// Appium's documented route for this — the other App Percy SDKs get the same numbers out of a
+        /// <c>viewportRect</c> capability, which needs a driver to read. Without these the comparison
+        /// tag reports no bars, nothing is cropped, and the clock in the status bar makes every run
+        /// differ.
+        /// </summary>
+        public (int StatusBar, int NavigationBar)? TryGetSystemBars()
+        {
+            JsonElement? value = Json.Property(Json.TryParse(
+                Get($"{_serverUrl}/session/{_sessionId}/appium/device/system_bars", "system bars")),
+                "value");
+            if (value == null) return null;
+
+            int? statusBar = HeightOf(value, "statusBar");
+            int? navigationBar = HeightOf(value, "navigationBar");
+            if (statusBar == null && navigationBar == null) return null;
+
+            return (statusBar ?? 0, navigationBar ?? 0);
+        }
+
+        private static int? HeightOf(JsonElement? bars, string name) =>
+            Capabilities.ToInt(Json.PropertyAsString(Json.Property(bars, name), "height"));
+
+        /// <summary>
+        /// The viewport rectangle, via Appium's <c>mobile: viewportRect</c> extension. This is what the
+        /// other SDKs use on iOS, and it gives the usable area directly rather than by subtraction.
+        /// </summary>
+        public IReadOnlyDictionary<string, object?>? TryGetViewportRect()
+        {
+            string? result = ExecuteScript("mobile: viewportRect");
+            JsonElement? parsed = Json.TryParse(result);
+            return parsed == null ? null : Capabilities.AsDictionary(parsed.Value);
+        }
+
+        /// <summary>The window's width and height, or null.</summary>
+        public (int Width, int Height)? TryGetWindowSize()
+        {
+            // W3C moved this to /window/rect; the older spelling is tried second.
+            foreach (string path in new[] { "window/rect", "window/current/size" })
+            {
+                JsonElement? value = Json.Property(
+                    Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}/{path}", "window size")),
+                    "value");
+                if (value == null) continue;
+
+                int? width = Capabilities.ToInt(Json.PropertyAsString(value, "width"));
+                int? height = Capabilities.ToInt(Json.PropertyAsString(value, "height"));
+                if (width > 0 && height > 0) return (width.Value, height.Value);
+            }
+            return null;
         }
 
         /// <summary>
