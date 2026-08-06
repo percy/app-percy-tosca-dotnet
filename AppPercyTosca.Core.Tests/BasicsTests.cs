@@ -738,7 +738,28 @@ namespace AppPercyTosca.Core.Tests
         public void AnAcceptedSnapshotIsReportedAsTaken()
         {
             Assert.Equal(SnapshotOutcome.Taken,
-                SnapshotOutcome.Describe(Json.TryParse("{\"id\":\"c1\"}"), "home"));
+                SnapshotOutcome.Describe(Json.TryParse("{\"success\":true}"), "home"));
+        }
+
+        [Fact]
+        public void TheComparisonLinkIsIncludedWhenTheCliSuppliesOne()
+        {
+            // Turns a passing step into something someone can click.
+            Assert.Equal(SnapshotOutcome.Taken + " https://percy.io/c/1",
+                SnapshotOutcome.Describe(
+                    Json.TryParse("{\"success\":true,\"link\":\"https://percy.io/c/1\"}"), "home"));
+        }
+
+        [Fact]
+        public void AReplyWithNoDataMemberIsStillASnapshot()
+        {
+            // A successful /percy/comparison reply is {success, link} and often has no `data`. Judging
+            // on `data` reported working snapshots as unrecorded — the worst kind of wrong, since it
+            // sends someone hunting for a problem they do not have.
+            string message = SnapshotOutcome.Describe(
+                Json.TryParse("{\"success\":true,\"link\":\"x\"}"), "home");
+
+            Assert.DoesNotContain("No snapshot was recorded", message);
         }
 
         [Fact]

@@ -24,9 +24,13 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Captures <paramref name="name"/>. Returns the CLI's `data` object on success, or null
-        /// when Percy is not running, is disabled for the session, or the capture failed and errors
-        /// are being ignored. Throws only when the session asked for errors not to be ignored.
+        /// Captures <paramref name="name"/>. Returns the CLI's whole response on success, or null when
+        /// Percy is not running, is disabled for the session, or the capture failed and errors are being
+        /// ignored. Throws only when the session asked for errors not to be ignored.
+        ///
+        /// The whole response, deliberately, not its `data` member: a successful /percy/comparison reply
+        /// is `{success, link}` and frequently carries no `data` at all, so treating its presence as
+        /// proof of success reported working snapshots as unrecorded.
         /// </summary>
         public JsonElement? Screenshot(string name, ScreenshotOptions options)
         {
@@ -38,9 +42,7 @@ namespace AppPercyTosca.Core
                 // One provider now: App Automate. The generic local-capture provider and the resolver
                 // that chose between them are gone.
                 AppAutomate provider = new AppAutomate(_driver, _client, _sessionCache);
-                // It hands back the CLI's whole response so the sibling `link` is readable; `data` is
-                // what a caller wants.
-                return Json.Property(provider.Screenshot(name, options), "data");
+                return provider.Screenshot(name, options);
             }
             catch (Exception e)
             {

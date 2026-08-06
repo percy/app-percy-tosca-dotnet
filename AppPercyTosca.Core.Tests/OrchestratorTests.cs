@@ -113,15 +113,31 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void ASnapshotIsCapturedAndPostedAndItsDataReturned()
+        public void ASnapshotIsCapturedAndPostedAndTheWholeResponseReturned()
         {
             (AppPercy percy, StubHttpMessageHandler handler) = Build(StubMobileDriver.Android());
 
-            JsonElement? data = percy.Screenshot("home", new ScreenshotOptions());
+            JsonElement? response = percy.Screenshot("home", new ScreenshotOptions());
 
-            // AppPercy unwraps `data` for its caller, as the other App Percy SDKs do at this layer.
-            Assert.Equal("c1", Json.PropertyAsString(data, "id"));
+            // The whole response, not its `data` member: a successful reply often carries no `data`, so
+            // its presence cannot be what tells success from failure.
+            Assert.Equal("https://percy.io/c/1", Json.PropertyAsString(response, "link"));
             Assert.Equal(1, handler.CountFor("/percy/comparison"));
+        }
+
+        [Fact]
+        public void ASuccessfulReplyWithNoDataMemberIsStillASnapshot()
+        {
+            // The shape the CLI actually returns, and the shape the reference SDK's own fixture uses.
+            // Reading success from a `data` member reported working snapshots as unrecorded.
+            (AppPercy percy, _) = Build(StubMobileDriver.Android(),
+                "{\"success\":true,\"link\":\"https://percy.io/c/9\"}");
+
+            JsonElement? response = percy.Screenshot("home", new ScreenshotOptions());
+
+            Assert.NotNull(response);
+            Assert.Equal(SnapshotOutcome.Taken + " https://percy.io/c/9",
+                SnapshotOutcome.Describe(response, "home"));
         }
 
         [Fact]
