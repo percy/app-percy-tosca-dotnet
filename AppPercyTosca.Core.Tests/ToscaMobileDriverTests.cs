@@ -209,6 +209,72 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("/session/s-1", device.Requests[0].Url);
         }
 
+        /// <summary>
+        /// A real BrowserStack App Automate reply, credentials removed. Kept verbatim because the shape
+        /// is the thing under test: an earlier version required the map to arrive under a particular
+        /// envelope and silently produced an empty tag against exactly this payload.
+        /// </summary>
+        private const string RealSessionCapabilities =
+            "{\"value\":{\"platform\":\"LINUX\",\"webStorageEnabled\":false,\"takesScreenshot\":true,\"javascriptEnabled\":true,\"networkConnectionEnabled\":true,\"warnings\":{},\"desired\":{\"platformName\":\"Android\",\"deviceName\":\"Google Pixel 6\",\"automationName\":\"UIAutomator2\",\"udid\":\"19171FDF6000AM\",\"appPackage\":\"org.wikipedia.alpha\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\"},\"platformName\":\"Android\",\"deviceName\":\"19171FDF6000AM\",\"udid\":\"19171FDF6000AM\",\"automationName\":\"UIAutomator2\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\",\"deviceApiLevel\":31,\"platformVersion\":\"12\",\"deviceScreenSize\":\"1080x2400\",\"deviceScreenDensity\":420,\"deviceModel\":\"Pixel 6\",\"deviceManufacturer\":\"Google\",\"pixelRatio\":2.625,\"statBarHeight\":124,\"viewportRect\":{\"left\":0,\"top\":124,\"width\":1080,\"height\":2116},\"lastScrollData\":null}}";
+
+        [Fact]
+        public void TheWholeTagIsBuiltFromARealBrowserStackSessionReply()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps.Clear();
+            tosca.Tcps["AppiumServer"] = "https://hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default(RealSessionCapabilities);
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
+                new Cache<string, object?>());
+            Dictionary<string, object?> tag = metadata.GetTag();
+
+            // The friendly name, not the UDID the session reports as deviceName.
+            Assert.Equal("google pixel 6", tag["name"]);
+            Assert.Equal("Android", tag["osName"]);
+            Assert.Equal("12", tag["osVersion"]);
+            Assert.Equal(1080, tag["width"]);
+            Assert.Equal(2400, tag["height"]);
+            Assert.Equal("portrait", tag["orientation"]);
+
+            // The bars: top of the viewport is the status bar, and the navigation bar is what is left
+            // over once the usable area and status bar are taken off the full height.
+            Assert.Equal(124, metadata.StatBarHeight());
+            Assert.Equal(2400 - (2116 + 124), metadata.NavBarHeight());
+        }
+
+        [Fact]
+        public void TheUdidIsNotUsedAsTheDeviceName()
+        {
+            // Percy groups comparisons by this, so a UDID would give the device a baseline named after
+            // a serial number — and on iOS, which reads deviceName first, that is what would happen.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps.Clear();
+            tosca.Tcps["AppiumServer"] = "https://hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default(RealSessionCapabilities);
+
+            Assert.Equal("Google Pixel 6",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+        }
+
+        [Theory]
+        [InlineData("{\"value\":{\"deviceScreenSize\":\"1080x2400\"}}")]
+        [InlineData("{\"deviceScreenSize\":\"1080x2400\"}")]
+        [InlineData("{\"value\":{\"capabilities\":{\"deviceScreenSize\":\"1080x2400\"}}}")]
+        public void AnyOfTheThreeEnvelopesIsAccepted(string body)
+        {
+            // Which one arrives depends on the server. Requiring a particular one is what made a
+            // working endpoint look like a failing one.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler().Default(body);
+
+            Assert.Equal("1080x2400",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceScreenSize"));
+        }
+
         [Fact]
         public void TheBarsAreBuiltFromTheSessionsSystemBarsWhenNoViewportIsReported()
         {

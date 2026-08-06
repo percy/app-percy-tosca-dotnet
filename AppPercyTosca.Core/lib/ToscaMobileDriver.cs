@@ -332,6 +332,31 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
+        /// Replaces the session's <c>deviceName</c> with the human one where they differ.
+        ///
+        /// BrowserStack reports the UDID as the top-level <c>deviceName</c> — "19171FDF6000AM" — and puts
+        /// the readable name in <c>device</c> and in the requested capabilities under <c>desired</c>.
+        /// Percy groups comparisons by the device name in the tag, so a UDID would give every device its
+        /// own baseline named after a serial number. Android reads <c>device</c> first and escapes this;
+        /// iOS reads <c>deviceName</c> and would not.
+        /// </summary>
+        private static void PreferTheFriendlyDeviceName(
+            Dictionary<string, object?> capabilities, IReadOnlyDictionary<string, object?> reported)
+        {
+            string? requested = Caps.AsDictionary(
+                reported.TryGetValue("desired", out object? desired) ? desired : null)?.GetString("deviceName");
+
+            if (string.IsNullOrWhiteSpace(requested)) return;
+
+            string? current = capabilities.GetString("deviceName");
+            if (string.Equals(current, requested, StringComparison.OrdinalIgnoreCase)) return;
+
+            capabilities["deviceName"] = requested;
+            Utils.Log($"Using '{requested}' as the device name rather than the session's " +
+                $"'{current}', which is the device identifier.", "debug");
+        }
+
+        /// <summary>
         /// Fills in the device facts the tag needs by asking the session, under the same capability
         /// names the other App Percy SDKs read off their driver — so the metadata layer needs no
         /// Tosca-specific path and derives the bars exactly as it does everywhere else.
@@ -354,6 +379,7 @@ namespace AppPercyTosca.Core
                     if (capability.Value != null) capabilities[capability.Key] = capability.Value;
                 }
                 Utils.Log($"Read {reported.Count} capabilities from the device session.", "debug");
+                PreferTheFriendlyDeviceName(capabilities, reported);
             }
 
             // The full screen size. Android reports it as "WxH"; this is also what iOS falls back to

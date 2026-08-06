@@ -57,20 +57,29 @@ namespace AppPercyTosca.Core
         /// </summary>
         public IReadOnlyDictionary<string, object?>? TryGetCapabilities()
         {
-            // W3C dropped GET /session/{id} — it was JSON Wire Protocol — so this 404s on Appium 2 and
-            // on BrowserStack. Still tried, because a server that does answer gives everything at once;
-            // callers must not depend on it, and the specific endpoints above exist for that reason.
-            string? body = Get($"{_serverUrl}/session/{_sessionId}", "capabilities");
-            JsonElement? value = Json.Property(Json.TryParse(body), "value");
-            if (value == null) return null;
+            // BrowserStack does answer this — it shows as "Retrieve session capabilities" in the App
+            // Automate log — and the reply carries everything needed in one go: deviceScreenSize,
+            // viewportRect, platformVersion and the device name.
+            JsonElement? parsed = Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}", "capabilities"));
+            if (parsed == null) return null;
 
-            // Appium answers with the capability map directly; some servers nest it one level under
-            // "capabilities".
-            IReadOnlyDictionary<string, object?>? capabilities = Capabilities.AsDictionary(value.Value);
+            // Three envelopes, because which one arrives depends on the server: the JSON Wire Protocol
+            // wraps the map in "value", W3C new-session replies nest it under "value"."capabilities",
+            // and some servers return the map bare. Requiring one of them is what made a working
+            // endpoint look like a failing one.
+            IReadOnlyDictionary<string, object?>? capabilities =
+                Capabilities.AsDictionary(Json.Property(parsed, "value") ?? parsed);
             if (capabilities == null) return null;
 
-            object? nested = capabilities.TryGetValue("capabilities", out object? inner) ? inner : null;
-            return Capabilities.AsDictionary(nested) ?? capabilities;
+            if (capabilities.TryGetValue("capabilities", out object? nested) &&
+                Capabilities.AsDictionary(nested) is IReadOnlyDictionary<string, object?> inner)
+            {
+                capabilities = inner;
+            }
+
+            // An empty map is an answer with nothing in it; null says that plainly, and saves the caller
+            // reporting that it read zero capabilities.
+            return capabilities.Count == 0 ? null : capabilities;
         }
 
         /// <summary>
