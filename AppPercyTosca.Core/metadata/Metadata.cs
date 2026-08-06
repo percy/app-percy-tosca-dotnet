@@ -49,7 +49,15 @@ namespace AppPercyTosca.Core
             }
 
             string? capability = Driver.Capabilities.GetString("orientation");
-            return capability?.ToLowerInvariant() ?? "portrait";
+            if (!string.IsNullOrWhiteSpace(capability)) return capability.ToLowerInvariant();
+
+            // Ask the device. The other App Percy SDKs default to portrait here and only query when the
+            // caller passes "auto", because asking costs them a driver round trip they would rather not
+            // make on every snapshot. This SDK is already talking to the session over HTTP, and
+            // defaulting to portrait on a landscape device gets both the orientation and the screen
+            // dimensions wrong.
+            string? live = Driver.Orientation;
+            return string.IsNullOrWhiteSpace(live) ? "portrait" : live.ToLowerInvariant();
         }
 
         public string? PlatformVersion()
@@ -61,11 +69,38 @@ namespace AppPercyTosca.Core
 
         public abstract string? DeviceName();
         public abstract string OsName();
-        public abstract int DeviceScreenWidth();
-        public abstract int DeviceScreenHeight();
         public abstract int StatBarHeight();
         public abstract int NavBarHeight();
         public abstract int ScaleFactor();
+
+        /// <summary>The screen size as the platform reports it, before orientation is considered.</summary>
+        protected abstract int MeasuredScreenWidth();
+
+        protected abstract int MeasuredScreenHeight();
+
+        /// <summary>
+        /// The screen size in the orientation the device is actually in.
+        ///
+        /// A platform reports its physical screen — a phone is 1080x2400 whichever way up it is held —
+        /// but the screenshot Percy diffs is 2400x1080 in landscape. Left unswapped, the tag disagreed
+        /// with the image, which splits a baseline and makes every custom pixel region fail validation.
+        /// </summary>
+        public int DeviceScreenWidth() =>
+            IsLandscape && MeasuredScreenWidth() < MeasuredScreenHeight()
+                ? MeasuredScreenHeight()
+                : MeasuredScreenWidth();
+
+        public int DeviceScreenHeight() =>
+            IsLandscape && MeasuredScreenWidth() < MeasuredScreenHeight()
+                ? MeasuredScreenWidth()
+                : MeasuredScreenHeight();
+
+        /// <summary>
+        /// Only swapped when the reported size is portrait-shaped. A platform that already accounts for
+        /// rotation would otherwise have its correct answer reversed.
+        /// </summary>
+        private bool IsLandscape =>
+            Orientation().Equals("landscape", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// The `tag` block identifying which device/screen a comparison belongs to. Percy groups

@@ -29,7 +29,7 @@ namespace AppPercyTosca.Core
                 ?? Driver.Capabilities.GetString("device");
         }
 
-        public override int DeviceScreenWidth()
+        protected override int MeasuredScreenWidth()
         {
             if (SuppliedScreenWidth > 0) return SuppliedScreenWidth;
 
@@ -38,7 +38,7 @@ namespace AppPercyTosca.Core
             return ViewportInt("width") ?? 0;
         }
 
-        public override int DeviceScreenHeight()
+        protected override int MeasuredScreenHeight()
         {
             if (SuppliedScreenHeight > 0) return SuppliedScreenHeight;
 

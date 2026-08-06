@@ -116,10 +116,66 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void WithNoOrientationAnywhereItIsPortrait()
+        public void TheDeviceIsAskedWhenNoParameterOrCapabilityCarriesAnOrientation()
         {
-            Assert.Equal("portrait",
-                Build(StubMobileDriver.Android(), new ScreenshotOptions()).Orientation());
+            // The other App Percy SDKs default to portrait here and only ask when told "auto". This one
+            // is already talking to the session, and defaulting to portrait on a landscape device gets
+            // the dimensions wrong too.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Orientation = "LANDSCAPE";
+
+            Assert.Equal("landscape", Build(driver, new ScreenshotOptions()).Orientation());
+        }
+
+        [Fact]
+        public void WithNoOrientationAnywhereAndASilentDeviceItIsPortrait()
+        {
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Orientation = null;
+
+            Assert.Equal("portrait", Build(driver, new ScreenshotOptions()).Orientation());
+        }
+
+        [Fact]
+        public void ALandscapeDeviceReportsItsScreenTheWayRoundTheScreenshotIs()
+        {
+            // A platform reports the physical screen — 1080x2400 whichever way the phone is held — but
+            // the image Percy diffs is 2400x1080. Left unswapped the tag disagrees with the image,
+            // which splits the baseline and fails every custom pixel region.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Orientation = "LANDSCAPE";
+            Metadata metadata = Build(driver, new ScreenshotOptions());
+
+            Assert.Equal(2340, metadata.DeviceScreenWidth());
+            Assert.Equal(1080, metadata.DeviceScreenHeight());
+
+            Dictionary<string, object?> tag = metadata.GetTag();
+            Assert.Equal(2340, tag["width"]);
+            Assert.Equal(1080, tag["height"]);
+            Assert.Equal("landscape", tag["orientation"]);
+        }
+
+        [Fact]
+        public void APortraitDeviceIsLeftAlone()
+        {
+            Metadata metadata = Build(StubMobileDriver.Android(), new ScreenshotOptions());
+
+            Assert.Equal(1080, metadata.DeviceScreenWidth());
+            Assert.Equal(2340, metadata.DeviceScreenHeight());
+        }
+
+        [Fact]
+        public void APlatformThatAlreadyAccountsForRotationIsNotReversed()
+        {
+            // Only a portrait-shaped report is swapped; a platform that has already rotated its answer
+            // would otherwise have a correct value turned wrong.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Orientation = "LANDSCAPE";
+            driver.Caps["deviceScreenSize"] = "2340x1080";
+            Metadata metadata = Build(driver, new ScreenshotOptions());
+
+            Assert.Equal(2340, metadata.DeviceScreenWidth());
+            Assert.Equal(1080, metadata.DeviceScreenHeight());
         }
 
         [Fact]
