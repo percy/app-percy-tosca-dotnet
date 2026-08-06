@@ -130,10 +130,12 @@ takes a single-screen snapshot of the current screen.
 
 ### Device details
 
-Tosca exposes device information through test configuration parameters (`DeviceName`, `OSVersion`,
-`AppiumServer`, …) and this SDK reads them automatically. Set these only when a parameter is missing
-or wrong — for example when the device is not in the SDK's built-in dimension table, which covers
-older iPhones and iPads only (see `AppPercyTosca.Core/resources/devices.json`).
+**You should not normally need any of these.** The device facts are read from the App Automate session
+itself — the hub allocated the device, so it knows the name, OS version, screen size and orientation.
+Tosca's own test configuration parameters are used where the session says nothing, and these module
+parameters override both.
+
+Set one only to correct a wrong value, or if the log says a detail could not be determined.
 
 | Parameter | Description |
 |---|---|

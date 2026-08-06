@@ -189,6 +189,105 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void DeviceDetailsAreReadFromTheSessionWhenToscaSetsNoParameters()
+        {
+            // The whole reason for asking the session: Tosca sets nothing for screen size, orientation
+            // or OS version, so the comparison tag went out empty. The hub knows all of it.
+            StubToscaEnvironment tosca = new StubToscaEnvironment();
+            tosca.Tcps["AppiumServer"] = "https://hub-cloud.browserstack.com/wd/hub";
+            tosca.Buffers[ToscaMobileDriver.DefaultSessionIdBuffer] = "s-1";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"platformName\":\"Android\",\"platformVersion\":\"13\"," +
+                    "\"deviceName\":\"Google Pixel 7\",\"deviceScreenSize\":\"1080x2400\"}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("Android", driver.PlatformName);
+            Assert.Equal("13", driver.Capabilities.GetString("platformVersion"));
+            Assert.Equal("Google Pixel 7", driver.Capabilities.GetString("deviceName"));
+            Assert.Equal("1080x2400", driver.Capabilities.GetString("deviceScreenSize"));
+            Assert.Contains("/session/s-1", device.Requests[0].Url);
+        }
+
+        [Fact]
+        public void TheSessionsAnswerOutranksTheTestConfigurationsRequest()
+        {
+            // Both may have an opinion; the session describes the device that was actually allocated
+            // while a parameter describes what was asked for.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"deviceName\":\"Google Pixel 7 Pro\"," +
+                    "\"platformVersion\":\"14\"}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("Google Pixel 7 Pro", driver.Capabilities.GetString("deviceName"));
+            Assert.Equal("14", driver.Capabilities.GetString("platformVersion"));
+        }
+
+        [Fact]
+        public void ModuleParametersStillOverrideTheSession()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"deviceName\":\"Google Pixel 7\"}}");
+
+            ToscaMobileDriver driver = Build(tosca,
+                new ScreenshotOptions { DeviceName = "My Label", OsName = "Android" },
+                deviceHttp: device);
+
+            Assert.Equal("My Label", driver.Capabilities.GetString("deviceName"));
+        }
+
+        [Fact]
+        public void ACapabilityMapNestedOneLevelDeepIsUnwrapped()
+        {
+            // Appium answers with the map directly; some servers nest it under "capabilities".
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"capabilities\":{\"platformVersion\":\"15\"}}}");
+
+            Assert.Equal("15",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("platformVersion"));
+        }
+
+        [Fact]
+        public void TheOrientationIsAskedOfTheSessionWhenNoParameterCarriesOne()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("/session/session-abc", "{\"value\":{}}")
+                .Default("{\"value\":\"LANDSCAPE\"}");
+
+            Assert.Equal("LANDSCAPE", Build(tosca, deviceHttp: device).Orientation);
+        }
+
+        [Fact]
+        public void TheWindowWidthIsAskedOfTheSession()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"width\":390,\"height\":844}}");
+
+            Assert.Equal(390, Build(tosca, deviceHttp: device).WindowWidth);
+        }
+
+        [Fact]
+        public void ASessionThatReportsNothingLeavesTheParametersInCharge()
+        {
+            // Degrades the tag rather than the run: every one of these has a module parameter that can
+            // supply it instead.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("nope", System.Net.HttpStatusCode.NotFound);
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("Google Pixel 7", driver.Capabilities.GetString("deviceName"));
+            Assert.Equal(0, driver.WindowWidth);
+            Assert.Null(driver.Orientation);
+        }
+
+        [Fact]
         public void DeviceMetadataIsMappedFromTheTestConfigurationParameters()
         {
             ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
@@ -286,7 +385,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Empty(driver.Capabilities);
             Assert.Null(driver.Host);
             Assert.Null(driver.PlatformName);
-            Assert.True(Logged("Set DeviceName, OsName and OsVersion"));
+            Assert.True(Logged("Set DeviceName, OsName, OsVersion, ScreenWidth and ScreenHeight"));
         }
 
         [Fact]

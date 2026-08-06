@@ -47,6 +47,92 @@ namespace AppPercyTosca.Core
         public string Endpoint => $"{_serverUrl}/session/{_sessionId}/screenshot";
 
         /// <summary>
+        /// The session's own capabilities, or null when the server will not report them.
+        ///
+        /// This is where the device facts come from. Tosca does not set test configuration parameters
+        /// for screen size, orientation or OS version, so without this the comparison tag went out
+        /// empty — and the hub knows all of it, because it allocated the device. The keys are the same
+        /// ones every other App Percy SDK reads off its driver (deviceScreenSize, viewportRect,
+        /// platformVersion, deviceName), so the metadata layer needs no special case for Tosca.
+        /// </summary>
+        public IReadOnlyDictionary<string, object?>? TryGetCapabilities()
+        {
+            string? body = Get($"{_serverUrl}/session/{_sessionId}", "capabilities");
+            JsonElement? value = Json.Property(Json.TryParse(body), "value");
+            if (value == null) return null;
+
+            // Appium answers with the capability map directly; some servers nest it one level under
+            // "capabilities".
+            IReadOnlyDictionary<string, object?>? capabilities = Capabilities.AsDictionary(value.Value);
+            if (capabilities == null) return null;
+
+            object? nested = capabilities.TryGetValue("capabilities", out object? inner) ? inner : null;
+            return Capabilities.AsDictionary(nested) ?? capabilities;
+        }
+
+        /// <summary>
+        /// The device's current orientation, or null. Asked for separately because it is a live fact
+        /// rather than a capability — a test can rotate the device mid-run.
+        /// </summary>
+        public string? TryGetOrientation()
+        {
+            string? body = Get($"{_serverUrl}/session/{_sessionId}/orientation", "orientation");
+            JsonElement? value = Json.Property(Json.TryParse(body), "value");
+            return value?.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
+        }
+
+        /// <summary>
+        /// The session window's width, or null. Only iOS uses it, to work out the scale factor between
+        /// the logical window and the real screen.
+        /// </summary>
+        public int? TryGetWindowWidth()
+        {
+            // W3C moved this to /window/rect; the older spelling is tried second.
+            foreach (string path in new[] { "window/rect", "window/current/size" })
+            {
+                JsonElement? value = Json.Property(
+                    Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}/{path}", "window size")),
+                    "value");
+                int? width = Capabilities.ToInt(
+                    value == null ? null : Json.ToObject(value.Value) is Dictionary<string, object?> d
+                        && d.TryGetValue("width", out object? w) ? w : null);
+                if (width > 0) return width;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// A GET whose failure is a logged null. Every caller has a fallback — a capability the module
+        /// can supply instead — so a session that will not answer degrades the tag rather than the run.
+        /// </summary>
+        private string? Get(string url, string what)
+        {
+            try
+            {
+                Task<HttpResponseMessage> request = _http.GetAsync(url);
+                request.Wait();
+                HttpResponseMessage response = request.Result;
+
+                Task<string> body = response.Content.ReadAsStringAsync();
+                body.Wait();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Utils.Log($"The device session would not report its {what} " +
+                        $"({(int)response.StatusCode}): {Truncate(body.Result)}", "debug");
+                    return null;
+                }
+                return body.Result;
+            }
+            catch (Exception e)
+            {
+                Utils.Log($"Could not read the device session's {what}: " +
+                    Utils.RedactCredentials(e.Message), "debug");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Runs a script in the session and returns its result, or null when the server would not run
         /// it.
         ///

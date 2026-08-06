@@ -579,6 +579,75 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void CapabilitiesAreReadFromTheSession()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"platformName\":\"Android\",\"deviceScreenSize\":\"1080x2400\"}}");
+
+            IReadOnlyDictionary<string, object?> capabilities = Session(handler).TryGetCapabilities()!;
+
+            Assert.Equal("Android", capabilities["platformName"]);
+            Assert.EndsWith("/session/s-1", handler.Requests[0].Url);
+        }
+
+        [Theory]
+        [InlineData("{}")]
+        [InlineData("{\"value\":\"not a map\"}")]
+        [InlineData("not json")]
+        public void UnusableCapabilitiesReadAsNone(string body)
+        {
+            Assert.Null(Session(new StubHttpMessageHandler().Default(body)).TryGetCapabilities());
+        }
+
+        [Fact]
+        public void AnUnreachableSessionDegradesEachDeviceFactRatherThanTheRun()
+        {
+            // Every one of these has a module parameter that can supply it instead, so a session that
+            // will not answer should cost the tag its detail and nothing more.
+            SetEnv("PERCY_LOGLEVEL", "debug");
+            StubHttpMessageHandler handler = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException("connection reset")
+            };
+            WebDriverSession session = Session(handler);
+
+            Assert.Null(session.TryGetCapabilities());
+            Assert.Null(session.TryGetOrientation());
+            Assert.Null(session.TryGetWindowWidth());
+            Assert.True(Logged("Could not read the device session's"));
+        }
+
+        [Fact]
+        public void ARefusedRequestForADeviceFactAlsoReadsAsAbsent()
+        {
+            SetEnv("PERCY_LOGLEVEL", "debug");
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("gone", System.Net.HttpStatusCode.NotFound);
+
+            Assert.Null(Session(handler).TryGetOrientation());
+            Assert.True(Logged("would not report its orientation"));
+        }
+
+        [Fact]
+        public void TheWindowWidthFallsBackToTheOlderEndpointSpelling()
+        {
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .On("/window/rect", "gone", System.Net.HttpStatusCode.NotFound)
+                .Default("{\"value\":{\"width\":390}}");
+
+            Assert.Equal(390, Session(handler).TryGetWindowWidth());
+            Assert.Equal(2, handler.Requests.Count);
+        }
+
+        [Fact]
+        public void AZeroWindowWidthIsTreatedAsNoAnswer()
+        {
+            // Zero is not a usable width, and reporting it would make the iOS scale factor nonsense.
+            Assert.Null(Session(new StubHttpMessageHandler()
+                .Default("{\"value\":{\"width\":0}}")).TryGetWindowWidth());
+        }
+
+        [Fact]
         public void AScriptRunsThroughTheW3cExecuteEndpoint()
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()

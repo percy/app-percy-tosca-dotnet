@@ -48,7 +48,7 @@ namespace AppPercyTosca.Core
         private readonly Func<string, string, WebDriverSession>? _webDriver;
         private readonly string? _sessionIdBuffer;
         private readonly string? _explicitSessionId;
-        private readonly Dictionary<string, object?> _capabilities;
+        private Dictionary<string, object?>? _capabilities;
         private readonly string _fallbackSessionId;
 
         /// <summary>
@@ -76,7 +76,6 @@ namespace AppPercyTosca.Core
                 ? null
                 : explicitSessionId.Trim();
             _fallbackSessionId = fallbackSessionId ?? "tosca-session";
-            _capabilities = BuildCapabilities();
         }
 
         /// <summary>
@@ -132,19 +131,29 @@ namespace AppPercyTosca.Core
             get
             {
                 if (!string.IsNullOrWhiteSpace(_options.OsName)) return _options.OsName;
-                return _capabilities.GetString("platformName");
+                return Capabilities.GetString("platformName");
             }
         }
 
-        public IReadOnlyDictionary<string, object?> Capabilities => _capabilities;
-
-        public string? Orientation => _capabilities.GetString("orientation");
+        /// <summary>
+        /// Built on first use rather than in the constructor, because the best source is the session
+        /// itself and reaching that needs the host and session id to be resolved first.
+        /// </summary>
+        public IReadOnlyDictionary<string, object?> Capabilities => _capabilities ??= BuildCapabilities();
 
         /// <summary>
-        /// Not obtainable: it would need a live driver to ask. Only iOS's scale factor uses it, and
-        /// that degrades to 1 — which is correct whenever the device's real and logical widths match.
+        /// The device's current orientation. Asked of the session when no parameter carries one, since a
+        /// test can rotate the device and Tosca reports nothing about it.
         /// </summary>
-        public int WindowWidth => 0;
+        public string? Orientation =>
+            Capabilities.GetString("orientation") ?? Session()?.TryGetOrientation();
+
+        /// <summary>
+        /// The session window's width, used only by iOS's scale factor. Zero when the session will not
+        /// report it, which degrades that factor to 1 — correct whenever the real and logical widths
+        /// match.
+        /// </summary>
+        public int WindowWidth => Session()?.TryGetWindowWidth() ?? 0;
 
         /// <summary>
         /// True whenever the session can be reached over HTTP.
@@ -259,12 +268,17 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Assembles capabilities from the TCPs, then lets the module parameters override.
+        /// Assembles the capability bag from three sources, weakest first: the test configuration
+        /// parameters, then the session's own capabilities, then the module parameters.
         ///
-        /// Every TCP is carried through under its own name as well as the mapped one, because Percy
-        /// on Automate forwards this dictionary to the CLI, which recognises more of the connection
-        /// details than this SDK does — dropping the unmapped ones would lose information the CLI
-        /// could have used.
+        /// The session outranks the test configuration on purpose. Tosca sets no parameters for screen
+        /// size, orientation or OS version, so on their own the comparison tag went out empty — and
+        /// where both do have an opinion, the session describes the device that was actually allocated
+        /// while a parameter describes what was asked for. Module parameters win over both, being an
+        /// explicit override.
+        ///
+        /// Every TCP is also carried through under its own name, not just the mapped one, so a detail
+        /// this SDK does not interpret is still visible to anything that reads capabilities.
         /// </summary>
         private Dictionary<string, object?> BuildCapabilities()
         {
@@ -276,8 +290,25 @@ namespace AppPercyTosca.Core
                 if (!string.IsNullOrWhiteSpace(tcp.Value)) capabilities[tcp.Key] = tcp.Value;
             }
 
+            // Overlaid on the parameters: same keys the other App Percy SDKs read off their driver
+            // (deviceScreenSize, viewportRect, platformVersion, deviceName), so nothing downstream
+            // needs a Tosca-specific path.
+            IReadOnlyDictionary<string, object?>? fromSession = Session()?.TryGetCapabilities();
+            if (fromSession != null)
+            {
+                foreach (KeyValuePair<string, object?> capability in fromSession)
+                {
+                    if (capability.Value != null) capabilities[capability.Key] = capability.Value;
+                }
+                Utils.Log($"Read {fromSession.Count} capabilities from the device session.", "debug");
+            }
+
             foreach ((string capability, string[] names) in CapabilityMap)
             {
+                // Skipped when the session already reported this capability, so mapping a parameter
+                // onto it cannot overwrite the device's own answer with the requested one.
+                if (capabilities.ContainsKey(capability)) continue;
+
                 foreach (string name in names)
                 {
                     string? value = Lookup(tcps, name);
@@ -300,9 +331,9 @@ namespace AppPercyTosca.Core
 
             if (capabilities.Count == 0)
             {
-                Utils.Log("No test configuration parameters were found, so no device details are " +
-                    "available from Tosca. Set DeviceName, OsName and OsVersion on the Percy " +
-                    "module.", "warn");
+                Utils.Log("No device details are available: Tosca reported no test configuration " +
+                    "parameters and the session reported no capabilities. Set DeviceName, OsName, " +
+                    "OsVersion, ScreenWidth and ScreenHeight on the Percy module.", "warn");
             }
             return capabilities;
         }
