@@ -15,18 +15,13 @@ namespace AppPercyTosca.Core
         private static readonly object Lock = new object();
 
         /// <summary>
-        /// Opens the embedded table. Replaceable so tests can exercise the missing-resource and
-        /// unreadable-resource fallbacks, which are otherwise only reachable by shipping a broken
-        /// assembly — and those fallbacks exist precisely so a broken one degrades to
-        /// "device unknown" instead of failing every snapshot.
+        /// Opens the embedded table. Replaceable so tests can reach the missing- and broken-resource
+        /// fallbacks, which otherwise need a broken assembly to trigger.
         /// </summary>
         internal static Func<Stream?> ResourceLoader { get; set; } = () =>
             typeof(DeviceRegistry).Assembly.GetManifestResourceStream(ResourceName);
 
-        /// <summary>
-        /// Reads one dimension for one device, or 0 when the device is not in the table — 0 is the
-        /// caller's signal to fall back to a session-derived value.
-        /// </summary>
+        /// <summary>One dimension, or 0 — the caller's signal to fall back to a session-derived value.</summary>
         public static int Value(string key, string? deviceName)
         {
             if (string.IsNullOrWhiteSpace(deviceName)) return 0;

@@ -5,13 +5,12 @@ namespace AppPercyTosca
 {
     /// <summary>
     /// <see cref="IToscaEnvironment"/> over the real Tricentis APIs: test configuration parameters and
-    /// buffers, and nothing else. Capture and scripting go straight to the session over HTTP.
+    /// buffers, nothing else.
     ///
-    /// Both are reached by reflection rather than a direct call, and the reason is specific rather than
-    /// general timidity: <c>MainConfiguration</c> and <c>Buffers</c> are documented by behaviour but
-    /// their namespaces and exact member shapes are not published, and they differ across Tosca
-    /// releases. Binding to a guess at compile time turns a wrong guess into "does not build on the
-    /// customer's machine"; binding late turns it into a logged warning and a degraded snapshot.
+    /// Both are reached by reflection for a specific reason: <c>MainConfiguration</c> and
+    /// <c>Buffers</c> are documented by behaviour, but their namespaces and member shapes are not
+    /// published and differ across releases. Binding at compile time turns a wrong guess into "does
+    /// not build on the customer's machine"; binding late turns it into a logged warning.
     /// </summary>
     internal class ToscaEnvironment : IToscaEnvironment
     {
@@ -25,10 +24,7 @@ namespace AppPercyTosca
         private static readonly string[] GetBufferNames = { "GetBuffer", "GetBufferValue", "Get" };
         private static readonly string[] ValueNames = { "Value", "ValueAsString", "UnresolvedValue" };
 
-        /// <summary>
-        /// Memoized per step: the parameter map costs a reflective walk, and one snapshot reads
-        /// several values out of it.
-        /// </summary>
+        /// <summary>Memoized per step: the map costs a reflective walk and one snapshot reads it several times.</summary>
         private IReadOnlyDictionary<string, string?>? _parameters;
 
         public string? TestConfigurationParameter(string name)
@@ -66,10 +62,7 @@ namespace AppPercyTosca
             return value is string text ? text : Reflect.Member(value, ValueNames)?.ToString();
         }
 
-        /// <summary>
-        /// Reads every test configuration parameter. Values arrive either as plain strings or wrapped
-        /// in a parameter object, so both are unwrapped.
-        /// </summary>
+        /// <summary>Values arrive as plain strings or wrapped in a parameter object; both are unwrapped.</summary>
         private IReadOnlyDictionary<string, string?> ReadParameters()
         {
             Dictionary<string, string?> parameters = new Dictionary<string, string?>();
@@ -105,20 +98,14 @@ namespace AppPercyTosca
         }
 
         /// <summary>
-        /// Finds a Tricentis singleton by type name across the assemblies already loaded into Tosca
-        /// Commander, and returns its <c>Instance</c> — but only if <paramref name="isUsable"/>
-        /// accepts it.
+        /// Finds a Tricentis singleton by type name across the loaded assemblies and returns its
+        /// <c>Instance</c>, if <paramref name="isUsable"/> accepts it. Searching rather than naming an
+        /// assembly, because these types have moved between releases.
         ///
-        /// Searching loaded assemblies rather than naming one is deliberate: these types' assemblies
-        /// have moved between Tosca releases, and by the time an extension runs, whichever assembly
-        /// holds them is loaded anyway.
-        ///
-        /// Two things this gets right that a naive search does not. Candidate names are tried
-        /// outermost, so the preference order in the arrays above is honoured — iterating assemblies
-        /// first would let load order decide, and load order is not deterministic. And each candidate
-        /// is checked for the member actually needed before being accepted, because "a Tricentis type
-        /// named Configuration with a static Instance" describes more than one type; accepting the
-        /// wrong one yields an empty parameter set and a snapshot with no device details.
+        /// Two details matter. Candidate names are the outer loop, so the preference order above wins
+        /// rather than nondeterministic assembly load order. And each candidate is checked for the
+        /// member wanted before being accepted: more than one Tricentis type is named Configuration
+        /// with a static Instance, and the wrong one yields a snapshot with no device details.
         /// </summary>
         private static object? SingletonInstance(string[] typeNames, Func<object, bool> isUsable)
         {
@@ -130,8 +117,7 @@ namespace AppPercyTosca
                 {
                     if (!string.Equals(type.Name, name, StringComparison.Ordinal)) continue;
 
-                    // FlattenHierarchy: a singleton commonly inherits Instance from a
-                    // Singleton<T> base, where a non-flattened lookup would not see it.
+                    // FlattenHierarchy: Instance is commonly inherited from a Singleton<T> base.
                     object? instance = null;
                     try
                     {
@@ -164,18 +150,13 @@ namespace AppPercyTosca
         private static int _typesFromAssemblyCount = -1;
 
         /// <summary>
-        /// Every type in the loaded Tricentis assemblies.
+        /// Every type in the loaded Tricentis assemblies, cached — thousands of types, on the path of
+        /// every snapshot — but invalidated whenever the loaded-assembly count changes, which is the
+        /// part that matters. Tosca loads engine assemblies on demand, so caching a miss for the life
+        /// of the process would make it permanent: every snapshot degraded, and restarting Commander
+        /// appearing to fix it.
         ///
-        /// Cached because enumerating types across ~30 Tricentis assemblies is thousands of types and
-        /// this is on the path of every snapshot — but invalidated as soon as the loaded-assembly count
-        /// changes, which is the part that matters. Tosca loads engine assemblies on demand, so the one
-        /// holding the configuration or buffer singleton may well not be loaded when the first
-        /// AppPercyScreenshot step runs. Caching a miss for the life of the process would make that miss
-        /// permanent: no test configuration parameters, no session id, every snapshot degraded, and
-        /// restarting Commander appearing to "fix" it.
-        ///
-        /// Comparing the count rather than the contents is enough here: assemblies are never unloaded,
-        /// so the count only rises, and any rise is a reason to look again.
+        /// The count suffices: assemblies are never unloaded, so any rise is a reason to look again.
         /// </summary>
         private static List<Type> TricentisTypes()
         {

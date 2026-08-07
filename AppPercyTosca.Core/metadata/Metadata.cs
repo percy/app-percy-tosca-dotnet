@@ -1,12 +1,9 @@
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Resolves the device facts Percy tags a comparison with, from the session and the static device
-    /// table only.
-    ///
-    /// There is deliberately no way to declare them on the Tosca step. The session knows which device
-    /// was allocated; a module parameter could only ever disagree, and a stale or mistyped one silently
-    /// splits a Percy baseline in a way that looks like a real visual change.
+    /// The device facts Percy tags a comparison with, from the session and the static device table
+    /// only. No step parameter can declare them: the session knows which device was allocated, and a
+    /// stale or mistyped override splits a baseline in a way that looks like a real visual change.
     /// </summary>
     public abstract class Metadata
     {
@@ -22,11 +19,9 @@ namespace AppPercyTosca.Core
             string? capability = Driver.Capabilities.GetString("orientation");
             if (!string.IsNullOrWhiteSpace(capability)) return capability.ToLowerInvariant();
 
-            // Ask the device. The other App Percy SDKs default to portrait here and only query when the
-            // caller passes "auto", because asking costs them a driver round trip they would rather not
-            // make on every snapshot. This SDK is already talking to the session over HTTP, and
-            // defaulting to portrait on a landscape device gets both the orientation and the screen
-            // dimensions wrong.
+            // The other SDKs default to portrait and only query on "auto", to save a round trip they
+            // would otherwise make every snapshot. This one is already talking to the session, and
+            // assuming portrait on a landscape device gets the dimensions wrong too.
             string? live = Driver.Orientation;
             return string.IsNullOrWhiteSpace(live) ? "portrait" : live.ToLowerInvariant();
         }
@@ -49,11 +44,9 @@ namespace AppPercyTosca.Core
         protected abstract int MeasuredScreenHeight();
 
         /// <summary>
-        /// The screen size in the orientation the device is actually in.
-        ///
-        /// A platform reports its physical screen — a phone is 1080x2400 whichever way up it is held —
-        /// but the screenshot Percy diffs is 2400x1080 in landscape. Left unswapped, the tag disagreed
-        /// with the image, which splits a baseline and makes every custom pixel region fail validation.
+        /// The screen size in the orientation the device is actually in. A platform reports its
+        /// physical screen — 1080x2400 whichever way up the phone is held — but the image Percy diffs
+        /// is 2400x1080 in landscape, and a tag that disagrees with the image splits the baseline.
         /// </summary>
         public int DeviceScreenWidth() =>
             IsLandscape && MeasuredScreenWidth() < MeasuredScreenHeight()
@@ -65,27 +58,22 @@ namespace AppPercyTosca.Core
                 ? MeasuredScreenWidth()
                 : MeasuredScreenHeight();
 
-        /// <summary>
-        /// Only swapped when the reported size is portrait-shaped. A platform that already accounts for
-        /// rotation would otherwise have its correct answer reversed.
-        /// </summary>
+        /// <summary>Swapped only when the report is portrait-shaped, so a platform that already accounts
+        /// for rotation does not get its correct answer reversed.</summary>
         private bool IsLandscape =>
             Orientation().Equals("landscape", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
-        /// The `tag` block identifying which device/screen a comparison belongs to. Percy groups
-        /// and compares snapshots by this, so a device name that varies run to run would split one
-        /// baseline into several.
+        /// Identifies which device and screen a comparison belongs to. Percy groups by it, so anything
+        /// here that varies run to run splits one baseline into several.
         /// </summary>
         public Dictionary<string, object?> GetTag()
         {
             int width = DeviceScreenWidth();
             int height = DeviceScreenHeight();
 
-            // Percy groups and diffs comparisons by this tag, so a zero dimension is a corrupt
-            // baseline key rather than a cosmetic gap. There is no parameter to set instead — the
-            // screen size comes from the session or not at all — so this points at the two reasons
-            // the session is not answering, which are the only things anyone can act on.
+            // A zero dimension is a corrupt baseline key, not a cosmetic gap. There is no parameter
+            // to set instead, so this points at the two reasons the session might not be answering.
             if (width <= 0 || height <= 0)
             {
                 Utils.Log("Could not determine the device screen size, so this snapshot is tagged " +

@@ -50,26 +50,20 @@ namespace AppPercyTosca.Core
 
         public override int NavBarHeight()
         {
-            // Derived, so it needs both the full height and the usable area. Without
-            // deviceScreenSize there is nothing to subtract from and 0 is the honest answer —
-            // computing it from DeviceScreenHeight() would recurse, since that falls back to
-            // adding this value on.
+            // Needs both the full height and the usable area. Without deviceScreenSize, 0 is the
+            // honest answer — deriving it from DeviceScreenHeight() would recurse.
             (int Width, int Height)? screen = ScreenSize();
             int? viewportHeight = ViewportInt("height");
             if (screen == null || viewportHeight == null) return 0;
 
             int navBar = screen.Value.Height - (viewportHeight.Value + StatBarHeight());
-            // A device whose viewport already spans the screen has no nav bar to trim; a negative
-            // value would be sent on as a crop and corrupt the comparison.
+            // A viewport spanning the screen has no nav bar; a negative crop would corrupt the tag.
             return navBar > 0 ? navBar : 0;
         }
 
         public override int ScaleFactor() => 1;
 
-        /// <summary>
-        /// Parses the `deviceScreenSize` capability ("1080x1920"), or null when the session does
-        /// not report it. Tosca's Mobile engine is one such session.
-        /// </summary>
+        /// <summary>Parses the `deviceScreenSize` capability ("1080x1920"), or null.</summary>
         private (int Width, int Height)? ScreenSize()
         {
             string? size = Driver.Capabilities.GetString("deviceScreenSize");

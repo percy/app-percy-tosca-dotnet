@@ -6,14 +6,13 @@ namespace AppPercyTosca.Core
     /// </summary>
     public static class Env
     {
-        /// <summary>SDK version reported to Percy as clientInfo. Keep in sync with AssemblyInfo.cs.</summary>
+        /// <summary>Reported to Percy as clientInfo. Keep in step with Version in AppPercyTosca.csproj.</summary>
         public const string SdkVersion = "1.0.0";
 
         /// <summary>
-        /// Value the CLI reports for <c>type</c> when it was started for Percy on Automate rather than
-        /// App Percy. This SDK supports App Percy only, so the value is used to warn rather than to
-        /// choose a path — posting an App Percy comparison to an automate-mode CLI is rejected, and the
-        /// rejection says nothing about the CLI having been started the wrong way.
+        /// What the CLI reports for <c>type</c> when started for Percy on Automate. Used to warn, not
+        /// to choose a path: the CLI would reject the comparison with an error that never mentions how
+        /// it was started.
         /// </summary>
         public const string AutomateSessionType = "automate";
 
@@ -21,10 +20,7 @@ namespace AppPercyTosca.Core
         public static string? PercyBuildUrl { get; set; }
         public static string? SessionType { get; set; }
 
-        /// <summary>
-        /// Set by the Tosca shim to the Tosca Commander version it is running under, so builds
-        /// can be attributed to a Tosca release. Falls back to the bare "tosca" label.
-        /// </summary>
+        /// <summary>Set by the shim, so a build can be attributed to a Tosca release.</summary>
         public static string? ToscaVersion { get; set; }
 
         public static string ClientInfo => $"percy-app-tosca/{SdkVersion}";
@@ -32,10 +28,7 @@ namespace AppPercyTosca.Core
         public static string EnvironmentInfo =>
             string.IsNullOrWhiteSpace(ToscaVersion) ? "tosca" : $"tosca/{ToscaVersion}";
 
-        /// <summary>
-        /// True when the running CLI was started for Percy on Automate, which this SDK does not
-        /// support. Checked so the mismatch can be reported plainly.
-        /// </summary>
+        /// <summary>True when the CLI is in a mode this SDK does not support.</summary>
         public static bool IsAutomateSession =>
             string.Equals(SessionType, AutomateSessionType, StringComparison.OrdinalIgnoreCase);
 
@@ -52,10 +45,7 @@ namespace AppPercyTosca.Core
         public static string CliApi() =>
             Environment.GetEnvironmentVariable("PERCY_CLI_API") ?? "http://localhost:5338";
 
-        /// <summary>
-        /// Directory screenshot tiles are written to before the CLI reads them. Tosca Commander
-        /// runs as a Windows desktop process, so this is typically C:\Users\&lt;user&gt;\AppData\Local\Temp.
-        /// </summary>
+        /// <summary>Where tiles are written for the CLI to read.</summary>
         public static string TempDir()
         {
             string? dir = Environment.GetEnvironmentVariable("PERCY_TMP_DIR");

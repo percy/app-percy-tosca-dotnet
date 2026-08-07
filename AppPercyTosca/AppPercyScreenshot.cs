@@ -10,26 +10,21 @@ using Tricentis.Automation.Engines.SpecialExecutionTasks.Attributes;
 namespace AppPercyTosca
 {
     /// <summary>
-    /// The AppPercyScreenshot special execution task: takes one App Percy screenshot of the mobile
-    /// device under test.
+    /// Takes one App Percy screenshot of the mobile device under test.
     ///
-    /// This class and its two neighbours are the only code that touches Tosca. Everything with a
-    /// decision in it — parsing parameters, resolving device metadata, choosing a capture path,
-    /// talking to the Percy CLI — lives in AppPercyTosca.Core, which has no Tricentis dependency and
-    /// is unit-tested on CI. The Tricentis assemblies only exist on a machine with Tosca installed,
-    /// so anything here is code no test can reach.
+    /// This class and its two neighbours are the only code that touches Tosca; everything with a
+    /// decision in it lives in AppPercyTosca.Core, which CI can test. Anything here is unreachable by
+    /// any test, since the Tricentis assemblies exist only where Tosca is installed.
     ///
-    /// No <c>[SupportedTechnical]</c> attribute: that attribute tags an adapter with the technical
-    /// it can be built for, and a special execution task is never handed a technical. Tosca's own
-    /// task examples carry only the two attributes used here.
+    /// No <c>[SupportedTechnical]</c>: that tags an adapter with a technical, and a special execution
+    /// task is never handed one.
     /// </summary>
     [SpecialExecutionTaskName("AppPercyScreenshot")]
     public class AppPercyScreenshot : SpecialExecutionTask
     {
         /// <summary>
-        /// One CLI connection for the Tosca Commander process. The healthcheck behind it is
-        /// memoized, which is what keeps a sheet with fifty AppPercyScreenshot steps from performing
-        /// fifty healthchecks.
+        /// One CLI connection per Commander process, with a memoized healthcheck — otherwise a sheet
+        /// with fifty steps performs fifty healthchecks.
         /// </summary>
         private static readonly Lazy<PercyClient> Client = new Lazy<PercyClient>(() =>
         {
@@ -42,42 +37,31 @@ namespace AppPercyTosca
         });
 
         /// <summary>
-        /// A second connection to the same CLI, used only by <see cref="ToscaLog"/> to forward log
-        /// lines, and given a short timeout of its own.
-        ///
-        /// It cannot share the client above. Every log line is a blocking POST, so on that client's
-        /// ten-minute timeout a CLI that accepts a connection and then stops answering would stall
-        /// each line for ten minutes — and the lines most likely to be written at that moment are the
-        /// ones explaining that Percy is unreachable. A log line is worth a few seconds at most; if it
-        /// does not get through, the file copy in <see cref="ToscaLog"/> is the record that survives.
-        ///
-        /// A separate <see cref="PercyClient"/> costs nothing: PostLog does not healthcheck, so there
-        /// is no memoized state to keep in step with the client above.
+        /// A second connection for log forwarding, on a short timeout. It cannot share the client
+        /// above: every log line is a blocking POST, so a CLI that accepts a connection then stops
+        /// answering would stall each line for ten minutes — and those lines are usually the ones
+        /// reporting that Percy is unreachable. The file copy in <see cref="ToscaLog"/> is the record
+        /// that survives if five seconds is not enough.
         /// </summary>
         internal static PercyClient LogClient => Log.Value;
 
         private static readonly Lazy<PercyClient> Log = new Lazy<PercyClient>(() =>
             new PercyClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) }));
 
-        /// <summary>
-        /// Separate from the CLI client: this one talks to the device's automation server, which may be
-        /// a remote hub, and a screenshot of a large screen is worth a generous timeout of its own.
-        /// </summary>
+        /// <summary>The device's automation server, which may be a remote hub serving a large screen.</summary>
         private static readonly Lazy<HttpClient> DeviceHttp = new Lazy<HttpClient>(() =>
             new HttpClient { Timeout = TimeSpan.FromMinutes(2) });
 
         public AppPercyScreenshot(Tricentis.Automation.Creation.Validator validator) : base(validator)
         {
-            // Tosca Commander is a desktop process with no console attached, so without a sink every
-            // log line — including the ones explaining a degraded snapshot — would go nowhere.
+            // Commander has no console attached, so without a sink every log line goes nowhere.
             Utils.LogSink = ToscaLog.Write;
             Env.ToscaVersion ??= DetectToscaVersion();
         }
 
         /// <summary>
-        /// The Tosca version, reported to Percy as part of environmentInfo so a build can be
-        /// attributed to a Tosca release. Read from the loaded Tricentis assembly rather than asked
-        /// for, since there is no API that returns it and a wrong answer here is cosmetic.
+        /// Reported to Percy as environmentInfo. Read off the loaded assembly because no API returns
+        /// it, and a wrong answer here is cosmetic.
         /// </summary>
         private static string? DetectToscaVersion()
         {
@@ -109,13 +93,9 @@ namespace AppPercyTosca
             {
                 ToscaOptions.ParameterReader read = name => Parameter(testAction, name);
 
-                // Built once and shared: the driver reads the device details out of it to fill gaps
-                // in what Tosca reports, and the capture flow needs the same values. Building it
-                // twice would re-log every parse warning.
                 ScreenshotOptions options = ToscaOptions.Build(read);
 
-                // Takes no test action: every parameter and buffer it reads comes from Tosca's own
-                // singletons, reached by reflection.
+                // Takes no test action: its parameters and buffers come from Tosca's own singletons.
                 ToscaEnvironment tosca = new ToscaEnvironment();
                 ToscaMobileDriver driver = new ToscaMobileDriver(
                     tosca,
@@ -124,55 +104,39 @@ namespace AppPercyTosca
                     Parameter(testAction, "SessionId"),
                     (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
 
-                // The step passes whether or not a snapshot was recorded — a visual check that could
-                // not run is not a functional regression — but it must not *claim* one was. A green
-                // step reading "Snapshot Taken!" when nothing reached Percy is worse than a slow
-                // failure: nobody goes looking.
-                return new PassedActionResult(Screenshot(driver, snapshotName!, options, read));
+                // Passes whether or not a snapshot was recorded, but never claims one that was not:
+                // see SnapshotOutcome.
+                return new PassedActionResult(Screenshot(driver, snapshotName!, options));
             }
             catch (Exception e)
             {
-                // Only reached when the session asked for errors not to be ignored (a
-                // percy.ignoreErrors=false test configuration parameter); the Core swallows everything
-                // else so a visual check cannot fail a passing sheet.
+                // Only reached under percy.ignoreErrors=false; the Core swallows everything else.
                 string message = Utils.RedactCredentials(e.Message);
                 Utils.Log($"Percy snapshot {snapshotName} failed: {message}");
                 return new UnknownFailedActionResult($"Percy snapshot failed: {message}");
             }
         }
 
-        /// <summary>
-        /// Captures one App Percy snapshot: screenshot the device, upload the tile.
-        ///
-        /// Returns what the Tosca step should report — which is the caller's whole reason for wanting
-        /// a return value here, since every outcome below except a throw leaves the step passing.
-        /// </summary>
+        /// <summary>Returns what the step should report; every outcome but a throw leaves it passing.</summary>
         private static string Screenshot(
             ToscaMobileDriver driver,
             string snapshotName,
-            ScreenshotOptions options,
-            ToscaOptions.ParameterReader read)
+            ScreenshotOptions options)
         {
-            // The healthcheck is what tells us the session type, and it has to happen before the
-            // branch below rather than inside the façade constructors underneath it. Without this,
-            // the very first AppPercyScreenshot step of a Tosca Commander session reads SessionType as
-            // null, takes the App Percy path against an automate-mode CLI, has the comparison
-            // rejected (and swallowed), and reports a passing step with no snapshot in the build —
-            // while every later step behaves correctly, which reads as a flake.
-            //
-            // Memoized inside PercyClient, so the later Healthcheck() calls are free.
+            // Must run before the mode check below: without it the first step of a Commander session
+            // reads SessionType as null, takes the App Percy path against an automate-mode CLI, has
+            // the comparison rejected and swallowed, and reports a passing step with nothing in the
+            // build — while every later step works, which reads as a flake. Memoized, so this is free
+            // after the first call.
             if (!Client.Value.Healthcheck())
             {
-                // Percy is not running or is too old; it has already said so in the log. Nothing to
-                // capture, and no reason to fail the step over it.
                 return SnapshotOutcome.PercyNotRunning;
             }
 
             if (Env.IsAutomateSession)
             {
-                // The CLI was started for Percy on Automate, which this SDK does not support. Said here
-                // because the alternative is the CLI rejecting the comparison with an error that never
-                // mentions how it was started.
+                // Said here because the alternative is the CLI rejecting the comparison with an error
+                // that never mentions how it was started.
                 Utils.Log("The Percy CLI is running in Percy on Automate mode, which this SDK does not " +
                     "support. Restart it for App Percy: use an App project token (not one starting " +
                     "with \"auto_\") and `percy app:exec:start`.");
@@ -183,26 +147,21 @@ namespace AppPercyTosca
                 AppPercyFor(driver).Screenshot(snapshotName, options), snapshotName);
         }
 
-        // A fresh façade per step. The Core's caches are per-session and this driver is per-step, so
-        // there is nothing to carry across; the CLI connection and its healthcheck — the only
-        // genuinely expensive parts — are static above.
+        // A fresh façade per step: the Core's caches are per-session and this driver is per-step, so
+        // there is nothing to carry across. The expensive parts are static above.
         private static AppPercy AppPercyFor(ToscaMobileDriver driver) =>
             new AppPercy(driver, Client.Value);
 
         /// <summary>
-        /// Cache key used when no Appium session id is available. Derived from the test action so it
-        /// is stable within a step; it deliberately does not persist across steps, since a stale
-        /// entry would report the previous device's dimensions.
+        /// Cache key for when no session id is available. Stable within a step and deliberately not
+        /// across them, since a stale entry would report the previous device's dimensions.
         /// </summary>
         private static string SessionKey(ISpecialExecutionTaskTestAction testAction) =>
             "tosca-" + testAction.GetHashCode();
 
         /// <summary>
-        /// Reads one module parameter, or null when the row is absent or blank.
-        ///
-        /// The <c>true</c> argument tells Tosca the parameter is optional, which is what makes every
-        /// parameter besides SnapshotName optional — a user should not have to add twenty rows to
-        /// take one screenshot.
+        /// Reads one module parameter, or null when absent or blank. The <c>true</c> marks it optional,
+        /// which is what lets a step carry only the rows it needs.
         /// </summary>
         private static string? Parameter(ISpecialExecutionTaskTestAction testAction, string name)
         {
@@ -213,8 +172,7 @@ namespace AppPercyTosca
             }
             catch (Exception e)
             {
-                // A row Tosca cannot render as an input value must not take the snapshot down;
-                // treating it as unset falls back to the documented default.
+                // A row Tosca cannot render must not take the snapshot down; unset means the default.
                 Utils.Log($"Could not read the {name} parameter: {e.Message}", "debug");
                 return null;
             }

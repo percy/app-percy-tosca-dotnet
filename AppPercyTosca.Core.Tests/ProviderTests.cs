@@ -47,24 +47,11 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.True(AppAutomate.Supports(driver));
         }
-
-        [Fact]
-        public void ScriptingIsNoLongerRequiredToBeRecognised()
-        {
-            // Supports() used to demand it, to steer away from a provider that would fail. With one
-            // provider there is nothing to steer to, and scripting now works over HTTP anyway.
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Host = "https://hub-cloud.browserstack.com/wd/hub";
-            driver.CanExecuteScript = false;
-
-            Assert.True(AppAutomate.Supports(driver));
-        }
     }
 
     /// <summary>
-    /// The parts of the single provider that are not the executor: the device tag, region resolution,
-    /// and the locally-written tile used when remote uploads are switched off. These moved here when
-    /// GenericProvider was folded in.
+    /// The parts of the provider that are not the executor: the device tag, region resolution, and the
+    /// locally-written tile used when remote uploads are off.
     /// </summary>
     public class AppAutomateLocalCaptureTests : CoreTestBase
     {

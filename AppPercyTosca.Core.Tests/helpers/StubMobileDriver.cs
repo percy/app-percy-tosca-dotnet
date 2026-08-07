@@ -34,7 +34,6 @@ namespace AppPercyTosca.Core.Tests
 
         /// <summary>Defaults to true so existing scripting tests read naturally; a Tosca session
         /// sets it false.</summary>
-        public bool CanExecuteScript { get; set; } = true;
 
         /// <summary>Answers <see cref="ExecuteScript"/>; keyed by a fragment of the script.</summary>
         public List<(string Match, string? Reply)> ScriptReplies { get; } =

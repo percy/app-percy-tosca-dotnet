@@ -3,10 +3,8 @@ using System.Globalization;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Typed reads over a session's capability bag. Capabilities arrive from the automation server
-    /// as loosely-typed JSON, so the same key can show up as a string on one session and a number
-    /// or nested map on another; these helpers coerce rather than reject, and return null on a
-    /// genuine miss so callers can fall back.
+    /// Typed reads over a capability bag. The same key arrives as a string on one session and a number
+    /// or nested map on another, so these coerce rather than reject, and return null on a real miss.
     /// </summary>
     public static class Capabilities
     {
@@ -37,19 +35,13 @@ namespace AppPercyTosca.Core
             return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
-        /// <summary>
-        /// Reads a capability as an int, accepting the numeric and string spellings both
-        /// protocols produce. Returns null when the value is missing or not a number.
-        /// </summary>
+        /// <summary>Accepts the numeric and string spellings both protocols produce.</summary>
         public static int? GetInt(this IReadOnlyDictionary<string, object?> caps, string key)
         {
             return ToInt(caps.Raw(key));
         }
 
-        /// <summary>
-        /// Reads a nested capability object (percyOptions, viewportRect, bstack:options, ...).
-        /// Returns null when absent or not object-shaped.
-        /// </summary>
+        /// <summary>A nested capability object (viewportRect, bstack:options, ...), or null.</summary>
         public static IReadOnlyDictionary<string, object?>? GetMap(
             this IReadOnlyDictionary<string, object?> caps, string key)
         {
@@ -57,9 +49,8 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Coerces an arbitrary capability value into an int. Doubles are truncated and strings
-        /// parsed with invariant culture — a device reporting "1080" must not depend on the
-        /// Tosca workstation's locale.
+        /// Doubles truncate; strings parse with invariant culture, so a device reporting "1080" does
+        /// not depend on the workstation's locale.
         /// </summary>
         public static int? ToInt(object? value)
         {
@@ -92,10 +83,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
-        /// True only when the value is explicitly false — boolean false or the string "false".
-        /// A missing value is not "false"; Percy defaults to enabled when nothing is declared.
-        /// </summary>
+        /// <summary>Only an explicit false counts: Percy defaults to enabled when nothing is declared.</summary>
         public static bool IsFalse(object? value)
         {
             if (value == null) return false;
@@ -104,10 +92,7 @@ namespace AppPercyTosca.Core
             return false;
         }
 
-        /// <summary>
-        /// Normalizes the several shapes a nested capability can arrive in — a plain dictionary,
-        /// a string-keyed dictionary of concrete type, or a parsed JsonElement.
-        /// </summary>
+        /// <summary>Normalizes a dictionary, a concrete string-keyed map, or a parsed JsonElement.</summary>
         public static IReadOnlyDictionary<string, object?>? AsDictionary(object? value)
         {
             switch (value)
@@ -120,9 +105,8 @@ namespace AppPercyTosca.Core
                     return new Dictionary<string, object?>(nullableDict);
                 case System.Text.Json.JsonElement element:
                     return Json.ToObject(element) as Dictionary<string, object?>;
-                // Non-generic last: Dictionary<string, object> and the concrete map types an
-                // automation client hands back all land here. `object?` and `object` are the same
-                // type once nullable annotations are erased, so they cannot be separate cases.
+                // Non-generic last: `object?` and `object` are the same type once annotations are
+                // erased, so they cannot be separate cases.
                 case System.Collections.IDictionary dictionary:
                     Dictionary<string, object?> converted = new Dictionary<string, object?>();
                     foreach (System.Collections.DictionaryEntry entry in dictionary)

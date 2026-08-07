@@ -1,43 +1,30 @@
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// The four things this SDK needs from Tosca, expressed without any Tricentis type.
+    /// Everything this SDK needs from Tosca, expressed without any Tricentis type.
     ///
-    /// Mobile Engine 3.0 runs out-of-process — Tosca Commander talks to a separate mobile server
-    /// over IPC — so there is no Appium driver object living in the extension's process to borrow,
-    /// and <c>ISpecialExecutionTaskTestAction</c> exposes no route to the device either (its whole
-    /// surface is result-reporting and parameter access). Everything therefore comes through the
-    /// documented seams instead: test configuration parameters, Tosca buffers, and the mobile
-    /// engine's own screenshot task.
+    /// It is this small because there is no driver to borrow: Mobile Engine 3.0 runs out of process,
+    /// and <c>ISpecialExecutionTaskTestAction</c> is only result-reporting and parameter access. So
+    /// Tosca supplies the hub address and the session id, and everything else goes to the session
+    /// directly over HTTP.
     ///
-    /// Two members, not four: capturing and scripting used to be here as well, delegated to Tosca's own
-    /// screenshot task. Both now go straight to the session over HTTP, which needs nothing from Tosca
-    /// beyond the address and the id below.
-    ///
-    /// The shim implements this over those Tricentis APIs; tests implement it directly, which is what
-    /// keeps <see cref="ToscaMobileDriver"/> — the part with the actual decisions in it — verifiable on
-    /// a machine with no Tosca installed.
+    /// The shim implements this over the Tricentis APIs; tests implement it directly, which is what
+    /// keeps <see cref="ToscaMobileDriver"/> verifiable with no Tosca installed.
     /// </summary>
     public interface IToscaEnvironment
     {
         /// <summary>
-        /// A test configuration parameter (TCP) by name, or null when it is not set. TCPs are where
-        /// the mobile engine's connection details live: <c>AppiumServer</c> is the hub URL,
-        /// alongside <c>DeviceName</c>, <c>OSVersion</c> and friends.
+        /// A test configuration parameter by name, or null. This is where the mobile engine's
+        /// connection details live, <c>AppiumServer</c> above all.
         /// </summary>
         string? TestConfigurationParameter(string name);
 
-        /// <summary>
-        /// Every TCP passed for the run. Carried through as the session's capabilities, which is where
-        /// the device name, OS and version come from.
-        /// </summary>
+        /// <summary>Every TCP for the run, carried through as capabilities the session did not report.</summary>
         IReadOnlyDictionary<string, string?> TestConfigurationParameters();
 
         /// <summary>
-        /// A Tosca buffer by name, or null when unset. This is how the Appium session id reaches the
-        /// extension: the <c>Get Appium Session Id</c> standard module writes it to a buffer. Capture
-        /// asks the device session for the screen directly using it, so it is the one thing worth
-        /// setting up before anything else.
+        /// A Tosca buffer by name, or null. How the Appium session id reaches the extension when the
+        /// step does not pass it: the <c>Get Appium Session Id</c> module writes it to one.
         /// </summary>
         string? Buffer(string name);
     }

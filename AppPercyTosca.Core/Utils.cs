@@ -3,25 +3,20 @@ using System.Text.RegularExpressions;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Logging and credential redaction. Tosca Commander has no console attached to write to, so
-    /// log output is routed through a sink the shim installs (which forwards to the Percy CLI's
-    /// /percy/log endpoint and to a file); the default sink writes to stdout for tests and tools.
+    /// Logging and credential redaction. Commander has no console, so output goes through a sink the
+    /// shim installs; the default writes to stdout for tests and tools.
     /// </summary>
     public static class Utils
     {
-        /// <summary>
-        /// Receives (message, level). Replaced by the Tosca shim; assigning null restores the
-        /// stdout default.
-        /// </summary>
+        /// <summary>Replaced by the shim; null restores the stdout default.</summary>
         public static Action<string, string>? LogSink { get; set; }
 
-        // Appium/Selenium exception text embeds the command-executor URI, commonly supplied as
-        // https://user:accesskey@hub-cloud.browserstack.com/wd/hub. Applied inside Emit so every
-        // call site is covered.
-        // Keyed on the scheme because region logging emits locators ("xpath://a[@id='x']") that
-        // carry `://` and `@` but never an http/ws scheme. Matching on userinfo content instead
-        // fails open: any unanticipated character in a generated password leaks the whole URL.
-        // Excluding `/` keeps a match out of the path.
+        // Hub URLs carry credentials as userinfo (https://user:key@hub-cloud.browserstack.com/wd/hub)
+        // and turn up in exception text, so redaction is applied inside Emit to cover every call site.
+        //
+        // Keyed on the scheme, because region logging emits locators ("xpath://a[@id='x']") carrying
+        // `://` and `@` but never an http/ws scheme. Keying on userinfo content instead fails open:
+        // one unanticipated character in a generated password leaks the whole URL.
         private static readonly Regex UrlUserInfo =
             new Regex(@"\b(https?|wss?)://[^\s@/]+@", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 

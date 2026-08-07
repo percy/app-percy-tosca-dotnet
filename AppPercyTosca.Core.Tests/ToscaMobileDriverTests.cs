@@ -3,10 +3,7 @@ using Xunit;
 
 namespace AppPercyTosca.Core.Tests
 {
-    /// <summary>
-    /// In-memory stand-in for what Tosca provides: test configuration parameters, buffers, and the
-    /// mobile engine's screenshot task.
-    /// </summary>
+    /// <summary>In-memory stand-in for what Tosca provides: parameters and buffers.</summary>
     public class StubToscaEnvironment : IToscaEnvironment
     {
         public Dictionary<string, string?> Tcps { get; } = new Dictionary<string, string?>();
@@ -60,21 +57,20 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void AnAppAutomateSessionReachableOverHttpCanExecuteScripts()
         {
-            // The correction that made the App Automate provider usable at all: Tosca will not pass a
-            // raw Appium command through, but the hub accepts one directly over HTTP. Scripting was
-            // never unavailable — only unavailable through Tosca — and it is what full page needs.
+            // What makes the App Automate provider usable at all: Tosca will not pass a raw Appium
+            // command through, but the hub accepts one directly over HTTP.
             ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate(),
-                deviceHttp: DeviceServing(StubMobileDriver.ValidPngBase64));
+                deviceHttp: new StubHttpMessageHandler().Default("{\"value\":\"ran\"}"));
 
             Assert.True(AppAutomate.Supports(driver));
-            Assert.True(driver.CanExecuteScript);
+            Assert.Equal("ran", driver.ExecuteScript("browserstack_executor: {}"));
         }
 
         [Fact]
         public void WithoutAReachableSessionScriptingIsUnavailable()
         {
             // No session client, so nothing to send a script through.
-            Assert.False(Build(StubToscaEnvironment.AppAutomate()).CanExecuteScript);
+            Assert.Null(Build(StubToscaEnvironment.AppAutomate()).ExecuteScript("anything"));
         }
 
         [Fact]

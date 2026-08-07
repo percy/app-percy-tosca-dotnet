@@ -10,23 +10,14 @@ namespace AppPercyTosca.Core
     /// </summary>
     public class PercyClient
     {
-        /// <summary>
-        /// App Percy needs a CLI that can serve /percy/comparison, which landed in 1.27.
-        /// </summary>
+        /// <summary>/percy/comparison, which App Percy needs, landed in CLI 1.27.</summary>
         public const int MinimumMinorVersion = 27;
 
         /// <summary>
-        /// How long a healthcheck answer is trusted before being re-asked.
-        ///
-        /// The other App Percy SDKs memoize this for the life of the process, which is right for them:
-        /// the process is one test run. Tosca Commander is a desktop IDE an engineer leaves open for
-        /// days, across many `percy app:exec:start` cycles — so a permanent memo means the very first
-        /// answer sticks forever. Run a sheet before starting Percy and every later run is silently
-        /// disabled until Commander is restarted, with nothing to suggest why.
-        ///
-        /// A minute is long enough that a sheet with hundreds of steps costs at most a handful of
-        /// extra requests to a local process, and short enough that starting Percy and re-running is
-        /// picked up without a thought.
+        /// How long a healthcheck answer is trusted. The other SDKs memoize for the life of the
+        /// process, which suits them — the process is one test run. Commander stays open for days
+        /// across many `percy app:exec:start` cycles, so a permanent memo means running a sheet before
+        /// starting Percy disables every later run until Commander is restarted.
         /// </summary>
         public static readonly TimeSpan HealthcheckTtl = TimeSpan.FromSeconds(60);
 
@@ -75,29 +66,19 @@ namespace AppPercyTosca.Core
 
         /// <summary>
         /// Whether Percy is running and new enough, memoized for <see cref="HealthcheckTtl"/>. Also
-        /// records the build id/url and session type the CLI reports — which is why the answer
-        /// expiring matters for more than just enablement: a re-check also picks up a CLI that has been
-        /// restarted, including one restarted into a mode this SDK does not support.
+        /// records the build and session type, so an expiry picks up a CLI that has been restarted —
+        /// including into a mode this SDK does not support.
         /// </summary>
         /// <remarks>
-        /// Deliberately not locked, even though Tosca can run steps concurrently and these two fields
-        /// are read-then-written.
-        ///
-        /// The race is benign: two steps arriving together both run the healthcheck and both write the
-        /// same answer, since the only input is the CLI's reply. A torn <see cref="DateTime"/> read
-        /// costs one extra request to a local process, nothing more.
-        ///
-        /// A lock would be actively worse. <see cref="RunHealthcheck"/> makes a blocking HTTP call with
-        /// a ten-minute timeout, so holding a lock across it would let one step with an unresponsive
-        /// CLI stall every other step behind it — trading a harmless duplicate request for a stalled
-        /// test run.
+        /// Unlocked on purpose. The race is benign: two concurrent steps both healthcheck and write the
+        /// same answer. A lock would be worse — <see cref="RunHealthcheck"/> blocks on HTTP, so one
+        /// step with an unresponsive CLI would stall every step behind it.
         /// </remarks>
         public bool Healthcheck()
         {
             if (_enabled != null && Now() - _checkedAt < HealthcheckTtl) return _enabled.Value;
 
-            // Stamped before the call, not after: stamping after would extend the window by however
-            // long the request took, and a slow CLI is exactly when re-asking least helps.
+            // Before the call, not after: stamping after extends the window by the request duration.
             _checkedAt = Now();
             return (_enabled = RunHealthcheck()).Value;
         }
@@ -140,10 +121,8 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Applies the version gate to a raw x-percy-core-version value. Anything that cannot be
-        /// parsed is refused rather than assumed good — an unreadable version means we cannot
-        /// know whether /percy/comparison exists, and posting to a CLI without it would fail
-        /// every snapshot with a less obvious error than this one.
+        /// The version gate. An unparseable version is refused rather than assumed good: posting to a
+        /// CLI without /percy/comparison fails every snapshot with a less obvious error than this.
         /// </summary>
         public static bool VersionSupported(string? version)
         {
@@ -164,8 +143,7 @@ namespace AppPercyTosca.Core
                 Utils.Log($"Unsupported Percy CLI version, {version}");
                 return false;
             }
-            // A major above 1 is newer than the gate, so the minor is irrelevant. Reading it
-            // anyway would refuse a hypothetical "2.0" for having minor 0 < 27.
+            // Past the gate, so the minor is irrelevant — reading it would refuse "2.0" for 0 < 27.
             if (major > 1) return true;
 
             // "1" with no minor cannot be shown to meet the 1.27 gate.
@@ -180,9 +158,8 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Posts a captured App Percy screenshot (the tile flow) and returns the CLI's full response,
-        /// or null when it refused. Failures are logged rather than thrown: a visual snapshot must not
-        /// fail an otherwise-passing Tosca test step.
+        /// Posts a captured screenshot, or null when the CLI refused. Logged rather than thrown: a
+        /// visual snapshot must not fail an otherwise-passing Tosca step.
         /// </summary>
         public JsonElement? PostScreenshot(
             string name,
@@ -217,10 +194,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
-        /// Reports an SDK-side failure to Percy so it shows up in the build rather than only in a
-        /// Tosca log on someone's workstation. Best-effort by design.
-        /// </summary>
+        /// <summary>Best-effort: puts an SDK failure in the build, not only in a log on one workstation.</summary>
         public void PostFailedEvent(string message)
         {
             try
@@ -256,16 +230,12 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// POSTs a screenshot payload and returns the **whole** parsed response, not just its `data`
-        /// member.
+        /// Returns the whole response, not its `data` member: the CLI replies `{ success, link, data }`
+        /// and `link` is a sibling of `data`, which the App Automate flow needs to report the
+        /// comparison URL back to the session log.
         ///
-        /// That distinction matters: the CLI replies `{ success, link, data }`, where `link` — the URL
-        /// of the resulting comparison — is a *sibling* of `data`, not a child. Unwrapping here would
-        /// hide it, and the App Automate flow needs it to report the comparison URL back to the
-        /// BrowserStack session log. Callers unwrap `data` for their own return value instead.
-        ///
-        /// A CLI that answers success:false is an error, not an empty result — the message it gives is
-        /// the only explanation of why the snapshot did not appear in the build.
+        /// success:false is an error, not an empty result — its message is the only explanation of why
+        /// the snapshot did not appear in the build.
         /// </summary>
         private JsonElement? Post(string endpoint, Dictionary<string, object?> payload, string name)
         {

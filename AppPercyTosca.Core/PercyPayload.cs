@@ -8,19 +8,13 @@ namespace AppPercyTosca.Core
     public static class PercyPayload
     {
         /// <summary>
-        /// Options used for every CLI request body. Nulls are written, not dropped: the other App
-        /// Percy SDKs build their bodies with Newtonsoft, which emits null members, so every
-        /// endpoint here already expects e.g. `"sha": null` on a local tile. Omitting them would
-        /// be an untested deviation from a wire format the CLI is known to accept. Options a step
-        /// left unset are kept out of the payload by the callers instead
-        /// (see <see cref="ToscaOptions.BuildAutomateOptions"/>).
+        /// Nulls are written, not dropped: the other App Percy SDKs serialize with Newtonsoft, which
+        /// emits null members, so the CLI already expects e.g. `"sha": null` on a local tile.
         /// </summary>
         public static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions();
 
         /// <summary>
-        /// Serializes a payload to a JSON string.
-        /// When <paramref name="alreadyJson"/> is true the payload is passed through
-        /// (null becomes an empty string); otherwise it is JSON serialized.
+        /// Serializes a payload, or passes it through when <paramref name="alreadyJson"/> is set.
         /// </summary>
         public static string PayloadParser(object? payload = null, bool alreadyJson = false)
         {

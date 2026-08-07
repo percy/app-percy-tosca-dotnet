@@ -3,21 +3,17 @@ using System.Globalization;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Turns Tosca module parameters into typed options. Every Tosca parameter arrives as a string
-    /// (or as nothing at all when the row is left blank), so all of the coercion and list-splitting
-    /// lives here — and lives in the Core rather than the shim so it can be tested without Tosca.
+    /// Turns Tosca module parameters into typed options. Every one arrives as a string or not at all,
+    /// so the coercion lives here — in the Core, so it can be tested without Tosca.
     ///
-    /// Parsing is deliberately lenient: a malformed value logs and falls back to the default rather
-    /// than failing the step, because a typo in one optional parameter should not stop the snapshot
-    /// the rest of the row describes.
+    /// Lenient on purpose: a malformed value logs and falls back to the default, since a typo in one
+    /// optional parameter should not stop the snapshot the rest of the row describes.
     /// </summary>
     public static class ToscaOptions
     {
         /// <summary>
-        /// Every parameter name an AppPercyScreenshot module can carry, in the order the Readme
-        /// documents them — including the ones the shim reads itself (SnapshotName, SessionId,
-        /// SessionIdBuffer) rather than only those Build reads. It is the module's parameter manifest,
-        /// and a test asserts Build never reads a name missing from it.
+        /// The module's parameter manifest, in Readme order, including the ones the shim reads itself.
+        /// A test asserts Build never reads a name missing from it.
         /// </summary>
         public static readonly string[] KnownParameters =
         {
@@ -27,14 +23,10 @@ namespace AppPercyTosca.Core
             "CustomConsiderRegions", "Labels", "SessionId", "SessionIdBuffer"
         };
 
-        /// <summary>
-        /// Reads a parameter by name, returning null when the row is absent or blank.
-        /// </summary>
+        /// <summary>Reads a parameter by name, or null when the row is absent or blank.</summary>
         public delegate string? ParameterReader(string name);
 
-        /// <summary>
-        /// Assembles the options for one AppPercyScreenshot step.
-        /// </summary>
+        /// <summary>Assembles the options for one step.</summary>
         public static ScreenshotOptions Build(ParameterReader read)
         {
             ScreenshotOptions options = new ScreenshotOptions
@@ -58,10 +50,7 @@ namespace AppPercyTosca.Core
             return options;
         }
 
-        /// <summary>
-        /// Parses an integer parameter. A value that is present but unparseable is reported —
-        /// silently treating "1O80" as unset would produce a wrong-sized tag with no explanation.
-        /// </summary>
+        /// <summary>An unparseable value is reported: treating "1O80" as unset explains nothing.</summary>
         public static int? ParseInt(string? value, string? parameterName = null)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
@@ -75,10 +64,7 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>
-        /// Parses a boolean parameter. Accepts the spellings a Tosca sheet realistically carries —
-        /// True/False, 1/0, Yes/No — case-insensitively.
-        /// </summary>
+        /// <summary>Accepts True/False, 1/0 and Yes/No, case-insensitively.</summary>
         public static bool? ParseBool(string? value, string? parameterName = null)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
@@ -102,10 +88,8 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Splits a locator list. Newlines separate when present, otherwise semicolons — commas are
-        /// deliberately not a separator, because an XPath predicate such as
-        /// <c>//*[contains(@id,'x')]</c> contains one and splitting on it would silently break the
-        /// locator into two that match nothing.
+        /// Newlines separate when present, otherwise semicolons. Never commas: an XPath predicate such
+        /// as <c>//*[contains(@id,'x')]</c> contains one, and splitting there breaks the locator.
         /// </summary>
         public static List<string> ParseLocatorList(string? value)
         {
@@ -122,9 +106,8 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Parses custom regions written as <c>top,bottom,left,right</c>, one per entry —
-        /// e.g. <c>"0,100,0,200; 300,400,0,200"</c>. Here commas separate the four numbers of a
-        /// region and semicolons/newlines separate regions.
+        /// Regions written <c>top,bottom,left,right</c>, one per entry: <c>"0,100,0,200; 300,400,0,200"</c>.
+        /// Commas separate a region's four numbers; semicolons or newlines separate regions.
         /// </summary>
         public static List<Region> ParseRegions(string? value, string? parameterName = null)
         {

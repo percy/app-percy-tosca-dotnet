@@ -123,35 +123,6 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void APathWalksThroughBothMethodsAndProperties()
-        {
-            // A Tricentis chain mixes the two — and which link is which is not knowable without the
-            // assemblies, so every link tries both.
-            Assert.Equal("value", Reflect.Path(new Nested(), "Inner", "Deeper", "Present"));
-            Assert.Equal("value", Reflect.Path(new Nested(), "GetInner", "Deeper", "Present"));
-        }
-
-        [Fact]
-        public void APathReachesTheTricentisSingletonPattern()
-        {
-            // Type.Instance.LoadedTestConfigurationParameter is exactly the shape the shim walks to
-            // reach the test configuration parameters.
-            object? parameters = Reflect.Path(FakeToscaTypes.MainConfiguration.Instance,
-                "LoadedTestConfigurationParameter");
-
-            IReadOnlyDictionary<string, object?> map = Capabilities.AsDictionary(parameters)!;
-            Assert.Equal("https://hub.example.com/wd/hub",
-                Reflect.Member(map["AppiumServer"], "Value"));
-        }
-
-        [Fact]
-        public void APathStopsAtTheFirstMissingLink()
-        {
-            Assert.Null(Reflect.Path(new Nested(), "Inner", "Nope", "Present"));
-            Assert.Null(Reflect.Path(null, "Inner"));
-        }
-
-        [Fact]
         public void AMemberThatThrowsReadsAsAbsentAndIsLogged()
         {
             // A Tricentis singleton can throw when the automation context is not initialised; that
@@ -172,32 +143,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Null(Reflect.Call(new Hostile(), new[] { "Explode" }));
             Assert.True(Logged("engine not started"));
             Assert.False(Logged("target of an invocation"));
-        }
-
-        [Fact]
-        public void TypeNamesAreMatchedThroughTheHierarchy()
-        {
-            FakeToscaTypes.DerivedHolder holder = new FakeToscaTypes.DerivedHolder();
-
-            Assert.True(Reflect.TypeNameContains(holder, "DerivedHolder"));
-            Assert.True(Reflect.TypeNameContains(holder, "BaseHolder"));
-            Assert.True(Reflect.TypeNameContains(holder, "baseholder"));
-            Assert.False(Reflect.TypeNameContains(holder, "Nope"));
-            Assert.False(Reflect.TypeNameContains(null, "x"));
-        }
-
-        [Fact]
-        public void TheQualifiedMatchSeesTheNamespaceButTheSimpleOneDoesNot()
-        {
-            // Platform detection wants the namespace, since an Appium driver names its platform
-            // there. Heuristics over unknown objects must not see it, or every type in a namespace
-            // inherits that namespace's name.
-            FakeToscaTypes.DerivedHolder holder = new FakeToscaTypes.DerivedHolder();
-
-            Assert.True(Reflect.TypeNameContains(holder, "FakeToscaTypes"));
-            Assert.False(Reflect.TypeSimpleNameContains(holder, "FakeToscaTypes"));
-            Assert.True(Reflect.TypeSimpleNameContains(holder, "BaseHolder"));
-            Assert.False(Reflect.TypeSimpleNameContains(null, "x"));
         }
 
         [Fact]

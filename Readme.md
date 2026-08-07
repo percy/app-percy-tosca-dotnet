@@ -30,20 +30,11 @@ With `PERCY_DISABLE_REMOTE_UPLOADS=true` a single tile is captured over
 `GET /session/{id}/screenshot` and uploaded instead. Full page is unavailable that way, exactly as in
 percy-appium-dotnet.
 
-Route 1 is the one to get working. It needs the Appium session id — see below.
-
-
-### Requirements
-
-- The session must be on **BrowserStack App Automate** — `AppiumServer` pointing at a BrowserStack hub
-- The **Appium session id** must be passed to the module (see below)
-
-XPath and accessibility-id regions are resolved against elements, which this SDK does not query — use
-`CustomIgnoreRegions` with pixel coordinates.
-
 ## Requirements
 
 - Tosca Commander 24, with Mobile Engine 3.0 installed and its mobile server running
+- A session on **BrowserStack App Automate** — `AppiumServer` pointing at a BrowserStack hub
+- The **Appium session id**, passed to the module (see below)
 - `@percy/cli` **1.27.0 or newer** (`/percy/comparison` landed there)
 - Node 14+ for the CLI
 
@@ -78,7 +69,7 @@ each parameter you want as a row with **Parameter** → `True`.
 
 Getting these exactly right matters — a mistyped task name or engine surfaces as
 `The SpecialExecutionTask 'x' was not found for engine 'y'`, which reads like a broken install rather
-than a typo. The minimum viable module is three rows:
+than a typo. The minimum viable module is two rows:
 
 | Row | Value | Notes |
 |---|---|---|
@@ -101,21 +92,17 @@ buffer to Percy as a parameter value:
 | `SessionId` | `{B[PercyAppiumSessionId]}` |
 
 Tosca resolves the `{B[...]}` reference before the step runs, so the SDK receives the id as a plain
-string. This is the most reliable route — it uses documented Tosca behaviour rather than reading
-Tosca's buffer store, and it takes precedence over everything below.
+string. Prefer this: it uses documented Tosca behaviour rather than reading Tosca's buffer store, and
+it takes precedence over `SessionIdBuffer`.
 
 (`SessionIdBuffer` names a buffer for the SDK to read itself, if you would rather not add a `SessionId`
 row. It works, but it reaches into Tosca internals whose shape is not published.)
 
-Without it, capture cannot reach the device and the step says so.
-
-There used to be a third route — asking BrowserStack which session was running — and it is gone on
-purpose. It inferred rather than knew, and on a shared account it could capture the wrong device and
-produce a snapshot plausible enough to be accepted as a baseline.
+Without one of the two, capture cannot reach the device and the step says so.
 
 ## Parameters
 
-`SnapshotName` is the only required parameter. Everything else is optional; a step with just a name
+`SnapshotName` and `SessionId` are required. Everything else is optional; a step with just those two
 takes a single-screen snapshot of the current screen.
 
 ### Naming
@@ -237,7 +224,8 @@ $ dotnet build AppPercyTosca.sln
 
 Formatting rules live in `.editorconfig` rather than being inherited from the SDK, so an SDK upgrade
 cannot start failing CI over a preference nobody chose. Whitespace and layout are enforced; naming
-and expression preferences are `silent`, so they guide in an IDE without gating a build.
+and expression preferences are `silent`, so they guide in an IDE without gating a build. CI also
+rejects runs of blank lines, which `dotnet format` does not catch — see the `lint` job.
 
 The shim is deliberately thin. If you find yourself adding a decision to it, consider whether it
 belongs in the Core behind `IToscaEnvironment` instead — that is the seam that makes the rest of this

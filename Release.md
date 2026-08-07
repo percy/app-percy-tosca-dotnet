@@ -4,6 +4,7 @@ The DLL is built by hand and committed, because it can only be built on a machin
 Testsuite installed — a GitHub runner has no Tricentis assemblies to reference. The release workflow
 uploads whatever is committed, so the build has to happen before the tag.
 
+0. Check CI is green on both jobs — tests with the coverage gate, and format/analyzers.
 1. Bump the version in **both** places, or Percy will record an SDK version that does not match the
    assembly: `<Version>` in `AppPercyTosca/AppPercyTosca.csproj` and `Env.SdkVersion` in
    `AppPercyTosca.Core/Env.cs`.

@@ -3,14 +3,10 @@ using System.Text.Json;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// What an AppPercyScreenshot step reports back to Tosca.
-    ///
-    /// This lives in the Core rather than the shim for one reason: the rule it encodes is easy to
-    /// "simplify" away. The step passes whether or not a snapshot was recorded — a visual check that
-    /// could not run is not a functional regression, and failing would stop the rest of the sheet —
-    /// but it must never *claim* one was recorded. A green step reading "Snapshot Taken!" when nothing
-    /// reached Percy is worse than an outright failure, because nobody goes looking. Keeping it here
-    /// means a test holds that rule in place.
+    /// What a step reports back to Tosca. In the Core rather than the shim so a test holds the rule in
+    /// place: the step passes whether or not a snapshot was recorded, but must never claim one that
+    /// was not. A green step reading "Snapshot Taken!" with nothing in the build is worse than a
+    /// failure, because nobody goes looking.
     /// </summary>
     public static class SnapshotOutcome
     {
@@ -21,16 +17,11 @@ namespace AppPercyTosca.Core
         public const string PercyNotRunning = "Percy is not running, so no snapshot was taken";
 
         /// <summary>
-        /// Turns the CLI's answer into the step's message.
+        /// Judged on the response existing, not on any member of it: a successful /percy/comparison
+        /// reply is `{success, link}` and often carries no `data`.
         ///
-        /// Judged on the response existing, not on any member of it. A successful /percy/comparison
-        /// reply is `{success, link}` and often carries no `data`, so an earlier version that looked for
-        /// `data` reported perfectly good snapshots as unrecorded — the worst kind of wrong, since it
-        /// sends someone hunting for a problem they do not have.
-        ///
-        /// A null means the snapshot did not reach Percy: either it was disabled for the session, or
-        /// capture failed and errors are being ignored. Both have already been explained in the log, so
-        /// this only has to avoid claiming success; naming one of the two would mean guessing which.
+        /// A null means the snapshot did not reach Percy, for a reason already in the log — so this
+        /// only has to avoid claiming success rather than guess which reason it was.
         /// </summary>
         public static string Describe(JsonElement? response, string snapshotName)
         {
@@ -39,8 +30,7 @@ namespace AppPercyTosca.Core
                 return $"No snapshot was recorded for \"{snapshotName}\" — see the Percy log for why";
             }
 
-            // The comparison URL when the CLI supplies one: it turns a passing step into something
-            // someone can click.
+            // The comparison URL turns a passing step into something someone can click.
             string? link = Json.PropertyAsString(response, "link");
             return string.IsNullOrWhiteSpace(link) ? Taken : $"{Taken} {link}";
         }

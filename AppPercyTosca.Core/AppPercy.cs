@@ -2,11 +2,7 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
-    /// The App Percy entry point: takes one screenshot of the device under test and posts it to the
-    /// CLI. Session-scoped, so the healthcheck and capability reads happen once for a whole Tosca
-    /// test case rather than per step.
-    /// </summary>
+    /// <summary>Takes one screenshot of the device and posts it to the CLI.</summary>
     public class AppPercy
     {
         private readonly IMobileDriver _driver;
@@ -24,13 +20,11 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Captures <paramref name="name"/>. Returns the CLI's whole response on success, or null when
-        /// Percy is not running, is disabled for the session, or the capture failed and errors are being
-        /// ignored. Throws only when the session asked for errors not to be ignored.
+        /// The CLI's whole response, or null when Percy is off, disabled, or the capture failed with
+        /// errors being ignored. Throws only under percy.ignoreErrors=false.
         ///
-        /// The whole response, deliberately, not its `data` member: a successful /percy/comparison reply
-        /// is `{success, link}` and frequently carries no `data` at all, so treating its presence as
-        /// proof of success reported working snapshots as unrecorded.
+        /// The whole response, not its `data` member: a successful reply is `{success, link}` and often
+        /// carries no `data`, so treating that as proof of success reports working snapshots as lost.
         /// </summary>
         public JsonElement? Screenshot(string name, ScreenshotOptions options)
         {
@@ -39,8 +33,6 @@ namespace AppPercyTosca.Core
             bool ignoreErrors = _percyOptions.IgnoreErrors();
             try
             {
-                // One provider now: App Automate. The generic local-capture provider and the resolver
-                // that chose between them are gone.
                 AppAutomate provider = new AppAutomate(_driver, _client, _sessionCache);
                 return provider.Screenshot(name, options);
             }
@@ -50,12 +42,10 @@ namespace AppPercyTosca.Core
 
                 if (e is PercyException)
                 {
-                    Utils.Log("The Tosca mobile session could not serve this request. " +
-                        "See the message below and the Percy module parameters you can set to work around it.", "warn");
+                    Utils.Log("The device session could not serve this request; see below.", "warn");
                 }
-                // Name the exception on the default log line: this method otherwise swallows and
-                // returns null, and PostFailedEvent redacts what it forwards — so if this line
-                // drops the detail there is no full copy of it anywhere.
+                // Named here because this method otherwise swallows, and PostFailedEvent redacts what
+                // it forwards — so without the type there is no full copy of it anywhere.
                 Utils.Log($"Error taking screenshot {name} - {e.GetType().Name}: {e.Message}");
                 Utils.Log(e.ToString(), "debug");
 

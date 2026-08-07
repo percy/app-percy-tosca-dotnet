@@ -3,16 +3,12 @@ using System.Text.Json;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Small helpers for reading the CLI's JSON responses. The Core deliberately depends on
-    /// System.Text.Json only (no Newtonsoft) so the assembly the Tosca shim loads carries no
-    /// third-party dependency that could clash with one already loaded into Tosca Commander.
+    /// Helpers for the CLI's JSON. System.Text.Json only, no Newtonsoft: the DLL Tosca loads must not
+    /// carry a third-party dependency that could clash with one already in Commander.
     /// </summary>
     public static class Json
     {
-        /// <summary>
-        /// Parses <paramref name="content"/> into a <see cref="JsonElement"/>, or returns null
-        /// when the body is empty or not valid JSON.
-        /// </summary>
+        /// <summary>Parses into a <see cref="JsonElement"/>, or null when empty or not valid JSON.</summary>
         public static JsonElement? TryParse(string? content)
         {
             if (string.IsNullOrWhiteSpace(content)) return null;
@@ -28,20 +24,14 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
-        /// Reads a property from a JSON object, or null when the element is not an object or
-        /// the property is absent.
-        /// </summary>
+        /// <summary>A property, or null when absent or the element is not an object.</summary>
         public static JsonElement? Property(JsonElement? element, string name)
         {
             if (element == null || element.Value.ValueKind != JsonValueKind.Object) return null;
             return element.Value.TryGetProperty(name, out JsonElement value) ? value : null;
         }
 
-        /// <summary>
-        /// Reads a property as a string. Numbers and booleans are rendered rather than rejected,
-        /// so a `build.id` that arrives unquoted still yields a usable value.
-        /// </summary>
+        /// <summary>Numbers and booleans render rather than reject, so an unquoted `build.id` works.</summary>
         public static string? PropertyAsString(JsonElement? element, string name)
         {
             JsonElement? value = Property(element, name);
@@ -54,10 +44,7 @@ namespace AppPercyTosca.Core
             };
         }
 
-        /// <summary>
-        /// True only when the named property is present and is boolean true or the string "true"
-        /// (case-insensitive). Used for the CLI's `success` flag, which some endpoints stringify.
-        /// </summary>
+        /// <summary>For the CLI's `success` flag, which some endpoints stringify.</summary>
         public static bool IsTrue(JsonElement? element, string name)
         {
             JsonElement? value = Property(element, name);
@@ -71,10 +58,7 @@ namespace AppPercyTosca.Core
             };
         }
 
-        /// <summary>
-        /// Recursively converts a <see cref="JsonElement"/> into plain CLR objects:
-        /// object -> Dictionary&lt;string, object?&gt;, array -> List&lt;object?&gt;, primitives as-is.
-        /// </summary>
+        /// <summary>Converts to plain CLR objects: object to dictionary, array to list, primitives as-is.</summary>
         public static object? ToObject(JsonElement element)
         {
             switch (element.ValueKind)
@@ -98,9 +82,8 @@ namespace AppPercyTosca.Core
                 case JsonValueKind.String:
                     return element.GetString();
                 case JsonValueKind.Null:
-                // Undefined (a default JsonElement) and any kind a future runtime adds land here
-                // too. Null is the only sensible reading of "no value", and sharing the arm keeps
-                // this from being an untestable branch.
+                // Undefined and any kind a future runtime adds land here too; null is the only
+                // sensible reading of "no value".
                 default:
                     return null;
             }
