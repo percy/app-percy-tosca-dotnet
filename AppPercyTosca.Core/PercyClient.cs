@@ -184,12 +184,6 @@ namespace AppPercyTosca.Core
                     ["consideredElementsData"] = consideredElementsData,
                     ["labels"] = options.Labels
                 };
-
-                // TEMP diagnostics — remove before release. PayloadParser is the same serializer
-                // Request uses, so what is logged is byte-for-byte what goes on the wire.
-                Utils.Log($"TEMP PostScreenshot label={options.Labels ?? "<null>"}");
-                Utils.Log($"TEMP PostScreenshot payload={PercyPayload.PayloadParser(payload)}");
-
                 return Post("/percy/comparison", payload, name);
             }
             catch (Exception error)
