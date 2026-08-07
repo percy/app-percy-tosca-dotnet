@@ -1,22 +1,5 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>An element's position and size, before <c>ScaleFactor</c> is applied.</summary>
-    public class ElementRect
-    {
-        public int X { get; }
-        public int Y { get; }
-        public int Width { get; }
-        public int Height { get; }
-
-        public ElementRect(int x, int y, int width, int height)
-        {
-            X = x;
-            Y = y;
-            Width = width;
-            Height = height;
-        }
-    }
-
     /// <summary>
     /// Everything the Core needs from the device session, with no Tosca types in the signature.
     ///
@@ -48,12 +31,6 @@ namespace AppPercyTosca.Core
         /// <c>browserstack_executor:</c> commands and iOS <c>mobile: viewportRect</c>.
         /// </summary>
         string? ExecuteScript(string script);
-
-        /// <summary>Resolves an element by XPath, or null when not found.</summary>
-        ElementRect? FindElementByXPath(string xpath);
-
-        /// <summary>Resolves an element by accessibility id, or null when not found.</summary>
-        ElementRect? FindElementByAccessibilityId(string accessibilityId);
 
         /// <summary>The logical window width; on iOS, the real width over this is the scale factor.</summary>
         int WindowWidth { get; }

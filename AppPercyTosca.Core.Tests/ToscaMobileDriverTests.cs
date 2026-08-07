@@ -596,31 +596,5 @@ namespace AppPercyTosca.Core.Tests
             Assert.Empty(device.Requests);
             Assert.True(Logged("No AppiumServer"));
         }
-
-        [Fact]
-        public void ElementRegionsAreUnavailableAndSayWhatToUseInstead()
-        {
-            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
-
-            Assert.Null(driver.FindElementByXPath("//total"));
-            Assert.Null(driver.FindElementByAccessibilityId("banner"));
-
-            Assert.True(Logged("not supported on Tosca"));
-            Assert.True(Logged("CustomIgnoreRegions"));
-        }
-
-        [Fact]
-        public void TheUnavailableRegionWarningIsGivenOnlyOnce()
-        {
-            // A module declaring several locators would otherwise repeat it per locator and bury
-            // everything else in the log.
-            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate());
-
-            driver.FindElementByXPath("//a");
-            driver.FindElementByXPath("//b");
-            driver.FindElementByAccessibilityId("c");
-
-            Assert.Single(Logs, entry => entry.Message.Contains("not supported on Tosca"));
-        }
     }
 }

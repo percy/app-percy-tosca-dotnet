@@ -19,7 +19,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.False(options.FullScreen);
             Assert.False(options.FullPage);
             Assert.Null(options.ScreenLengths);
-            Assert.Empty(options.IgnoreRegionXpaths);
             Assert.Empty(options.CustomIgnoreRegions);
         }
 

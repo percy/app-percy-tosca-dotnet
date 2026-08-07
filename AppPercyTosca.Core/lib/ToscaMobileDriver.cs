@@ -179,34 +179,6 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Always null: the session cannot be queried for elements from here. Callers treat null as
-        /// "region absent" and log it, rather than inventing coordinates.
-        /// </summary>
-        public ElementRect? FindElementByXPath(string xpath)
-        {
-            WarnRegionsUnavailable();
-            return null;
-        }
-
-        public ElementRect? FindElementByAccessibilityId(string accessibilityId)
-        {
-            WarnRegionsUnavailable();
-            return null;
-        }
-
-        private bool _warnedAboutRegions;
-
-        private void WarnRegionsUnavailable()
-        {
-            // Once per driver: several locators would otherwise bury the rest of the log.
-            if (_warnedAboutRegions) return;
-            _warnedAboutRegions = true;
-            Utils.Log("Element-based ignore and consider regions are not supported on Tosca — the " +
-                "mobile engine cannot be queried for elements from an extension. Use " +
-                "CustomIgnoreRegions / CustomConsiderRegions with pixel coordinates instead.", "warn");
-        }
-
-        /// <summary>
         /// Assembles the capability bag, weakest source first: test configuration parameters, then the
         /// session's own capabilities. The session wins because it describes the device that was
         /// allocated, where a parameter describes what was asked for.

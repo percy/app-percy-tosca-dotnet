@@ -119,60 +119,6 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void RegionsResolveToDevicePixelCoordinates()
-        {
-            StubMobileDriver driver = AutomateDriver();
-            driver.ElementsByXPath["//total"] = new ElementRect(10, 20, 100, 50);
-            driver.ElementsByAccessibilityId["banner"] = new ElementRect(0, 0, 200, 30);
-            (AppAutomate provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions
-            {
-                IgnoreRegionXpaths = new List<string> { "//total" },
-                ConsiderRegionAccessibilityIds = new List<string> { "banner" }
-            });
-
-            string body = handler.BodyFor("/percy/comparison")!;
-            // Android's scale factor is 1, so coordinates pass through unscaled.
-            Assert.Contains("\"selector\":\"xpath: //total\"", body);
-            Assert.Contains("\"top\":20,\"bottom\":70,\"left\":10,\"right\":110", body);
-            Assert.Contains("\"selector\":\"id: banner\"", body);
-        }
-
-        [Fact]
-        public void ALocatorThatMatchesNothingIsSkippedRatherThanFailingTheSnapshot()
-        {
-            // A sheet that declares one ignore region and reuses it will legitimately hit screens where
-            // the element is absent.
-            (AppAutomate provider, StubHttpMessageHandler handler) = Build(AutomateDriver());
-
-            provider.Screenshot("home", new ScreenshotOptions
-            {
-                IgnoreRegionXpaths = new List<string> { "//missing" },
-                IgnoreRegionAccessibilityIds = new List<string> { "absent" }
-            });
-
-            Assert.True(Logged("//missing"));
-            Assert.True(Logged("absent"));
-            Assert.Contains("\"ignoreElementsData\":[]", handler.BodyFor("/percy/comparison")!);
-        }
-
-        [Fact]
-        public void ALocatorLookupThatThrowsIsAlsoSkipped()
-        {
-            StubMobileDriver driver = AutomateDriver();
-            driver.FindElementError = new InvalidOperationException("stale element");
-            (AppAutomate provider, _) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions
-            {
-                IgnoreRegionXpaths = new List<string> { "//x" }
-            });
-
-            Assert.True(Logged("//x"));
-        }
-
-        [Fact]
         public void CustomRegionsArePassedThroughUnscaled()
         {
             // Declared in device pixels already, so scaling would double-apply.

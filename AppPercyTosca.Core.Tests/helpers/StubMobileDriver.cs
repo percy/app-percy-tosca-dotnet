@@ -41,16 +41,10 @@ namespace AppPercyTosca.Core.Tests
 
         public List<string> ExecutedScripts { get; } = new List<string>();
 
-        public Dictionary<string, ElementRect?> ElementsByXPath { get; } =
-            new Dictionary<string, ElementRect?>();
-        public Dictionary<string, ElementRect?> ElementsByAccessibilityId { get; } =
-            new Dictionary<string, ElementRect?>();
-
         /// <summary>Set to make the corresponding member throw, standing in for a session that
         /// cannot serve it.</summary>
         public Exception? ScreenshotError { get; set; }
         public Exception? ScriptError { get; set; }
-        public Exception? FindElementError { get; set; }
         public Exception? WindowWidthError { get; set; }
         public Exception? SessionIdError { get; set; }
 
@@ -73,20 +67,6 @@ namespace AppPercyTosca.Core.Tests
                 if (script.Contains(match, StringComparison.Ordinal)) return reply;
             }
             return null;
-        }
-
-        public ElementRect? FindElementByXPath(string xpath)
-        {
-            if (FindElementError != null) throw FindElementError;
-            return ElementsByXPath.TryGetValue(xpath, out ElementRect? rect) ? rect : null;
-        }
-
-        public ElementRect? FindElementByAccessibilityId(string accessibilityId)
-        {
-            if (FindElementError != null) throw FindElementError;
-            return ElementsByAccessibilityId.TryGetValue(accessibilityId, out ElementRect? rect)
-                ? rect
-                : null;
         }
 
         /// <summary>An Android session with the capabilities the metadata layer expects.</summary>

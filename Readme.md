@@ -140,13 +140,13 @@ Regions are given in **pixel coordinates**.
 |---|---|
 | `CustomIgnoreRegions`, `CustomConsiderRegions` | `top,bottom,left,right` in pixels, one region per entry |
 
-XPath and accessibility-id regions are **not available on Tosca**. Resolving them needs a driver to
-query for elements, which a Tosca mobile session does not expose to an extension. Use pixel regions.
+There are no XPath or accessibility-id region parameters. Resolving a locator needs a driver that can
+be queried for elements, which a Tosca mobile session does not expose to an extension — so such a row
+could never have resolved to anything, and offering one would only invite regions that silently do
+nothing. Give pixel coordinates.
 
-Lists are separated by **newlines** if the value contains any, otherwise by **semicolons**. Commas
-are deliberately not separators, because an XPath predicate such as `//*[contains(@id,'total')]`
-contains one and splitting on it would silently break the locator. Inside a custom region, commas
-separate the four numbers:
+Regions are separated by **newlines** if the value contains any, otherwise by **semicolons**. Inside
+one region, commas separate the four numbers:
 
 ```
 0,100,0,1080; 2200,2340,0,1080

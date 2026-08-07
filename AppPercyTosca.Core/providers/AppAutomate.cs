@@ -83,14 +83,8 @@ namespace AppPercyTosca.Core
             Metadata = MetadataResolver.Resolve(Driver, SessionCache);
 
             Dictionary<string, object?> tag = Metadata.GetTag();
-            List<Dictionary<string, object?>> ignored = FindRegions(
-                options.IgnoreRegionXpaths,
-                options.IgnoreRegionAccessibilityIds,
-                options.CustomIgnoreRegions);
-            List<Dictionary<string, object?>> considered = FindRegions(
-                options.ConsiderRegionXpaths,
-                options.ConsiderRegionAccessibilityIds,
-                options.CustomConsiderRegions);
+            List<Dictionary<string, object?>> ignored = FindRegions(options.CustomIgnoreRegions);
+            List<Dictionary<string, object?>> considered = FindRegions(options.CustomConsiderRegions);
 
             List<Tile> tiles = CaptureTiles(options);
 
@@ -323,48 +317,16 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// Resolves every declared region to device pixels. A locator that does not match is skipped
-        /// with a log line: a sheet declaring one region set and reusing it across screens is normal.
+        /// Turns every declared region into the payload shape, validated against the screen.
+        ///
+        /// Pixel coordinates only. Locator-based regions are not accepted as parameters, because the
+        /// Tosca mobile engine cannot be queried for elements from an extension — a locator row could
+        /// never have resolved to anything.
         /// </summary>
-        public List<Dictionary<string, object?>> FindRegions(
-            List<string> xpaths, List<string> accessibilityIds, List<Region> customRegions)
+        public List<Dictionary<string, object?>> FindRegions(List<Region> customRegions)
         {
             List<Dictionary<string, object?>> regions = new List<Dictionary<string, object?>>();
-            AddRegionsByLocator(regions, xpaths, "xpath", Driver.FindElementByXPath);
-            AddRegionsByLocator(regions, accessibilityIds, "id", Driver.FindElementByAccessibilityId);
-            AddCustomRegions(regions, customRegions);
-            return regions;
-        }
-
-        private void AddRegionsByLocator(
-            List<Dictionary<string, object?>> regions,
-            List<string> locators,
-            string kind,
-            Func<string, ElementRect?> resolve)
-        {
-            foreach (string locator in locators)
-            {
-                try
-                {
-                    ElementRect? element = resolve(locator);
-                    if (element == null)
-                    {
-                        Utils.Log($"Element with {kind}: {locator} not found. Ignoring this {kind}.");
-                        continue;
-                    }
-                    regions.Add(RegionPayload($"{kind}: {locator}", element));
-                }
-                catch (Exception e)
-                {
-                    Utils.Log($"Element with {kind}: {locator} not found. Ignoring this {kind}.");
-                    Utils.Log(e.ToString(), "debug");
-                }
-            }
-        }
-
-        private void AddCustomRegions(List<Dictionary<string, object?>> regions, List<Region> customRegions)
-        {
-            if (customRegions.Count == 0) return;
+            if (customRegions.Count == 0) return regions;
 
             int width = Metadata.DeviceScreenWidth();
             int height = Metadata.DeviceScreenHeight();
@@ -399,23 +361,8 @@ namespace AppPercyTosca.Core
                     }
                 });
             }
-        }
 
-        /// <summary>Scaled because the session reports points and the CLI diffs pixels.</summary>
-        private Dictionary<string, object?> RegionPayload(string selector, ElementRect element)
-        {
-            int scale = Metadata.ScaleFactor();
-            return new Dictionary<string, object?>
-            {
-                ["selector"] = selector,
-                ["co_ordinates"] = new Dictionary<string, object?>
-                {
-                    ["top"] = element.Y * scale,
-                    ["bottom"] = (element.Y + element.Height) * scale,
-                    ["left"] = element.X * scale,
-                    ["right"] = (element.X + element.Width) * scale
-                }
-            };
+            return regions;
         }
     }
 }

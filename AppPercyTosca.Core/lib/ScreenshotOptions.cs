@@ -18,11 +18,10 @@ namespace AppPercyTosca.Core
         public int? ScreenLengths { get; set; }
         public string? Labels { get; set; }
 
-        public List<string> IgnoreRegionXpaths { get; set; } = new List<string>();
-        public List<string> IgnoreRegionAccessibilityIds { get; set; } = new List<string>();
+        // Regions are pixel coordinates only. Locator-based regions are not offered: the Tosca mobile
+        // engine cannot be queried for elements from an extension, so a locator could never resolve to
+        // anything and every such row would have been silently dropped.
         public List<Region> CustomIgnoreRegions { get; set; } = new List<Region>();
-        public List<string> ConsiderRegionXpaths { get; set; } = new List<string>();
-        public List<string> ConsiderRegionAccessibilityIds { get; set; } = new List<string>();
         public List<Region> CustomConsiderRegions { get; set; } = new List<Region>();
     }
 }

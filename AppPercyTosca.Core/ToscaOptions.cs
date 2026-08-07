@@ -18,9 +18,8 @@ namespace AppPercyTosca.Core
         public static readonly string[] KnownParameters =
         {
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
-            "IosOptimizedFullpage", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
-            "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
-            "CustomConsiderRegions", "Labels", "SessionId", "SessionIdBuffer",
+            "IosOptimizedFullpage", "CustomIgnoreRegions", "CustomConsiderRegions",
+            "Labels", "SessionId", "SessionIdBuffer",
             "LogLevel", "LogFile", "CliApi", "TmpDir",
             "ForceFullPage", "DisableRemoteUploads", "EnablePercyDev", "AutomateDomain"
         };
@@ -76,11 +75,7 @@ namespace AppPercyTosca.Core
                 FullPage = ParseBool(read("FullPage"), "FullPage") ?? false,
                 IosOptimizedFullpage = ParseBool(read("IosOptimizedFullpage"), "IosOptimizedFullpage") ?? false,
 
-                IgnoreRegionXpaths = ParseLocatorList(read("IgnoreRegionXpaths")),
-                IgnoreRegionAccessibilityIds = ParseLocatorList(read("IgnoreRegionAccessibilityIds")),
                 CustomIgnoreRegions = ParseRegions(read("CustomIgnoreRegions"), "CustomIgnoreRegions"),
-                ConsiderRegionXpaths = ParseLocatorList(read("ConsiderRegionXpaths")),
-                ConsiderRegionAccessibilityIds = ParseLocatorList(read("ConsiderRegionAccessibilityIds")),
                 CustomConsiderRegions = ParseRegions(read("CustomConsiderRegions"), "CustomConsiderRegions")
             };
 
