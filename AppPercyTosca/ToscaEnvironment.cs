@@ -1,6 +1,5 @@
 using System.Reflection;
 using AppPercyTosca.Core;
-using Tricentis.Automation.AutomationInstructions.TestActions;
 
 namespace AppPercyTosca
 {
@@ -26,18 +25,11 @@ namespace AppPercyTosca
         private static readonly string[] GetBufferNames = { "GetBuffer", "GetBufferValue", "Get" };
         private static readonly string[] ValueNames = { "Value", "ValueAsString", "UnresolvedValue" };
 
-        private readonly ISpecialExecutionTaskTestAction _testAction;
-
         /// <summary>
         /// Memoized per step: the parameter map costs a reflective walk, and one snapshot reads
         /// several values out of it.
         /// </summary>
         private IReadOnlyDictionary<string, string?>? _parameters;
-
-        internal ToscaEnvironment(ISpecialExecutionTaskTestAction testAction)
-        {
-            _testAction = testAction;
-        }
 
         public string? TestConfigurationParameter(string name)
         {

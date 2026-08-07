@@ -114,10 +114,11 @@ namespace AppPercyTosca
                 // twice would re-log every parse warning.
                 ScreenshotOptions options = ToscaOptions.Build(read);
 
-                ToscaEnvironment tosca = new ToscaEnvironment(testAction);
+                // Takes no test action: every parameter and buffer it reads comes from Tosca's own
+                // singletons, reached by reflection.
+                ToscaEnvironment tosca = new ToscaEnvironment();
                 ToscaMobileDriver driver = new ToscaMobileDriver(
                     tosca,
-                    options,
                     Parameter(testAction, "SessionIdBuffer"),
                     SessionKey(testAction),
                     Parameter(testAction, "SessionId"),

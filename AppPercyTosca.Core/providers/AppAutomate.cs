@@ -452,5 +452,6 @@ namespace AppPercyTosca.Core
                     ["right"] = (element.X + element.Width) * scale
                 }
             };
-        }    }
+        }
+    }
 }

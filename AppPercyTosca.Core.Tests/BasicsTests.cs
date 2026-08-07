@@ -565,7 +565,7 @@ namespace AppPercyTosca.Core.Tests
                     System.Net.HttpStatusCode.InternalServerError);
 
             Assert.Null(Session(handler).TryGetScreenshotBase64());
-            Assert.True(Logs.Any(l => l.Message.Contains("\u2026") && l.Message.Length < 600));
+            Assert.Contains(Logs, l => l.Message.Contains("\u2026") && l.Message.Length < 600);
         }
 
         [Fact]

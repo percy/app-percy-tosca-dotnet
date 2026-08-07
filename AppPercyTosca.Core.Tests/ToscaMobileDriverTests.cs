@@ -41,7 +41,7 @@ namespace AppPercyTosca.Core.Tests
             StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null,
             StubHttpMessageHandler? deviceHttp = null,
             string? sessionId = null) =>
-            new ToscaMobileDriver(tosca, options ?? new ScreenshotOptions(), buffer, null, sessionId,
+            new ToscaMobileDriver(tosca, buffer, null, sessionId,
                 deviceHttp == null
                     ? null
                     : (server, sessionId) =>
@@ -185,7 +185,7 @@ namespace AppPercyTosca.Core.Tests
             StubToscaEnvironment tosca = new StubToscaEnvironment();
 
             Assert.Equal("step-7",
-                new ToscaMobileDriver(tosca, new ScreenshotOptions(), null, "step-7").SessionId);
+                new ToscaMobileDriver(tosca, null, "step-7").SessionId);
         }
 
         [Fact]
@@ -514,12 +514,11 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void ANullEnvironmentOrOptionsIsRefusedAtConstruction()
+        public void ANullEnvironmentIsRefusedAtConstruction()
         {
-            Assert.Throws<ArgumentNullException>(() =>
-                new ToscaMobileDriver(null!, new ScreenshotOptions()));
-            Assert.Throws<ArgumentNullException>(() =>
-                new ToscaMobileDriver(new StubToscaEnvironment(), null!));
+            // Without it there is no route to a parameter or a buffer, so every later call would
+            // NullReference somewhere less obvious than the constructor.
+            Assert.Throws<ArgumentNullException>(() => new ToscaMobileDriver(null!));
         }
 
         [Theory]
@@ -642,7 +641,7 @@ namespace AppPercyTosca.Core.Tests
             driver.FindElementByXPath("//b");
             driver.FindElementByAccessibilityId("c");
 
-            Assert.Single(Logs.Where(entry => entry.Message.Contains("not supported on Tosca")));
+            Assert.Single(Logs, entry => entry.Message.Contains("not supported on Tosca"));
         }
 
 

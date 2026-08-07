@@ -1,0 +1,80 @@
+# Formatting rules for `dotnet format`, which CI runs with --verify-no-changes.
+#
+# This file exists so the gate checks *this codebase's* style rather than whatever the .NET SDK
+# happens to default to. Without it, `dotnet format` inherits SDK defaults, and an SDK upgrade can
+# start failing CI over a preference nobody here chose.
+#
+# The rule of thumb below: whitespace and layout are enforced, because they are objective and a
+# diff full of reformatting hides the change that matters. Naming and expression preferences are
+# set to `silent` — they describe the house style for anyone reading, and show up in an IDE, but
+# they do not fail a build over taste.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml,json}]
+indent_size = 2
+
+[*.{csproj,sln,props,targets}]
+indent_size = 2
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown; stripping them changes the rendering.
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+
+# Layout. Enforced: these are the ones that produce noisy diffs when they drift.
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_between_query_expression_clauses = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_preserve_single_line_blocks = true
+
+# using directives outside the namespace, System first — matches every file here.
+csharp_using_directive_placement = outside_namespace:silent
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Explicit types, everywhere. This codebase writes `Dictionary<string, object?> x = new ...`
+# rather than `var`, deliberately: a Tosca extension is read far more often than it is written,
+# frequently by someone debugging a build they cannot reproduce, and the type on the left is one
+# less thing to go and look up. `silent` so it guides without gating.
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = false:silent
+csharp_style_var_elsewhere = false:silent
+
+# Expression preferences, all advisory.
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+csharp_style_expression_bodied_properties = true:silent
+csharp_style_expression_bodied_accessors = true:silent
+dotnet_style_object_initializer = true:silent
+dotnet_style_collection_initializer = true:silent
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_prefer_conditional_expression_over_return = true:silent
+csharp_prefer_braces = true:silent
+csharp_style_prefer_primary_constructors = false:silent
+
+# Unused code. Warnings rather than suggestions: an unused private member is usually the leftover
+# of a removal, and this branch has had several.
+dotnet_diagnostic.IDE0051.severity = warning
+dotnet_diagnostic.IDE0052.severity = warning
+
+# Analyzer diagnostics from the test project's xUnit analyzers stay at their defaults, which is
+# how the gate caught Assert.True-over-a-predicate and Where-before-Single.

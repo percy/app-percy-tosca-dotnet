@@ -1,15 +1,18 @@
 name: CI
 
-# No `@percy/cli branch` input, and no Node in the job.
+# `push` is restricted to main. A branch push and its pull_request would otherwise both fire, which
+# ran every check twice on every PR commit — two identical results, and neither one is the one the
+# branch protection rule watches. Pushes to main still run, so a direct commit or a merge is covered.
 #
-# There used to be both, copied from the other Percy SDKs, which run their suites against a CLI they
-# link from source. This suite does not: every test injects a stub HttpMessageHandler and no test
-# opens a socket, so a linked CLI could not change a single result. Installing one described a
-# guarantee the job was not providing. If an integration test that drives a real CLI is ever added,
-# bring the input and the setup steps back with it.
+# No `@percy/cli branch` input, and no Node in the job. There used to be both, copied from the other
+# Percy SDKs, which run their suites against a CLI they link from source. This suite does not: every
+# test injects a stub HttpMessageHandler and no test opens a socket, so a linked CLI could not change
+# a single result. Installing one described a guarantee the job was not providing. If an integration
+# test that drives a real CLI is ever added, bring the input and the setup steps back with it.
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -41,3 +44,31 @@ jobs:
           /p:Include="[AppPercyTosca.Core]*"
           /p:ThresholdType=line
           /p:Threshold=100
+
+  lint:
+    # Separate job, not a step on `core`: a formatting complaint and a failing test are different
+    # problems, and reading which one happened off the job name beats scrolling a combined log.
+    #
+    # Runs over AppPercyTosca.Core.sln, which covers the shim's sources too — ShimCheck compiles
+    # ..\AppPercyTosca\*.cs, so the only Tricentis-touching code is linted here despite never being
+    # buildable on a runner.
+    #
+    # Rules come from .editorconfig rather than the SDK's defaults, so an SDK upgrade cannot start
+    # failing this over a preference nobody chose.
+    name: Format and analyzers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore AppPercyTosca.Core.sln
+
+      # --verify-no-changes fails rather than rewriting: CI reports, the author fixes. Run
+      # `dotnet format AppPercyTosca.Core.sln` locally to apply everything this would have changed.
+      - name: Check formatting and analyzer diagnostics
+        run: dotnet format AppPercyTosca.Core.sln --no-restore --verify-no-changes --verbosity diagnostic

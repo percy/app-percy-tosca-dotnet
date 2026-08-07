@@ -224,12 +224,20 @@ The repository is split so that almost all of it is testable without Tosca:
 | `AppPercyTosca` | The Tosca shim — the only code that touches Tricentis assemblies. Builds only on a machine with Tosca installed |
 
 ```sh-session
-# Everything CI runs; works on any OS with the .NET 8 SDK
+# The two things CI gates on; both work on any OS with the .NET 8 SDK
 $ dotnet test AppPercyTosca.Core.sln
+$ dotnet format AppPercyTosca.Core.sln --verify-no-changes
+
+# Apply whatever the format check would have complained about
+$ dotnet format AppPercyTosca.Core.sln
 
 # The extension itself; needs Tosca Testsuite installed
 $ dotnet build AppPercyTosca.sln
 ```
+
+Formatting rules live in `.editorconfig` rather than being inherited from the SDK, so an SDK upgrade
+cannot start failing CI over a preference nobody chose. Whitespace and layout are enforced; naming
+and expression preferences are `silent`, so they guide in an IDE without gating a build.
 
 The shim is deliberately thin. If you find yourself adding a decision to it, consider whether it
 belongs in the Core behind `IToscaEnvironment` instead — that is the seam that makes the rest of this

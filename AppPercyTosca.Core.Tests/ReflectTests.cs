@@ -29,7 +29,11 @@ namespace AppPercyTosca.Core.Tests
 
         public class BaseHolder
         {
+            // Unused by design: reaching a private field on a base class is exactly what the test
+            // below checks Reflect can do, so IDE0051 is describing the fixture, not a leftover.
+#pragma warning disable IDE0051
             private readonly string secret = "found-me";
+#pragma warning restore IDE0051
         }
 
         public class DerivedHolder : BaseHolder

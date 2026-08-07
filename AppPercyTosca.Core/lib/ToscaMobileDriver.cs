@@ -5,15 +5,16 @@ using Caps = AppPercyTosca.Core.Capabilities;
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// A device session assembled from what Tosca actually exposes: test configuration parameters,
-    /// buffers, and the mobile engine's screenshot task. See <see cref="IToscaEnvironment"/> for why
-    /// there is nothing better to build on.
+    /// A device session assembled from the two things Tosca exposes: the hub address, from the
+    /// AppiumServer test configuration parameter, and the Appium session id. See
+    /// <see cref="IToscaEnvironment"/> for why there is nothing better to build on.
     ///
-    /// The consequence worth understanding before reading on: this session cannot send raw Appium
-    /// commands and cannot query elements. So element-based ignore/consider regions and remote
-    /// full-page capture are unavailable, and regions have to be given in pixels. Capturing the screen
-    /// still works, because that needs only the session id and the server address — both of which
-    /// Tosca does expose.
+    /// With those two, everything else is plain WebDriver over HTTP and needs no Tricentis API at
+    /// all — screenshots, capabilities, orientation, system bars, and the browserstack_executor
+    /// scripts that make full-page capture work.
+    ///
+    /// The one thing still out of reach is querying for elements, so element-based ignore and consider
+    /// regions are unavailable and regions have to be given in pixels.
     /// </summary>
     public class ToscaMobileDriver : IMobileDriver
     {
@@ -48,7 +49,6 @@ namespace AppPercyTosca.Core
         };
 
         private readonly IToscaEnvironment _tosca;
-        private readonly ScreenshotOptions _options;
         private readonly Func<string, string, WebDriverSession>? _webDriver;
         private readonly string? _sessionIdBuffer;
         private readonly string? _explicitSessionId;
@@ -56,24 +56,24 @@ namespace AppPercyTosca.Core
         private readonly string _fallbackSessionId;
 
         /// <summary>
-        /// Builds the session view for one snapshot. <paramref name="options"/> is consulted because
-        /// on Tosca the module parameters are frequently the *only* source of device metadata — when
-        /// the TCPs do not carry it, there is nowhere else to look.
+        /// Builds the session view for one snapshot.
+        ///
+        /// This used to take the step's <c>ScreenshotOptions</c> as well, from when the module carried
+        /// DeviceName, OsName and the screen size and those were often the only source of device
+        /// metadata. They are read from the session now, so the options said nothing this needed.
         /// </summary>
         /// <param name="webDriver">
         /// Builds a session client for a (serverUrl, sessionId) pair. Supplied by the shim, which owns
-        /// the HttpClient; null disables the WebDriver capture route and leaves only Tosca's own task.
+        /// the HttpClient; null leaves the device unreachable and every fact unanswered.
         /// </param>
         public ToscaMobileDriver(
             IToscaEnvironment tosca,
-            ScreenshotOptions options,
             string? sessionIdBuffer = null,
             string? fallbackSessionId = null,
             string? explicitSessionId = null,
             Func<string, string, WebDriverSession>? webDriver = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
-            _options = options ?? throw new ArgumentNullException(nameof(options));
             _webDriver = webDriver;
             _sessionIdBuffer = sessionIdBuffer;
             _explicitSessionId = string.IsNullOrWhiteSpace(explicitSessionId)
@@ -83,12 +83,9 @@ namespace AppPercyTosca.Core
         }
 
         /// <summary>
-        /// The Appium session id from its buffer, or a stable placeholder. The placeholder keeps the
-        /// per-session caches working; it is not a session anything can be asked about, which is why
-        /// <see cref="HasRealSessionId"/> exists for callers to check first.
-        /// </summary>
-        /// <summary>
-        /// The session id, from the best source available.
+        /// The session id, from the best source available — or a stable placeholder, which keeps the
+        /// per-session caches working but is not a session anything can be asked about. That is what
+        /// <see cref="HasRealSessionId"/> is for.
         ///
         /// Both sources are exact. An id given on the module is best: Tosca resolves a
         /// <c>{B[...]}</c> buffer reference in a parameter value before handing it over, so it is the
