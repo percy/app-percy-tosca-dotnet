@@ -9,8 +9,8 @@ namespace AppPercyTosca.Core
         private readonly Cache<string, object?> _cache;
         private readonly string _sessionId;
 
-        public AndroidMetadata(IMobileDriver driver, ScreenshotOptions options, Cache<string, object?> cache)
-            : base(driver, options)
+        public AndroidMetadata(IMobileDriver driver, Cache<string, object?> cache)
+            : base(driver)
         {
             _cache = cache;
             _sessionId = driver.SessionId;
@@ -20,8 +20,6 @@ namespace AppPercyTosca.Core
 
         public override string? DeviceName()
         {
-            if (!string.IsNullOrWhiteSpace(SuppliedDeviceName)) return SuppliedDeviceName;
-
             // App Automate reports the resolved device as `device`; a local/desired-caps session
             // only has the requested `deviceName`.
             return Driver.Capabilities.GetString("device")
@@ -30,14 +28,11 @@ namespace AppPercyTosca.Core
 
         protected override int MeasuredScreenWidth()
         {
-            if (SuppliedScreenWidth > 0) return SuppliedScreenWidth;
             return ScreenSize()?.Width ?? ViewportInt("width") ?? 0;
         }
 
         protected override int MeasuredScreenHeight()
         {
-            if (SuppliedScreenHeight > 0) return SuppliedScreenHeight;
-
             (int Width, int Height)? screen = ScreenSize();
             if (screen != null) return screen.Value.Height;
 
@@ -50,14 +45,11 @@ namespace AppPercyTosca.Core
 
         public override int StatBarHeight()
         {
-            if (SuppliedStatusBar != -1) return SuppliedStatusBar;
             return ViewportInt("top") ?? 0;
         }
 
         public override int NavBarHeight()
         {
-            if (SuppliedNavBar != -1) return SuppliedNavBar;
-
             // Derived, so it needs both the full height and the usable area. Without
             // deviceScreenSize there is nothing to subtract from and 0 is the honest answer —
             // computing it from DeviceScreenHeight() would recurse, since that falls back to

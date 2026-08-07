@@ -16,45 +16,20 @@ namespace AppPercyTosca.Core.Tests
         {
             ScreenshotOptions options = ToscaOptions.Build(Reader());
 
-            // -1 is "the step did not say", which the metadata layer distinguishes from a real
-            // zero-height bar.
-            Assert.Equal(-1, options.StatusBarHeight);
-            Assert.Equal(-1, options.NavBarHeight);
-            Assert.Equal(0, options.ScreenWidth);
-            Assert.Equal(0, options.ScreenHeight);
             Assert.False(options.FullScreen);
             Assert.False(options.FullPage);
             // Null, not false: the CLI applies its own sync default when we say nothing.
             Assert.Null(options.Sync);
             Assert.Null(options.ScreenLengths);
-            Assert.Null(options.DeviceName);
             Assert.Empty(options.IgnoreRegionXpaths);
             Assert.Empty(options.CustomIgnoreRegions);
         }
 
-        [Fact]
-        public void StringParametersAreTrimmedAndBlanksBecomeNull()
-        {
-            ScreenshotOptions options = ToscaOptions.Build(Reader(
-                ("DeviceName", "  Pixel 7  "),
-                ("OsName", "\tAndroid\t"),
-                ("OsVersion", "   "),
-                ("TestCase", "checkout")));
-
-            Assert.Equal("Pixel 7", options.DeviceName);
-            Assert.Equal("Android", options.OsName);
-            Assert.Null(options.PlatformVersion);
-            Assert.Equal("checkout", options.TestCase);
-        }
 
         [Fact]
         public void EveryTypedParameterIsRead()
         {
             ScreenshotOptions options = ToscaOptions.Build(Reader(
-                ("StatusBarHeight", "60"),
-                ("NavBarHeight", "40"),
-                ("ScreenWidth", "1080"),
-                ("ScreenHeight", "2340"),
                 ("TopScrollviewOffset", "10"),
                 ("BottomScrollviewOffset", "20"),
                 ("ScreenLengths", "4"),
@@ -62,16 +37,11 @@ namespace AppPercyTosca.Core.Tests
                 ("FullPage", "yes"),
                 ("IosOptimizedFullpage", "1"),
                 ("Sync", "false"),
-                ("Orientation", "landscape"),
                 ("ScrollableXpath", "//scroll"),
                 ("ScrollableId", "list"),
                 ("Labels", "smoke"),
                 ("ThTestCaseExecutionId", "exec-1")));
 
-            Assert.Equal(60, options.StatusBarHeight);
-            Assert.Equal(40, options.NavBarHeight);
-            Assert.Equal(1080, options.ScreenWidth);
-            Assert.Equal(2340, options.ScreenHeight);
             Assert.Equal(10, options.TopScrollviewOffset);
             Assert.Equal(20, options.BottomScrollviewOffset);
             Assert.Equal(4, options.ScreenLengths);
@@ -79,19 +49,12 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(options.FullPage);
             Assert.True(options.IosOptimizedFullpage);
             Assert.False(options.Sync);
-            Assert.Equal("landscape", options.Orientation);
             Assert.Equal("//scroll", options.ScrollableXpath);
             Assert.Equal("list", options.ScrollableId);
             Assert.Equal("smoke", options.Labels);
             Assert.Equal("exec-1", options.ThTestCaseExecutionId);
         }
 
-        [Fact]
-        public void AStatusBarOfZeroIsKeptDistinctFromUnset()
-        {
-            ScreenshotOptions options = ToscaOptions.Build(Reader(("StatusBarHeight", "0")));
-            Assert.Equal(0, options.StatusBarHeight);
-        }
 
         [Theory]
         [InlineData("42", 42)]

@@ -134,7 +134,6 @@ namespace AppPercyTosca.Core
         {
             get
             {
-                if (!string.IsNullOrWhiteSpace(_options.OsName)) return _options.OsName;
                 return Capabilities.GetString("platformName");
             }
         }
@@ -313,14 +312,6 @@ namespace AppPercyTosca.Core
                 }
             }
 
-            // Module parameters last: they are the documented way to supply what the TCPs do not
-            // carry, so they have to win.
-            if (!string.IsNullOrWhiteSpace(_options.DeviceName))
-                capabilities["deviceName"] = _options.DeviceName;
-            if (!string.IsNullOrWhiteSpace(_options.OsName))
-                capabilities["platformName"] = _options.OsName;
-            if (!string.IsNullOrWhiteSpace(_options.PlatformVersion))
-                capabilities["platformVersion"] = _options.PlatformVersion;
 
             if (capabilities.Count == 0)
             {

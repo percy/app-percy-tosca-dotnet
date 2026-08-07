@@ -13,8 +13,8 @@ namespace AppPercyTosca.Core
         private readonly Cache<string, object?> _cache;
         private readonly string _sessionId;
 
-        public IosMetadata(IMobileDriver driver, ScreenshotOptions options, Cache<string, object?> cache)
-            : base(driver, options)
+        public IosMetadata(IMobileDriver driver, Cache<string, object?> cache)
+            : base(driver)
         {
             _cache = cache;
             _sessionId = driver.SessionId;
@@ -24,15 +24,12 @@ namespace AppPercyTosca.Core
 
         public override string? DeviceName()
         {
-            if (!string.IsNullOrWhiteSpace(SuppliedDeviceName)) return SuppliedDeviceName;
             return Driver.Capabilities.GetString("deviceName")
                 ?? Driver.Capabilities.GetString("device");
         }
 
         protected override int MeasuredScreenWidth()
         {
-            if (SuppliedScreenWidth > 0) return SuppliedScreenWidth;
-
             int fromTable = DeviceRegistry.Value("screenWidth", DeviceName());
             if (fromTable != 0) return fromTable;
             return ViewportInt("width") ?? 0;
@@ -40,8 +37,6 @@ namespace AppPercyTosca.Core
 
         protected override int MeasuredScreenHeight()
         {
-            if (SuppliedScreenHeight > 0) return SuppliedScreenHeight;
-
             int fromTable = DeviceRegistry.Value("screenHeight", DeviceName());
             if (fromTable != 0) return fromTable;
 
@@ -52,8 +47,6 @@ namespace AppPercyTosca.Core
 
         public override int StatBarHeight()
         {
-            if (SuppliedStatusBar != -1) return SuppliedStatusBar;
-
             int statusBar = DeviceRegistry.Value("statusBarHeight", DeviceName());
             if (statusBar == 0) return ViewportInt("top") ?? 0;
 
@@ -62,8 +55,8 @@ namespace AppPercyTosca.Core
             return statusBar * (pixelRatio == 0 ? 1 : pixelRatio);
         }
 
-        /// <summary>iOS has no navigation bar to trim, so this is 0 unless the step declares one.</summary>
-        public override int NavBarHeight() => SuppliedNavBar != -1 ? SuppliedNavBar : 0;
+        /// <summary>iOS has no navigation bar to trim.</summary>
+        public override int NavBarHeight() => 0;
 
         public override int ScaleFactor()
         {

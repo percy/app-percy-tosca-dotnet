@@ -6,23 +6,21 @@ namespace AppPercyTosca.Core
     public static class MetadataResolver
     {
         /// <summary>
-        /// Resolves by platform name, preferring what the step declared over what the session
-        /// reports — a Tosca mobile session may not expose `platformName` at all, and OsName on
-        /// the module is the documented way to say so.
+        /// Resolves by the platform the session reports.
         /// </summary>
-        public static Metadata Resolve(IMobileDriver driver, ScreenshotOptions options, Cache<string, object?> cache)
+        public static Metadata Resolve(IMobileDriver driver, Cache<string, object?> cache)
         {
-            string platform = (options.OsName ?? driver.PlatformName ?? "").Trim();
+            string platform = (driver.PlatformName ?? "").Trim();
 
             if (platform.Contains("android", StringComparison.OrdinalIgnoreCase))
             {
-                return new AndroidMetadata(driver, options, cache);
+                return new AndroidMetadata(driver, cache);
             }
             if (platform.Contains("ios", StringComparison.OrdinalIgnoreCase) ||
                 platform.Contains("iphone", StringComparison.OrdinalIgnoreCase) ||
                 platform.Contains("ipad", StringComparison.OrdinalIgnoreCase))
             {
-                return new IosMetadata(driver, options, cache);
+                return new IosMetadata(driver, cache);
             }
 
             // Named rather than silently defaulted: a wrong platform yields a tag with the wrong
@@ -31,7 +29,8 @@ namespace AppPercyTosca.Core
             throw new PercyException(
                 "Could not determine the device platform" +
                 (string.IsNullOrWhiteSpace(platform) ? "" : $" from '{platform}'") +
-                ". Set the OsName parameter on the Percy module to \"Android\" or \"iOS\".");
+                ". The session should report platformName; check that AppiumServer and SessionId " +
+                "reach the device.");
         }
     }
 }

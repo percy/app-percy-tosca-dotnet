@@ -54,8 +54,7 @@ namespace AppPercyTosca.Core
                 && host.Contains(Env.AutomateDomain(), StringComparison.OrdinalIgnoreCase);
         }
 
-        public JsonElement? Screenshot(
-            string name, ScreenshotOptions options, string? platformVersion = null)
+        public JsonElement? Screenshot(string name, ScreenshotOptions options)
         {
             if (!Supports(Driver))
             {
@@ -66,19 +65,13 @@ namespace AppPercyTosca.Core
 
             JsonElement? result = ExecutePercyScreenshotBegin(name);
 
-            // The executor knows the real device it allocated, which is more trustworthy than the
-            // requested capability — but never override what the step explicitly declared.
-            if (string.IsNullOrWhiteSpace(options.DeviceName))
-            {
-                options.DeviceName = Json.PropertyAsString(result, "deviceName");
-            }
             SetDebugUrl(GetDebugUrl(result));
 
             string? percyScreenshotUrl = null;
             string? error = null;
             try
             {
-                JsonElement? data = Capture(name, options, OsVersion(result) ?? platformVersion);
+                JsonElement? data = Capture(name, options);
                 percyScreenshotUrl = Json.PropertyAsString(data, "link");
                 return data;
             }
@@ -99,14 +92,9 @@ namespace AppPercyTosca.Core
         /// Resolves the device facts, gathers regions, captures, and posts the comparison. Previously
         /// inherited; inlined now that this is the only provider.
         /// </summary>
-        private JsonElement? Capture(string name, ScreenshotOptions options, string? platformVersion)
+        private JsonElement? Capture(string name, ScreenshotOptions options)
         {
-            if (platformVersion != null && string.IsNullOrWhiteSpace(options.PlatformVersion))
-            {
-                options.PlatformVersion = platformVersion;
-            }
-
-            Metadata = MetadataResolver.Resolve(Driver, options, SessionCache);
+            Metadata = MetadataResolver.Resolve(Driver, SessionCache);
 
             Dictionary<string, object?> tag = Metadata.GetTag();
             List<Dictionary<string, object?>> ignored = FindRegions(
@@ -183,13 +171,6 @@ namespace AppPercyTosca.Core
             return $"https://app-automate.browserstack.com/dashboard/v2/builds/{buildHash}/sessions/{sessionHash}";
         }
 
-        /// <summary>Major OS version the executor reported, used in preference to the capability.</summary>
-        public string? OsVersion(JsonElement? result)
-        {
-            string? osVersion = Json.PropertyAsString(result, "osVersion");
-            if (string.IsNullOrWhiteSpace(osVersion)) return null;
-            return osVersion.Split('.')[0];
-        }
 
         /// <summary>
         /// Marks the start of a Percy screenshot on the hub, which is what links the App Automate

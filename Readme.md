@@ -83,7 +83,7 @@ than a typo. The minimum viable module is three rows:
 | Row | Value | Notes |
 |---|---|---|
 | `SnapshotName` | e.g. `Home` | Required; must be unique per snapshot |
-| `SessionIdBuffer` | `PercyAppiumSessionId` | Only if you named your buffer something else |
+| `SessionId` | `{B[PercyAppiumSessionId]}` | Required; the buffer the *Get Appium Session Id* module wrote |
 
 > **Not yet shipped:** the web SDK ([percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet))
 > ships a `PercySnapshot.tsu` subset so you can import a correct module instead of building one. The
@@ -130,26 +130,14 @@ takes a single-screen snapshot of the current screen.
 
 ### Device details
 
-**You should not normally need any of these.** The device facts are read from the App Automate session
-itself — the hub allocated the device, so it knows the name, OS version, screen size and orientation.
-Tosca's own test configuration parameters are used where the session says nothing, and these module
-parameters override both.
+There are no parameters for these. The device name, OS, version, screen size, bar heights and
+orientation are read from the App Automate session, which knows the device that was actually
+allocated — a module parameter could only disagree with it, and a stale or mistyped one silently
+splits a Percy baseline in a way that looks like a real visual change.
 
-Set one only to correct a wrong value, or if the log says a detail could not be determined.
-
-| Parameter | Description |
-|---|---|
-| `DeviceName` | Device label used for the Percy tag and dimension lookup |
-| `OsName` | `Android` or `iOS`. Required if Tosca reports no platform |
-| `OsVersion` | OS version |
-| `ScreenWidth`, `ScreenHeight` | Full screen size in **pixels**. Worth setting on App Percy — see below |
-| `StatusBarHeight`, `NavBarHeight` | Bar heights in pixels. `0` means "no bar" and is respected |
-| `Orientation` | `portrait`, `landscape`, or `auto` to ask the device |
-
-On the **App Percy** path, `ScreenWidth`/`ScreenHeight` are worth setting explicitly unless a
-`DeviceScreenSize`, `ScreenResolution` or `Resolution` test configuration parameter carries the size.
-Percy groups and diffs comparisons by the device tag, so a snapshot tagged `0x0` will not group with
-correctly-tagged ones — the step warns when this happens.
+The one gap worth knowing: the built-in dimension table
+(`AppPercyTosca.Core/resources/devices.json`) covers older iPhones and iPads only, so an unlisted iOS
+device falls back to the session's viewport.
 
 ### Capture
 

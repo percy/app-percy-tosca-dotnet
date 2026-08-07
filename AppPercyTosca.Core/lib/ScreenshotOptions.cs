@@ -2,40 +2,25 @@ namespace AppPercyTosca.Core
 {
     /// <summary>
     /// Everything a single AppPercyScreenshot step can be told to do. Built from Tosca module
-    /// parameters by <see cref="ToscaOptions.Build"/>; the defaults here are what a step with
-    /// only a SnapshotName gets.
+    /// parameters by <see cref="ToscaOptions.Build"/>; the defaults here are what a step with only a
+    /// SnapshotName gets.
+    ///
+    /// Deliberately carries no device details — name, OS, screen size, bar heights, orientation. Those
+    /// are read from the session, which knows the device that was actually allocated; a module
+    /// parameter could only disagree with it, and a wrong one silently splits a Percy baseline.
     /// </summary>
     public class ScreenshotOptions
     {
-        /// <summary>
-        /// Device label used for the Percy tag and for the static device-dimension lookup.
-        /// Left null, it is resolved from the session (or from App Automate's executor).
-        /// </summary>
-        public string? DeviceName { get; set; }
 
-        /// <summary>Explicit OS name ("Android"/"iOS"). Resolved from the session when null.</summary>
-        public string? OsName { get; set; }
 
-        /// <summary>Explicit OS version. Resolved from the session when null.</summary>
-        public string? PlatformVersion { get; set; }
 
-        /// <summary>-1 means "resolve from the device" rather than "zero height".</summary>
-        public int StatusBarHeight { get; set; } = -1;
 
-        /// <summary>-1 means "resolve from the device" rather than "zero height".</summary>
-        public int NavBarHeight { get; set; } = -1;
 
-        /// <summary>0 means "resolve from the device" rather than "zero width".</summary>
-        public int ScreenWidth { get; set; }
 
-        /// <summary>0 means "resolve from the device" rather than "zero height".</summary>
-        public int ScreenHeight { get; set; }
 
         public int TopScrollviewOffset { get; set; }
         public int BottomScrollviewOffset { get; set; }
 
-        /// <summary>"portrait", "landscape" or "auto"; null resolves from the session.</summary>
-        public string? Orientation { get; set; }
 
         public bool FullScreen { get; set; }
         public bool FullPage { get; set; }

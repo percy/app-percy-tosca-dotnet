@@ -21,8 +21,7 @@ namespace AppPercyTosca.Core
         /// </summary>
         public static readonly string[] KnownParameters =
         {
-            "SnapshotName", "DeviceName", "OsName", "OsVersion", "StatusBarHeight", "NavBarHeight",
-            "ScreenWidth", "ScreenHeight", "Orientation", "FullScreen", "FullPage", "ScreenLengths",
+            "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
             "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
             "ScrollableXpath", "ScrollableId", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
@@ -42,22 +41,12 @@ namespace AppPercyTosca.Core
         {
             ScreenshotOptions options = new ScreenshotOptions
             {
-                DeviceName = Trimmed(read("DeviceName")),
-                OsName = Trimmed(read("OsName")),
-                PlatformVersion = Trimmed(read("OsVersion")),
-                Orientation = Trimmed(read("Orientation")),
                 ScrollableXpath = Trimmed(read("ScrollableXpath")),
                 ScrollableId = Trimmed(read("ScrollableId")),
                 TestCase = Trimmed(read("TestCase")),
                 Labels = Trimmed(read("Labels")),
                 ThTestCaseExecutionId = Trimmed(read("ThTestCaseExecutionId")),
 
-                // -1, not 0: 0 is a legitimate "there is no status bar" and must be
-                // distinguishable from "the step did not say".
-                StatusBarHeight = ParseInt(read("StatusBarHeight"), "StatusBarHeight") ?? -1,
-                NavBarHeight = ParseInt(read("NavBarHeight"), "NavBarHeight") ?? -1,
-                ScreenWidth = ParseInt(read("ScreenWidth"), "ScreenWidth") ?? 0,
-                ScreenHeight = ParseInt(read("ScreenHeight"), "ScreenHeight") ?? 0,
                 TopScrollviewOffset = ParseInt(read("TopScrollviewOffset"), "TopScrollviewOffset") ?? 0,
                 BottomScrollviewOffset = ParseInt(read("BottomScrollviewOffset"), "BottomScrollviewOffset") ?? 0,
                 ScreenLengths = ParseInt(read("ScreenLengths"), "ScreenLengths"),

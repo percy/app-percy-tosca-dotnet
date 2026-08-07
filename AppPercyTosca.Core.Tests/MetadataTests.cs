@@ -5,9 +5,8 @@ namespace AppPercyTosca.Core.Tests
 {
     public class MetadataResolverTests : CoreTestBase
     {
-        private static Metadata Resolve(StubMobileDriver driver, ScreenshotOptions? options = null) =>
-            MetadataResolver.Resolve(driver, options ?? new ScreenshotOptions(),
-                new Cache<string, object?>());
+        private static Metadata Resolve(StubMobileDriver driver) =>
+            MetadataResolver.Resolve(driver, new Cache<string, object?>());
 
         [Theory]
         [InlineData("Android")]
@@ -30,14 +29,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.IsType<IosMetadata>(Resolve(driver));
         }
 
-        [Fact]
-        public void TheOsNameParameterOverridesWhatTheSessionReports()
-        {
-            // Tosca's Mobile engine may not expose platformName at all, so OsName on the module is
-            // the documented way to say what the device is.
-            StubMobileDriver driver = new StubMobileDriver { PlatformName = null };
-            Assert.IsType<IosMetadata>(Resolve(driver, new ScreenshotOptions { OsName = "iOS" }));
-        }
 
         [Fact]
         public void AnUnknownPlatformIsNamedRatherThanSilentlyDefaulted()
@@ -48,63 +39,27 @@ namespace AppPercyTosca.Core.Tests
 
             PercyException error = Assert.Throws<PercyException>(() => Resolve(driver));
             Assert.Contains("Windows Phone", error.Message);
-            Assert.Contains("OsName", error.Message);
+            Assert.Contains("platformName", error.Message);
         }
 
         [Fact]
-        public void ASessionWithNoPlatformAtAllStillExplainsWhatToSet()
+        public void ASessionWithNoPlatformAtAllPointsAtWhatToCheck()
         {
             StubMobileDriver driver = new StubMobileDriver { PlatformName = null };
 
             PercyException error = Assert.Throws<PercyException>(() => Resolve(driver));
-            Assert.Contains("OsName", error.Message);
+            Assert.Contains("AppiumServer and SessionId", error.Message);
         }
     }
 
     public class MetadataSharedTests : CoreTestBase
     {
-        private static Metadata Build(StubMobileDriver driver, ScreenshotOptions options) =>
-            MetadataResolver.Resolve(driver, options, new Cache<string, object?>());
+        private static Metadata Build(StubMobileDriver driver) =>
+            MetadataResolver.Resolve(driver, new Cache<string, object?>());
 
-        [Theory]
-        [InlineData("portrait", "portrait")]
-        [InlineData("LANDSCAPE", "landscape")]
-        [InlineData(" Portrait ", "portrait")]
-        public void AnExplicitOrientationIsUsedAsGiven(string supplied, string expected)
-        {
-            Metadata metadata = Build(StubMobileDriver.Android(),
-                new ScreenshotOptions { Orientation = supplied });
 
-            Assert.Equal(expected, metadata.Orientation());
-        }
 
-        [Fact]
-        public void AutoAsksTheDevice()
-        {
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Orientation = "LANDSCAPE";
 
-            Metadata metadata = Build(driver, new ScreenshotOptions { Orientation = "auto" });
-
-            Assert.Equal("landscape", metadata.Orientation());
-        }
-
-        [Fact]
-        public void AutoFallsBackToPortraitWhenTheDeviceWillNotSay()
-        {
-            StubMobileDriver driver = StubMobileDriver.Android();
-            driver.Orientation = null;
-
-            Assert.Equal("portrait",
-                Build(driver, new ScreenshotOptions { Orientation = "auto" }).Orientation());
-        }
-
-        [Fact]
-        public void AMisspelledOrientationBecomesPortrait()
-        {
-            Assert.Equal("portrait", Build(StubMobileDriver.Android(),
-                new ScreenshotOptions { Orientation = "sideways" }).Orientation());
-        }
 
         [Fact]
         public void WithNothingSuppliedTheOrientationCapabilityIsUsed()
@@ -112,7 +67,7 @@ namespace AppPercyTosca.Core.Tests
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Caps["orientation"] = "LANDSCAPE";
 
-            Assert.Equal("landscape", Build(driver, new ScreenshotOptions()).Orientation());
+            Assert.Equal("landscape", Build(driver).Orientation());
         }
 
         [Fact]
@@ -124,7 +79,7 @@ namespace AppPercyTosca.Core.Tests
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Orientation = "LANDSCAPE";
 
-            Assert.Equal("landscape", Build(driver, new ScreenshotOptions()).Orientation());
+            Assert.Equal("landscape", Build(driver).Orientation());
         }
 
         [Fact]
@@ -133,7 +88,7 @@ namespace AppPercyTosca.Core.Tests
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Orientation = null;
 
-            Assert.Equal("portrait", Build(driver, new ScreenshotOptions()).Orientation());
+            Assert.Equal("portrait", Build(driver).Orientation());
         }
 
         [Fact]
@@ -144,7 +99,7 @@ namespace AppPercyTosca.Core.Tests
             // which splits the baseline and fails every custom pixel region.
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Orientation = "LANDSCAPE";
-            Metadata metadata = Build(driver, new ScreenshotOptions());
+            Metadata metadata = Build(driver);
 
             Assert.Equal(2340, metadata.DeviceScreenWidth());
             Assert.Equal(1080, metadata.DeviceScreenHeight());
@@ -158,7 +113,7 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void APortraitDeviceIsLeftAlone()
         {
-            Metadata metadata = Build(StubMobileDriver.Android(), new ScreenshotOptions());
+            Metadata metadata = Build(StubMobileDriver.Android());
 
             Assert.Equal(1080, metadata.DeviceScreenWidth());
             Assert.Equal(2340, metadata.DeviceScreenHeight());
@@ -172,37 +127,31 @@ namespace AppPercyTosca.Core.Tests
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Orientation = "LANDSCAPE";
             driver.Caps["deviceScreenSize"] = "2340x1080";
-            Metadata metadata = Build(driver, new ScreenshotOptions());
+            Metadata metadata = Build(driver);
 
             Assert.Equal(2340, metadata.DeviceScreenWidth());
             Assert.Equal(1080, metadata.DeviceScreenHeight());
         }
 
-        [Fact]
-        public void AnExplicitOsVersionWinsOverTheCapability()
-        {
-            Assert.Equal("14", Build(StubMobileDriver.Android(),
-                new ScreenshotOptions { PlatformVersion = "14" }).PlatformVersion());
-        }
 
         [Fact]
         public void TheOsVersionFallsBackThroughBothCapabilitySpellings()
         {
             StubMobileDriver driver = StubMobileDriver.Android();
-            Assert.Equal("13", Build(driver, new ScreenshotOptions()).PlatformVersion());
+            Assert.Equal("13", Build(driver).PlatformVersion());
 
             driver.Caps.Remove("platformVersion");
             driver.Caps["os_version"] = "12";
-            Assert.Equal("12", Build(driver, new ScreenshotOptions()).PlatformVersion());
+            Assert.Equal("12", Build(driver).PlatformVersion());
 
             driver.Caps.Remove("os_version");
-            Assert.Null(Build(driver, new ScreenshotOptions()).PlatformVersion());
+            Assert.Null(Build(driver).PlatformVersion());
         }
 
         [Fact]
         public void TheTagCarriesEverythingPercyGroupsComparisonsBy()
         {
-            Metadata metadata = Build(StubMobileDriver.Android(), new ScreenshotOptions());
+            Metadata metadata = Build(StubMobileDriver.Android());
 
             Dictionary<string, object?> tag = metadata.GetTag();
 
@@ -217,8 +166,8 @@ namespace AppPercyTosca.Core.Tests
 
     public class AndroidMetadataTests : CoreTestBase
     {
-        private static AndroidMetadata Build(StubMobileDriver driver, ScreenshotOptions? options = null) =>
-            new AndroidMetadata(driver, options ?? new ScreenshotOptions(), new Cache<string, object?>());
+        private static AndroidMetadata Build(StubMobileDriver driver) =>
+            new AndroidMetadata(driver, new Cache<string, object?>());
 
         [Fact]
         public void TheOsNameIsAndroid()
@@ -227,14 +176,12 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheDeviceNameFallsBackFromSuppliedToResolvedToRequested()
+        public void TheDeviceNameFallsBackFromResolvedToRequested()
         {
             StubMobileDriver driver = StubMobileDriver.Android();
 
-            Assert.Equal("Pixel 7",
-                Build(driver, new ScreenshotOptions { DeviceName = "Pixel 7" }).DeviceName());
-
-            // `device` is what App Automate reports it actually allocated.
+            // `device` is what App Automate reports it actually allocated, and outranks the requested
+            // `deviceName` — which BrowserStack sets to the UDID.
             Assert.Equal("Samsung Galaxy S22", Build(driver).DeviceName());
 
             driver.Caps.Remove("device");
@@ -254,15 +201,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(2340, metadata.DeviceScreenHeight());
         }
 
-        [Fact]
-        public void SuppliedDimensionsWinOverTheCapability()
-        {
-            AndroidMetadata metadata = Build(StubMobileDriver.Android(),
-                new ScreenshotOptions { ScreenWidth = 720, ScreenHeight = 1280 });
-
-            Assert.Equal(720, metadata.DeviceScreenWidth());
-            Assert.Equal(1280, metadata.DeviceScreenHeight());
-        }
 
         [Fact]
         public void TheBarsAreDerivedFromTheViewportRect()
@@ -273,16 +211,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(40, metadata.NavBarHeight());
         }
 
-        [Fact]
-        public void SuppliedBarHeightsWinAndZeroIsHonoured()
-        {
-            AndroidMetadata metadata = Build(StubMobileDriver.Android(),
-                new ScreenshotOptions { StatusBarHeight = 0, NavBarHeight = 0 });
-
-            // 0 must mean "no bar", not "the step said nothing" — that is why the sentinel is -1.
-            Assert.Equal(0, metadata.StatBarHeight());
-            Assert.Equal(0, metadata.NavBarHeight());
-        }
 
         [Fact]
         public void WithNoViewportRectTheBarsAreZeroRatherThanGuessed()
@@ -316,13 +244,14 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void WithoutDeviceScreenSizeTheHeightIsRebuiltFromTheViewportPlusTheBars()
         {
+            // The nav bar cannot be derived without the full height, so it contributes 0 — the
+            // rebuilt height is the usable area plus the status bar.
             StubMobileDriver driver = StubMobileDriver.Android();
             driver.Caps.Remove("deviceScreenSize");
 
-            AndroidMetadata metadata = Build(driver,
-                new ScreenshotOptions { StatusBarHeight = 60, NavBarHeight = 40 });
+            AndroidMetadata metadata = Build(driver);
 
-            Assert.Equal(2240 + 60 + 40, metadata.DeviceScreenHeight());
+            Assert.Equal(2240 + 60, metadata.DeviceScreenHeight());
             Assert.Equal(1080, metadata.DeviceScreenWidth());
         }
 
@@ -383,7 +312,7 @@ namespace AppPercyTosca.Core.Tests
             // Cached so a sheet with many steps does not re-read it per step.
             Cache<string, object?> cache = new Cache<string, object?>();
             StubMobileDriver driver = StubMobileDriver.Android();
-            AndroidMetadata metadata = new AndroidMetadata(driver, new ScreenshotOptions(), cache);
+            AndroidMetadata metadata = new AndroidMetadata(driver, cache);
 
             metadata.StatBarHeight();
 
@@ -393,10 +322,8 @@ namespace AppPercyTosca.Core.Tests
 
     public class IosMetadataTests : CoreTestBase
     {
-        private static IosMetadata Build(StubMobileDriver driver, ScreenshotOptions? options = null,
-            Cache<string, object?>? cache = null) =>
-            new IosMetadata(driver, options ?? new ScreenshotOptions(),
-                cache ?? new Cache<string, object?>());
+        private static IosMetadata Build(StubMobileDriver driver, Cache<string, object?>? cache = null) =>
+            new IosMetadata(driver, cache ?? new Cache<string, object?>());
 
         [Fact]
         public void TheOsNameIsIos()
@@ -405,12 +332,10 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheDeviceNameFallsBackFromSuppliedToCapability()
+        public void TheDeviceNameComesFromTheCapability()
         {
             StubMobileDriver driver = StubMobileDriver.Ios();
 
-            Assert.Equal("iPhone 14",
-                Build(driver, new ScreenshotOptions { DeviceName = "iPhone 14" }).DeviceName());
             Assert.Equal("iPhone X", Build(driver).DeviceName());
 
             driver.Caps.Remove("deviceName");
@@ -432,15 +357,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(2436, metadata.DeviceScreenHeight());
         }
 
-        [Fact]
-        public void SuppliedDimensionsWinOverTheTable()
-        {
-            IosMetadata metadata = Build(StubMobileDriver.Ios(),
-                new ScreenshotOptions { ScreenWidth = 750, ScreenHeight = 1334 });
-
-            Assert.Equal(750, metadata.DeviceScreenWidth());
-            Assert.Equal(1334, metadata.DeviceScreenHeight());
-        }
 
         [Fact]
         public void TheStatusBarComesFromTheTableScaledByThePixelRatio()
@@ -520,7 +436,7 @@ namespace AppPercyTosca.Core.Tests
             StubMobileDriver driver = StubMobileDriver.Ios("Some Unlisted Phone");
             driver.ScriptError = new InvalidOperationException("unsupported command");
 
-            IosMetadata metadata = Build(driver, cache: cache);
+            IosMetadata metadata = Build(driver, cache);
             metadata.StatBarHeight();
             metadata.DeviceScreenWidth();
 
@@ -528,11 +444,9 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void ThereIsNoNavBarOnIosUnlessTheStepDeclaresOne()
+        public void ThereIsNoNavBarOnIos()
         {
             Assert.Equal(0, Build(StubMobileDriver.Ios()).NavBarHeight());
-            Assert.Equal(12, Build(StubMobileDriver.Ios(),
-                new ScreenshotOptions { NavBarHeight = 12 }).NavBarHeight());
         }
 
         [Fact]

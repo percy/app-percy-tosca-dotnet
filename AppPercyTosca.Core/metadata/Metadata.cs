@@ -1,53 +1,25 @@
 namespace AppPercyTosca.Core
 {
     /// <summary>
-    /// Resolves the device facts Percy tags a comparison with. Values explicitly supplied on the
-    /// Tosca step always win; anything left unset is read from the session, and only then from the
-    /// static device table. That order matters for Tosca specifically: its Mobile engine exposes a
-    /// thinner capability set than a raw Appium driver, so being able to declare the dimensions on
-    /// the module is the documented escape hatch rather than a fallback nobody uses.
+    /// Resolves the device facts Percy tags a comparison with, from the session and the static device
+    /// table only.
+    ///
+    /// There is deliberately no way to declare them on the Tosca step. The session knows which device
+    /// was allocated; a module parameter could only ever disagree, and a stale or mistyped one silently
+    /// splits a Percy baseline in a way that looks like a real visual change.
     /// </summary>
     public abstract class Metadata
     {
         protected readonly IMobileDriver Driver;
-        private readonly string? _orientation;
-        private readonly string? _platformVersion;
-        private readonly int _statusBar;
-        private readonly int _navBar;
-        private readonly string? _deviceName;
-        private readonly int _screenWidth;
-        private readonly int _screenHeight;
 
-        protected Metadata(IMobileDriver driver, ScreenshotOptions options)
+        protected Metadata(IMobileDriver driver)
         {
             Driver = driver;
-            _deviceName = options.DeviceName;
-            _platformVersion = options.PlatformVersion;
-            _orientation = options.Orientation;
-            _statusBar = options.StatusBarHeight;
-            _navBar = options.NavBarHeight;
-            _screenWidth = options.ScreenWidth;
-            _screenHeight = options.ScreenHeight;
         }
 
-        protected string? SuppliedDeviceName => _deviceName;
-        protected int SuppliedStatusBar => _statusBar;
-        protected int SuppliedNavBar => _navBar;
-        protected int SuppliedScreenWidth => _screenWidth;
-        protected int SuppliedScreenHeight => _screenHeight;
 
         public string Orientation()
         {
-            if (!string.IsNullOrWhiteSpace(_orientation))
-            {
-                string requested = _orientation.Trim().ToLowerInvariant();
-                if (requested == "portrait" || requested == "landscape") return requested;
-                // "auto" asks the device; any other spelling is a typo on the module, and
-                // assuming portrait matches what the other App Percy SDKs do.
-                if (requested == "auto") return Driver.Orientation?.ToLowerInvariant() ?? "portrait";
-                return "portrait";
-            }
-
             string? capability = Driver.Capabilities.GetString("orientation");
             if (!string.IsNullOrWhiteSpace(capability)) return capability.ToLowerInvariant();
 
@@ -62,7 +34,6 @@ namespace AppPercyTosca.Core
 
         public string? PlatformVersion()
         {
-            if (!string.IsNullOrWhiteSpace(_platformVersion)) return _platformVersion;
             return Driver.Capabilities.GetString("platformVersion")
                 ?? Driver.Capabilities.GetString("os_version");
         }

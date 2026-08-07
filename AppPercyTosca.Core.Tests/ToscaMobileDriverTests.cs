@@ -227,8 +227,7 @@ namespace AppPercyTosca.Core.Tests
                 .Default(RealSessionCapabilities);
 
             ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
-            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
-                new Cache<string, object?>());
+            Metadata metadata = MetadataResolver.Resolve(driver, new Cache<string, object?>());
             Dictionary<string, object?> tag = metadata.GetTag();
 
             // The friendly name, not the UDID the session reports as deviceName.
@@ -289,8 +288,7 @@ namespace AppPercyTosca.Core.Tests
                 .Default("{\"value\":{\"statusBar\":{\"height\":72},\"navigationBar\":{\"height\":48}}}");
 
             ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
-            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
-                new Cache<string, object?>());
+            Metadata metadata = MetadataResolver.Resolve(driver, new Cache<string, object?>());
 
             Assert.Equal(72, metadata.StatBarHeight());
             Assert.Equal(48, metadata.NavBarHeight());
@@ -310,8 +308,7 @@ namespace AppPercyTosca.Core.Tests
                     "\\\"width\\\":1080,\\\"height\\\":2300}\"}");
 
             ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
-            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
-                new Cache<string, object?>());
+            Metadata metadata = MetadataResolver.Resolve(driver, new Cache<string, object?>());
 
             Assert.Equal(60, metadata.StatBarHeight());
             Assert.Equal(40, metadata.NavBarHeight());
@@ -356,8 +353,7 @@ namespace AppPercyTosca.Core.Tests
                 .Default("{\"value\":{\"statusBar\":{\"height\":72}}}");
 
             ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
-            Metadata metadata = MetadataResolver.Resolve(driver, new ScreenshotOptions(),
-                new Cache<string, object?>());
+            Metadata metadata = MetadataResolver.Resolve(driver, new Cache<string, object?>());
 
             Assert.Equal(72, metadata.StatBarHeight());
         }
@@ -378,19 +374,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal("14", driver.Capabilities.GetString("platformVersion"));
         }
 
-        [Fact]
-        public void ModuleParametersStillOverrideTheSession()
-        {
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            StubHttpMessageHandler device = new StubHttpMessageHandler()
-                .Default("{\"value\":{\"deviceName\":\"Google Pixel 7\"}}");
-
-            ToscaMobileDriver driver = Build(tosca,
-                new ScreenshotOptions { DeviceName = "My Label", OsName = "Android" },
-                deviceHttp: device);
-
-            Assert.Equal("My Label", driver.Capabilities.GetString("deviceName"));
-        }
 
         [Fact]
         public void ACapabilityMapNestedOneLevelDeepIsUnwrapped()
@@ -513,22 +496,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal("Galaxy S23", Build(tosca).Capabilities.GetString("deviceName"));
         }
 
-        [Fact]
-        public void ModuleParametersOverrideTheTestConfiguration()
-        {
-            // The documented way to supply what the parameters do not carry, so they have to win.
-            ToscaMobileDriver driver = Build(StubToscaEnvironment.AppAutomate(), new ScreenshotOptions
-            {
-                DeviceName = "iPhone X",
-                OsName = "iOS",
-                PlatformVersion = "16.4"
-            });
-
-            Assert.Equal("iPhone X", driver.Capabilities.GetString("deviceName"));
-            Assert.Equal("iOS", driver.Capabilities.GetString("platformName"));
-            Assert.Equal("16.4", driver.Capabilities.GetString("platformVersion"));
-            Assert.Equal("iOS", driver.PlatformName);
-        }
 
         [Fact]
         public void ASessionWithNoParametersAtAllSaysWhatToSetInstead()

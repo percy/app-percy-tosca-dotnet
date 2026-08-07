@@ -331,35 +331,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("\"filepath\":null", body);
         }
 
-        [Fact]
-        public void TheExecutorsDeviceAndOsVersionAreUsedOverTheCapabilities()
-        {
-            // The hub knows the device it actually allocated; the capability is only what was asked
-            // for.
-            StubMobileDriver driver = AutomateDriver();
-            driver.ScriptReplies.Add(("\"state\":\"begin\"", BeginResult));
-            driver.ScriptReplies.Add(("\"state\":\"screenshot\"", TileResult));
-            (AppAutomate provider, StubHttpMessageHandler handler) = Build(driver);
 
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            string body = handler.BodyFor("/percy/comparison")!;
-            Assert.Contains("\"name\":\"Samsung Galaxy S23\"", body);
-            Assert.Contains("\"osVersion\":\"13\"", body);
-        }
-
-        [Fact]
-        public void AnExplicitDeviceNameIsNotOverriddenByTheExecutor()
-        {
-            StubMobileDriver driver = AutomateDriver();
-            driver.ScriptReplies.Add(("\"state\":\"begin\"", BeginResult));
-            driver.ScriptReplies.Add(("\"state\":\"screenshot\"", TileResult));
-            (AppAutomate provider, StubHttpMessageHandler handler) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions { DeviceName = "My Device" });
-
-            Assert.Contains("\"name\":\"My Device\"", handler.BodyFor("/percy/comparison")!);
-        }
 
         [Fact]
         public void TheSessionIsLinkedToItsAppAutomateDashboardUrl()
@@ -386,14 +358,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Null(provider.GetDebugUrl(Json.TryParse("{\"sessionHash\":\"sh\"}")));
         }
 
-        [Theory]
-        [InlineData("{}")]
-        [InlineData("{\"osVersion\":\"\"}")]
-        public void AnAbsentOsVersionYieldsNull(string body)
-        {
-            (AppAutomate provider, _) = Build(AutomateDriver());
-            Assert.Null(provider.OsVersion(Json.TryParse(body)));
-        }
 
         [Fact]
         public void TheBuildIsStampedOntoTheBeginMarkerSoPercyAndAppAutomateAreLinked()
