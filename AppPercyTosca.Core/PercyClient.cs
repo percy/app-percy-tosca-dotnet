@@ -205,10 +205,7 @@ namespace AppPercyTosca.Core
                     ["name"] = name,
                     ["ignoredElementsData"] = ignoredElementsData,
                     ["consideredElementsData"] = consideredElementsData,
-                    ["sync"] = options.Sync,
-                    ["testCase"] = options.TestCase,
-                    ["labels"] = options.Labels,
-                    ["thTestCaseExecutionId"] = options.ThTestCaseExecutionId
+                    ["labels"] = options.Labels
                 };
                 return Post("/percy/comparison", payload, name);
             }

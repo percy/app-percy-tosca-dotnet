@@ -18,8 +18,6 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.False(options.FullScreen);
             Assert.False(options.FullPage);
-            // Null, not false: the CLI applies its own sync default when we say nothing.
-            Assert.Null(options.Sync);
             Assert.Null(options.ScreenLengths);
             Assert.Empty(options.IgnoreRegionXpaths);
             Assert.Empty(options.CustomIgnoreRegions);
@@ -34,17 +32,13 @@ namespace AppPercyTosca.Core.Tests
                 ("FullScreen", "true"),
                 ("FullPage", "yes"),
                 ("IosOptimizedFullpage", "1"),
-                ("Sync", "false"),
-                ("Labels", "smoke"),
-                ("ThTestCaseExecutionId", "exec-1")));
+                ("Labels", "smoke")));
 
             Assert.Equal(4, options.ScreenLengths);
             Assert.True(options.FullScreen);
             Assert.True(options.FullPage);
             Assert.True(options.IosOptimizedFullpage);
-            Assert.False(options.Sync);
             Assert.Equal("smoke", options.Labels);
-            Assert.Equal("exec-1", options.ThTestCaseExecutionId);
         }
 
 

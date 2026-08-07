@@ -275,7 +275,7 @@ namespace AppPercyTosca.Core.Tests
                 "https://app-automate.browserstack.com/x",
                 new Dictionary<string, object?> { ["ignoreElementsData"] = new List<object>() },
                 new Dictionary<string, object?> { ["considerElementsData"] = new List<object>() },
-                new ScreenshotOptions { Sync = true, TestCase = "tc", Labels = "l" });
+                new ScreenshotOptions { Labels = "l" });
 
             // The full response, not just `data`: `link` is a sibling of `data`, and unwrapping here
             // would hide the comparison URL from the App Automate flow that has to report it.
@@ -288,8 +288,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("\"name\":\"home\"", body);
             Assert.Contains("\"filepath\":\"/tmp/a.png\"", body);
             Assert.Contains("\"externalDebugUrl\":\"https://app-automate.browserstack.com/x\"", body);
-            Assert.Contains("\"sync\":true", body);
-            Assert.Contains("\"testCase\":\"tc\"", body);
+            Assert.Contains("\"labels\":\"l\"", body);
         }
 
         [Fact]

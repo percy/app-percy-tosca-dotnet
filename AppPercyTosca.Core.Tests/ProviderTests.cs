@@ -386,12 +386,11 @@ namespace AppPercyTosca.Core.Tests
             driver.ScriptReplies.Add(("\"state\":\"screenshot\"", TileResult));
             (AppAutomate provider, _) = Build(driver);
 
-            provider.Screenshot("home", new ScreenshotOptions { Sync = true });
+            provider.Screenshot("home", new ScreenshotOptions());
 
             string end = driver.ExecutedScripts.First(s => s.Contains("\"state\":\"end\""));
             Assert.Contains("\"status\":\"success\"", end);
             Assert.Contains("\"percyScreenshotUrl\":\"https://percy.io/c/1\"", end);
-            Assert.Contains("\"sync\":true", end);
         }
 
         [Fact]
@@ -461,7 +460,7 @@ namespace AppPercyTosca.Core.Tests
             (AppAutomate provider, _) = Build(driver);
             driver.ScriptError = new InvalidOperationException("hub unreachable");
 
-            Assert.Null(provider.ExecutePercyScreenshotEnd("home", null, null, null));
+            Assert.Null(provider.ExecutePercyScreenshotEnd("home", null, null));
             Assert.True(Logged("failed at percyScreenshot end"));
         }
 

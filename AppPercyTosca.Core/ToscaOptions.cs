@@ -24,8 +24,7 @@ namespace AppPercyTosca.Core
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
             "IosOptimizedFullpage", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
-            "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
-            "SessionId", "SessionIdBuffer"
+            "CustomConsiderRegions", "Labels", "SessionId", "SessionIdBuffer"
         };
 
         /// <summary>
@@ -40,18 +39,13 @@ namespace AppPercyTosca.Core
         {
             ScreenshotOptions options = new ScreenshotOptions
             {
-                TestCase = Trimmed(read("TestCase")),
                 Labels = Trimmed(read("Labels")),
-                ThTestCaseExecutionId = Trimmed(read("ThTestCaseExecutionId")),
 
                 ScreenLengths = ParseInt(read("ScreenLengths"), "ScreenLengths"),
 
                 FullScreen = ParseBool(read("FullScreen"), "FullScreen") ?? false,
                 FullPage = ParseBool(read("FullPage"), "FullPage") ?? false,
                 IosOptimizedFullpage = ParseBool(read("IosOptimizedFullpage"), "IosOptimizedFullpage") ?? false,
-                // Left null when unset so the CLI applies its own default rather than being told
-                // "do not sync".
-                Sync = ParseBool(read("Sync"), "Sync"),
 
                 IgnoreRegionXpaths = ParseLocatorList(read("IgnoreRegionXpaths")),
                 IgnoreRegionAccessibilityIds = ParseLocatorList(read("IgnoreRegionAccessibilityIds")),

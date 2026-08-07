@@ -84,7 +84,7 @@ namespace AppPercyTosca.Core
             }
             finally
             {
-                ExecutePercyScreenshotEnd(name, percyScreenshotUrl, options.Sync, error);
+                ExecutePercyScreenshotEnd(name, percyScreenshotUrl, error);
             }
         }
 
@@ -206,7 +206,7 @@ namespace AppPercyTosca.Core
         /// record — so a failure inside this call is logged rather than swallowed.
         /// </summary>
         public JsonElement? ExecutePercyScreenshotEnd(
-            string name, string? percyScreenshotUrl, bool? sync, string? error)
+            string name, string? percyScreenshotUrl, string? error)
         {
             if (!_markedPercySession) return null;
             try
@@ -217,8 +217,7 @@ namespace AppPercyTosca.Core
                     ["percyScreenshotUrl"] = percyScreenshotUrl,
                     ["status"] = error == null ? "success" : "failure",
                     ["statusMessage"] = error,
-                    ["name"] = name,
-                    ["sync"] = sync
+                    ["name"] = name
                 });
                 _markedPercySession = Json.IsTrue(result, "success");
                 return result;

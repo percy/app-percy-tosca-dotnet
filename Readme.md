@@ -123,10 +123,7 @@ takes a single-screen snapshot of the current screen.
 | Parameter | Description |
 |---|---|
 | `SnapshotName` (**required**) | The snapshot name; must be unique to each snapshot |
-| `TestCase` | Test case name, for grouping in Percy |
 | `Labels` | Comma-separated labels |
-| `Sync` | `true` to wait for the comparison before continuing |
-| `ThTestCaseExecutionId` | Test Management execution id, for linking back to a test run |
 
 ### Device details
 

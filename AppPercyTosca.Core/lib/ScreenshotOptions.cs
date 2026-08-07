@@ -23,10 +23,7 @@ namespace AppPercyTosca.Core
         public bool FullPage { get; set; }
         public bool IosOptimizedFullpage { get; set; }
         public int? ScreenLengths { get; set; }
-        public bool? Sync { get; set; }
-        public string? TestCase { get; set; }
         public string? Labels { get; set; }
-        public string? ThTestCaseExecutionId { get; set; }
 
         public List<string> IgnoreRegionXpaths { get; set; } = new List<string>();
         public List<string> IgnoreRegionAccessibilityIds { get; set; } = new List<string>();
