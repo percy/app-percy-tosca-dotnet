@@ -146,9 +146,7 @@ device falls back to the session's viewport.
 | `FullScreen` | `true` if the app is in full-screen mode |
 | `FullPage` | `true` to capture the whole scrollable page |
 | `ScreenLengths` | Number of screens to capture for a full page |
-| `ScrollableXpath`, `ScrollableId` | Which element to scroll for a full page |
-| `TopScrollviewOffset`, `BottomScrollviewOffset` | Pixels to trim while scrolling |
-| `IosOptimizedFullpage` | `true` for the optimised iOS full-page algorithm |
+| `IosOptimizedFullpage` | The optimised iOS full-page algorithm |
 
 ### Regions
 

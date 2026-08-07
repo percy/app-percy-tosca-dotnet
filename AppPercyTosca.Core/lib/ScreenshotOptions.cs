@@ -18,9 +18,6 @@ namespace AppPercyTosca.Core
 
 
 
-        public int TopScrollviewOffset { get; set; }
-        public int BottomScrollviewOffset { get; set; }
-
 
         public bool FullScreen { get; set; }
         public bool FullPage { get; set; }
@@ -38,7 +35,5 @@ namespace AppPercyTosca.Core
         public List<string> ConsiderRegionAccessibilityIds { get; set; } = new List<string>();
         public List<Region> CustomConsiderRegions { get; set; } = new List<Region>();
 
-        public string? ScrollableXpath { get; set; }
-        public string? ScrollableId { get; set; }
     }
 }

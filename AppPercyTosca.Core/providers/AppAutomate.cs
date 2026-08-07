@@ -253,10 +253,9 @@ namespace AppPercyTosca.Core
                 {
                     ["deviceHeight"] = Metadata.DeviceScreenHeight(),
                     ["numOfTiles"] = options.ScreenLengths,
-                    ["scollableXpath"] = options.ScrollableXpath,
-                    ["scrollableId"] = options.ScrollableId,
-                    ["topScrollviewOffset"] = options.TopScrollviewOffset,
-                    ["bottomScrollviewOffset"] = options.BottomScrollviewOffset,
+                    // No scrollable-element or offset options are sent: the hub picks the scrollable
+                    // view itself, and its default is better than a value typed into a test sheet that
+                    // nothing here can validate.
                     ["iosOptimizedFullpage"] = options.IosOptimizedFullpage,
                     ["FORCE_FULL_PAGE"] = Env.ForceFullPage()
                 }

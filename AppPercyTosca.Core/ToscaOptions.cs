@@ -22,8 +22,7 @@ namespace AppPercyTosca.Core
         public static readonly string[] KnownParameters =
         {
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
-            "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
-            "ScrollableXpath", "ScrollableId", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
+            "IosOptimizedFullpage", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
             "CustomConsiderRegions", "Sync", "TestCase", "Labels", "ThTestCaseExecutionId",
             "SessionId", "SessionIdBuffer"
@@ -41,14 +40,10 @@ namespace AppPercyTosca.Core
         {
             ScreenshotOptions options = new ScreenshotOptions
             {
-                ScrollableXpath = Trimmed(read("ScrollableXpath")),
-                ScrollableId = Trimmed(read("ScrollableId")),
                 TestCase = Trimmed(read("TestCase")),
                 Labels = Trimmed(read("Labels")),
                 ThTestCaseExecutionId = Trimmed(read("ThTestCaseExecutionId")),
 
-                TopScrollviewOffset = ParseInt(read("TopScrollviewOffset"), "TopScrollviewOffset") ?? 0,
-                BottomScrollviewOffset = ParseInt(read("BottomScrollviewOffset"), "BottomScrollviewOffset") ?? 0,
                 ScreenLengths = ParseInt(read("ScreenLengths"), "ScreenLengths"),
 
                 FullScreen = ParseBool(read("FullScreen"), "FullScreen") ?? false,

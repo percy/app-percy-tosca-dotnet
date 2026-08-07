@@ -480,7 +480,7 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheScreenshotRequestCarriesTheScrollingAndOffsetOptions()
+        public void TheScreenshotRequestCarriesTheFullPageOptions()
         {
             StubMobileDriver driver = CapturingDriver();
             (AppAutomate provider, _) = Build(driver);
@@ -489,21 +489,15 @@ namespace AppPercyTosca.Core.Tests
             {
                 FullPage = true,
                 ScreenLengths = 3,
-                ScrollableXpath = "//scroll",
-                ScrollableId = "list",
-                TopScrollviewOffset = 5,
-                BottomScrollviewOffset = 6,
                 IosOptimizedFullpage = true
             });
 
             string request = driver.ExecutedScripts.First(s => s.Contains("\"state\":\"screenshot\""));
             Assert.Contains("\"numOfTiles\":3", request);
-            // Misspelled on the wire; that is the hub's key name, not a typo here.
-            Assert.Contains("\"scollableXpath\":\"//scroll\"", request);
-            Assert.Contains("\"scrollableId\":\"list\"", request);
-            Assert.Contains("\"topScrollviewOffset\":5", request);
-            Assert.Contains("\"bottomScrollviewOffset\":6", request);
             Assert.Contains("\"iosOptimizedFullpage\":true", request);
+            // The hub chooses the scrollable view and the offsets itself.
+            Assert.DoesNotContain("scollableXpath", request);
+            Assert.DoesNotContain("ScrollviewOffset", request);
             Assert.Contains("\"deviceHeight\":2340", request);
             Assert.Contains("\"scaleFactor\":1", request);
             Assert.Contains("\"projectId\":\"percy-prod\"", request);

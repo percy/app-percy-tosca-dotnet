@@ -30,27 +30,19 @@ namespace AppPercyTosca.Core.Tests
         public void EveryTypedParameterIsRead()
         {
             ScreenshotOptions options = ToscaOptions.Build(Reader(
-                ("TopScrollviewOffset", "10"),
-                ("BottomScrollviewOffset", "20"),
                 ("ScreenLengths", "4"),
                 ("FullScreen", "true"),
                 ("FullPage", "yes"),
                 ("IosOptimizedFullpage", "1"),
                 ("Sync", "false"),
-                ("ScrollableXpath", "//scroll"),
-                ("ScrollableId", "list"),
                 ("Labels", "smoke"),
                 ("ThTestCaseExecutionId", "exec-1")));
 
-            Assert.Equal(10, options.TopScrollviewOffset);
-            Assert.Equal(20, options.BottomScrollviewOffset);
             Assert.Equal(4, options.ScreenLengths);
             Assert.True(options.FullScreen);
             Assert.True(options.FullPage);
             Assert.True(options.IosOptimizedFullpage);
             Assert.False(options.Sync);
-            Assert.Equal("//scroll", options.ScrollableXpath);
-            Assert.Equal("list", options.ScrollableId);
             Assert.Equal("smoke", options.Labels);
             Assert.Equal("exec-1", options.ThTestCaseExecutionId);
         }
