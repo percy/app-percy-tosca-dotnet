@@ -108,7 +108,6 @@ namespace AppPercyTosca.Core
             }
         }
 
-
         /// <summary>
         /// Whether a real Appium session id was found. Capture asks the automation server for
         /// <c>/session/{id}/screenshot</c>, so a placeholder would produce a 404 that says nothing
@@ -309,7 +308,6 @@ namespace AppPercyTosca.Core
                 }
             }
 
-
             if (capabilities.Count == 0)
             {
                 Utils.Log("No device details are available: Tosca reported no test configuration " +
@@ -440,6 +438,5 @@ namespace AppPercyTosca.Core
             }
             return null;
         }
-
     }
 }

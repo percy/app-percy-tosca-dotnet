@@ -12,7 +12,6 @@ namespace AppPercyTosca.Core.Tests
         public Dictionary<string, string?> Tcps { get; } = new Dictionary<string, string?>();
         public Dictionary<string, string?> Buffers { get; } = new Dictionary<string, string?>();
 
-
         public string? TestConfigurationParameter(string name) =>
             Tcps.TryGetValue(name, out string? value) ? value : null;
 
@@ -20,7 +19,6 @@ namespace AppPercyTosca.Core.Tests
 
         public string? Buffer(string name) =>
             Buffers.TryGetValue(name, out string? value) ? value : null;
-
 
         /// <summary>An App Automate mobile session with the TCPs Tosca sets for one.</summary>
         public static StubToscaEnvironment AppAutomate()
@@ -91,8 +89,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("/session/session-abc/execute/sync", device.Requests[0].Url);
             Assert.Contains("browserstack_executor", device.Requests[0].Body!);
         }
-
-
 
         [Fact]
         public void AnIdGivenOnTheModuleWinsOverEverythingElse()
@@ -173,11 +169,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.False(string.IsNullOrWhiteSpace(driver.SessionId));
             Assert.Equal(driver.SessionId, driver.SessionId);
         }
-
-
-
-
-
 
         [Fact]
         public void AFallbackSessionKeyCanBeSupplied()
@@ -376,7 +367,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal("14", driver.Capabilities.GetString("platformVersion"));
         }
 
-
         [Fact]
         public void ACapabilityMapNestedOneLevelDeepIsUnwrapped()
         {
@@ -498,7 +488,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal("Galaxy S23", Build(tosca).Capabilities.GetString("deviceName"));
         }
 
-
         [Fact]
         public void ASessionWithNoParametersAtAllSaysWhatToCheck()
         {
@@ -573,7 +562,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("/session/session-abc/screenshot", device.Requests[0].Url);
         }
 
-
         [Fact]
         public void WithNoRouteToTheDeviceCaptureFailsWithSomethingActionable()
         {
@@ -613,11 +601,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(Logged("No AppiumServer"));
         }
 
-
-
-
-
-
         [Fact]
         public void ElementRegionsAreUnavailableAndSayWhatToUseInstead()
         {
@@ -643,7 +626,5 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.Single(Logs, entry => entry.Message.Contains("not supported on Tosca"));
         }
-
-
     }
 }

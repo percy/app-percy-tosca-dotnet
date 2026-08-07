@@ -29,7 +29,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.IsType<IosMetadata>(Resolve(driver));
         }
 
-
         [Fact]
         public void AnUnknownPlatformIsNamedRatherThanSilentlyDefaulted()
         {
@@ -56,10 +55,6 @@ namespace AppPercyTosca.Core.Tests
     {
         private static Metadata Build(StubMobileDriver driver) =>
             MetadataResolver.Resolve(driver, new Cache<string, object?>());
-
-
-
-
 
         [Fact]
         public void WithNothingSuppliedTheOrientationCapabilityIsUsed()
@@ -133,7 +128,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(1080, metadata.DeviceScreenHeight());
         }
 
-
         [Fact]
         public void TheOsVersionFallsBackThroughBothCapabilitySpellings()
         {
@@ -201,7 +195,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(2340, metadata.DeviceScreenHeight());
         }
 
-
         [Fact]
         public void TheBarsAreDerivedFromTheViewportRect()
         {
@@ -210,7 +203,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(60, metadata.StatBarHeight());
             Assert.Equal(40, metadata.NavBarHeight());
         }
-
 
         [Fact]
         public void WithNoViewportRectTheBarsAreZeroRatherThanGuessed()
@@ -356,7 +348,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(1125, metadata.DeviceScreenWidth());
             Assert.Equal(2436, metadata.DeviceScreenHeight());
         }
-
 
         [Fact]
         public void TheStatusBarComesFromTheTableScaledByThePixelRatio()

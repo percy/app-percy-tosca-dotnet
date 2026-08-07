@@ -217,7 +217,6 @@ namespace AppPercyTosca.Core
             }
         }
 
-
         /// <summary>
         /// Reports an SDK-side failure to Percy so it shows up in the build rather than only in a
         /// Tosca log on someone's workstation. Best-effort by design.

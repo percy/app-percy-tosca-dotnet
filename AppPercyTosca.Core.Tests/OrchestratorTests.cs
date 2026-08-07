@@ -246,5 +246,4 @@ namespace AppPercyTosca.Core.Tests
             Assert.NotNull(percy.Screenshot("two", new ScreenshotOptions()));
         }
     }
-
 }

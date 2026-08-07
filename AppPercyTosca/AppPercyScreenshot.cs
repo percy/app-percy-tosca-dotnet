@@ -124,7 +124,6 @@ namespace AppPercyTosca
                     Parameter(testAction, "SessionId"),
                     (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
 
-
                 // The step passes whether or not a snapshot was recorded — a visual check that could
                 // not run is not a functional regression — but it must not *claim* one was. A green
                 // step reading "Snapshot Taken!" when nothing reached Percy is worse than a slow
@@ -184,14 +183,11 @@ namespace AppPercyTosca
                 AppPercyFor(driver).Screenshot(snapshotName, options), snapshotName);
         }
 
-
         // A fresh façade per step. The Core's caches are per-session and this driver is per-step, so
         // there is nothing to carry across; the CLI connection and its healthcheck — the only
         // genuinely expensive parts — are static above.
         private static AppPercy AppPercyFor(ToscaMobileDriver driver) =>
             new AppPercy(driver, Client.Value);
-
-
 
         /// <summary>
         /// Cache key used when no Appium session id is available. Derived from the test action so it

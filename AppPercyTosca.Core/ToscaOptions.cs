@@ -58,8 +58,6 @@ namespace AppPercyTosca.Core
             return options;
         }
 
-
-
         /// <summary>
         /// Parses an integer parameter. A value that is present but unparseable is reported —
         /// silently treating "1O80" as unset would produce a wrong-sized tag with no explanation.
@@ -161,11 +159,7 @@ namespace AppPercyTosca.Core
             return regions;
         }
 
-
         private static string? Trimmed(string? value) =>
             string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-
-
     }
 }

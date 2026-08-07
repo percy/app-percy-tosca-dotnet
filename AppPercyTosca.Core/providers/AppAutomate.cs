@@ -171,7 +171,6 @@ namespace AppPercyTosca.Core
             return $"https://app-automate.browserstack.com/dashboard/v2/builds/{buildHash}/sessions/{sessionHash}";
         }
 
-
         /// <summary>
         /// Marks the start of a Percy screenshot on the hub, which is what links the App Automate
         /// session to the Percy build. Best-effort: a hub that will not take the marker should not

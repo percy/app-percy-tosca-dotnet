@@ -17,7 +17,6 @@ namespace AppPercyTosca.Core
             Driver = driver;
         }
 
-
         public string Orientation()
         {
             string? capability = Driver.Capabilities.GetString("orientation");

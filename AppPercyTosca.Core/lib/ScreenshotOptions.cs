@@ -12,13 +12,6 @@ namespace AppPercyTosca.Core
     public class ScreenshotOptions
     {
 
-
-
-
-
-
-
-
         public bool FullScreen { get; set; }
         public bool FullPage { get; set; }
         public bool IosOptimizedFullpage { get; set; }
@@ -31,6 +24,5 @@ namespace AppPercyTosca.Core
         public List<string> ConsiderRegionXpaths { get; set; } = new List<string>();
         public List<string> ConsiderRegionAccessibilityIds { get; set; } = new List<string>();
         public List<Region> CustomConsiderRegions { get; set; } = new List<Region>();
-
     }
 }

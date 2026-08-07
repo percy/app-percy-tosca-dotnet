@@ -40,8 +40,5 @@ namespace AppPercyTosca.Core
         /// setting up before anything else.
         /// </summary>
         string? Buffer(string name);
-
-
-
     }
 }

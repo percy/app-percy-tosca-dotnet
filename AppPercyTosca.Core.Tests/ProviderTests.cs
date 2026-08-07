@@ -334,8 +334,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("\"filepath\":null", body);
         }
 
-
-
         [Fact]
         public void TheSessionIsLinkedToItsAppAutomateDashboardUrl()
         {
@@ -360,7 +358,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Null(provider.GetDebugUrl(Json.TryParse("{\"buildHash\":\"bh\"}")));
             Assert.Null(provider.GetDebugUrl(Json.TryParse("{\"sessionHash\":\"sh\"}")));
         }
-
 
         [Fact]
         public void TheBuildIsStampedOntoTheBeginMarkerSoPercyAndAppAutomateAreLinked()

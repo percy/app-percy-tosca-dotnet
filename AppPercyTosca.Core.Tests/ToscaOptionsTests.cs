@@ -23,7 +23,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.Empty(options.CustomIgnoreRegions);
         }
 
-
         [Fact]
         public void EveryTypedParameterIsRead()
         {
@@ -40,7 +39,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(options.IosOptimizedFullpage);
             Assert.Equal("smoke", options.Labels);
         }
-
 
         [Theory]
         [InlineData("42", 42)]
@@ -181,17 +179,6 @@ namespace AppPercyTosca.Core.Tests
         {
             Assert.Empty(ToscaOptions.ParseRegions(null));
         }
-
-
-
-
-
-
-
-
-
-
-
 
         [Fact]
         public void KnownParametersListsEveryParameterTheBuildersRead()

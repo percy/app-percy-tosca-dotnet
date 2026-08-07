@@ -76,3 +76,30 @@ jobs:
       # `dotnet format AppPercyTosca.Core.sln` locally to apply everything this would have changed.
       - name: Check formatting and analyzer diagnostics
         run: dotnet format AppPercyTosca.Core.sln --no-restore --verify-no-changes --verbosity diagnostic
+
+      # Blank-line runs, which `dotnet format` does not catch. .editorconfig asks for at most one
+      # (csharp_style_allow_multiple_blank_lines_experimental), but IDE2000 neither reports nor fixes
+      # on the .NET 8 SDK — IDEs honour it, the formatter does not. So the check is done here, where
+      # it is thirty lines of awk that cannot silently stop working.
+      #
+      # It matters because these are deletion scars: remove a member and its surrounding blank lines
+      # stay, and they pile up until a reader cannot tell a deliberate separation from residue. There
+      # are no multi-line string literals in this repo, so a purely textual check is safe.
+      - name: Check for runs of blank lines
+        run: |
+          found=0
+          while IFS= read -r file; do
+            awk -v F="$file" '
+              /^[[:space:]]*$/ { blanks++; next }
+              { if (blanks >= 2) print F ":" NR - blanks ": " blanks " blank lines in a row"
+                if (blanks >= 1 && $0 ~ /^[[:space:]]*\}[[:space:]]*$/) print F ":" NR - blanks ": blank line before a closing brace"
+                blanks = 0 }
+              END { if (blanks >= 1) print F ":" NR - blanks + 1 ": " blanks " blank line(s) at end of file" }
+            ' "$file"
+          done < <(git ls-files '*.cs') > "$RUNNER_TEMP/blank-lines.txt"
+          if [ -s "$RUNNER_TEMP/blank-lines.txt" ]; then
+            echo "::error::Blank-line runs found. Collapse each to one blank line, or none before a closing brace."
+            cat "$RUNNER_TEMP/blank-lines.txt"
+            found=1
+          fi
+          exit $found

@@ -76,5 +76,19 @@ csharp_style_prefer_primary_constructors = false:silent
 dotnet_diagnostic.IDE0051.severity = warning
 dotnet_diagnostic.IDE0052.severity = warning
 
+# At most one blank line in a row, and none padding the inside of a block.
+#
+# Same cause as the rules above: deleting a member, a parameter or a whole provider leaves the blank
+# lines that surrounded it, and they accumulate. This branch had 34 runs of them, up to twelve lines
+# in one gap — enough that a reader scrolling a file cannot tell a deliberate separation from a scar.
+# One blank line still separates whatever you want separated.
+#
+# These two are honoured by IDEs but NOT by `dotnet format` on the .NET 8 SDK: IDE2000 and IDE2003
+# report nothing and fix nothing there, so setting their severity would look like a gate without
+# being one. The gate is a shell check in .github/workflows/ci.yml. Delete it and rely on these once
+# the repo moves to an SDK where the analyzers actually run.
+csharp_style_allow_multiple_blank_lines_experimental = false
+csharp_style_allow_blank_lines_between_consecutive_braces_experimental = false
+
 # Analyzer diagnostics from the test project's xUnit analyzers stay at their defaults, which is
 # how the gate caught Assert.True-over-a-predicate and Where-before-Single.

@@ -332,8 +332,6 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(Logged("Could not take screenshot"));
         }
 
-
-
         [Fact]
         public void FailedEventsAreForwardedToPercy()
         {
