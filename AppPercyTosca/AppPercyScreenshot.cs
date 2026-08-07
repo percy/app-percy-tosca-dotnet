@@ -80,7 +80,14 @@ namespace AppPercyTosca
 
         public override ActionResult Execute(ISpecialExecutionTaskTestAction testAction)
         {
-            string? snapshotName = Parameter(testAction, "SnapshotName");
+            ToscaOptions.ParameterReader read = name => Parameter(testAction, name);
+
+            // Before the first log line, and before the SnapshotName check that can log and return:
+            // LogLevel and LogFile decide whether and where any of it is recorded. Tosca cannot set
+            // environment variables for its own process, so these rows are the only way in.
+            ToscaOptions.ApplyEnvironment(read);
+
+            string? snapshotName = read("SnapshotName");
             if (string.IsNullOrWhiteSpace(snapshotName))
             {
                 Utils.Log("SnapshotName cannot be empty!");
@@ -91,8 +98,6 @@ namespace AppPercyTosca
 
             try
             {
-                ToscaOptions.ParameterReader read = name => Parameter(testAction, name);
-
                 ScreenshotOptions options = ToscaOptions.Build(read);
 
                 // Takes no test action: its parameters and buffers come from Tosca's own singletons.

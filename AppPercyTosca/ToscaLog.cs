@@ -12,14 +12,14 @@ namespace AppPercyTosca
     internal static class ToscaLog
     {
         /// <summary>
-        /// percy.txt in the temp directory, matching the HTML SDK. Overridable via
-        /// <c>PERCY_LOG_FILE</c> because %TEMP% resolves per-account, and Tosca may not run as you.
+        /// percy.txt in the temp directory, matching the HTML SDK. Overridable via the module's
+        /// <c>LogFile</c> parameter or <c>PERCY_LOG_FILE</c>, because %TEMP% resolves per-account and
+        /// Tosca may not run as you.
+        ///
+        /// A property, not a readonly field: a field is fixed at type load, which is before any step
+        /// has supplied its parameters.
         /// </summary>
-        internal static readonly string LogPath =
-            Environment.GetEnvironmentVariable("PERCY_LOG_FILE") is string custom
-                && !string.IsNullOrWhiteSpace(custom)
-                    ? custom
-                    : Path.Combine(Path.GetTempPath(), "percy.txt");
+        internal static string LogPath => Env.LogFile();
 
         private static readonly object FileLock = new object();
 

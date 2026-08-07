@@ -20,11 +20,48 @@ namespace AppPercyTosca.Core
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
             "IosOptimizedFullpage", "IgnoreRegionXpaths", "IgnoreRegionAccessibilityIds",
             "CustomIgnoreRegions", "ConsiderRegionXpaths", "ConsiderRegionAccessibilityIds",
-            "CustomConsiderRegions", "Labels", "SessionId", "SessionIdBuffer"
+            "CustomConsiderRegions", "Labels", "SessionId", "SessionIdBuffer",
+            "LogLevel", "LogFile", "CliApi", "TmpDir",
+            "ForceFullPage", "DisableRemoteUploads", "EnablePercyDev", "AutomateDomain"
+        };
+
+        /// <summary>
+        /// Module parameters that stand in for environment variables, and the variable each one sets.
+        ///
+        /// Tosca cannot set environment variables for the process it runs in, so without these rows the
+        /// whole set is unreachable from a test sheet. <c>PERCY_TOKEN</c> is deliberately absent: the
+        /// CLI reads it, not this SDK, so a value here would be silently ignored.
+        /// </summary>
+        public static readonly (string Parameter, string Variable)[] EnvironmentParameters =
+        {
+            ("LogLevel", "PERCY_LOGLEVEL"),
+            ("LogFile", "PERCY_LOG_FILE"),
+            ("CliApi", "PERCY_CLI_API"),
+            ("TmpDir", "PERCY_TMP_DIR"),
+            ("ForceFullPage", "FORCE_FULL_PAGE"),
+            ("DisableRemoteUploads", "PERCY_DISABLE_REMOTE_UPLOADS"),
+            ("EnablePercyDev", "PERCY_ENABLE_DEV"),
+            ("AutomateDomain", "AA_DOMAIN")
         };
 
         /// <summary>Reads a parameter by name, or null when the row is absent or blank.</summary>
         public delegate string? ParameterReader(string name);
+
+        /// <summary>
+        /// Applies the environment-variable parameters for one step. Must run before the step's first
+        /// log line, since <c>LogLevel</c> and <c>LogFile</c> decide whether and where it is recorded.
+        ///
+        /// An absent row clears rather than keeps: a parameter deleted from the sheet should stop
+        /// applying, and leaving the previous step's value in place on a shared static would make one
+        /// step's LogLevel outlive the row that asked for it.
+        /// </summary>
+        public static void ApplyEnvironment(ParameterReader read)
+        {
+            foreach ((string parameter, string variable) in EnvironmentParameters)
+            {
+                Env.Supply(variable, read(parameter));
+            }
+        }
 
         /// <summary>Assembles the options for one step.</summary>
         public static ScreenshotOptions Build(ParameterReader read)

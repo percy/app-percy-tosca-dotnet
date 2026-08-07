@@ -93,12 +93,66 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void LogFileFallsBackToPercyTxtInTheTempPath()
+        {
+            Assert.Equal(Path.Combine(Path.GetTempPath(), "percy.txt"), Env.LogFile());
+            SetEnv("PERCY_LOG_FILE", @"C:\logs\percy.txt");
+            Assert.Equal(@"C:\logs\percy.txt", Env.LogFile());
+            SetEnv("PERCY_LOG_FILE", "   ");
+            Assert.Equal(Path.Combine(Path.GetTempPath(), "percy.txt"), Env.LogFile());
+        }
+
+        [Fact]
+        public void ASuppliedValueWinsOverTheEnvironment()
+        {
+            // The whole point on Tosca: it cannot set the variable, so the parameter has to outrank it.
+            SetEnv("PERCY_LOGLEVEL", "info");
+            Env.Supply("PERCY_LOGLEVEL", "debug");
+
+            Assert.True(Env.Debug());
+            Assert.Equal("debug", Env.Read("PERCY_LOGLEVEL"));
+        }
+
+        [Fact]
+        public void SupplyingABlankValueFallsBackToTheEnvironment()
+        {
+            SetEnv("AA_DOMAIN", "my-hub.internal");
+            Env.Supply("AA_DOMAIN", "other-hub.internal");
+            Env.Supply("AA_DOMAIN", "   ");
+
+            Assert.Equal("my-hub.internal", Env.AutomateDomain());
+        }
+
+        [Fact]
+        public void SuppliedValuesAreTrimmedAndNamedCaseInsensitively()
+        {
+            Env.Supply("percy_loglevel", "  debug  ");
+            Assert.True(Env.Debug());
+        }
+
+        [Fact]
+        public void SupplyingWithNoNameIsIgnored()
+        {
+            Env.Supply("   ", "debug");
+            Assert.False(Env.Debug());
+        }
+
+        [Fact]
+        public void ReadFallsBackToTheEnvironmentWhenNothingIsSupplied()
+        {
+            SetEnv("PERCY_CLI_API", "http://elsewhere:1234");
+            Assert.Equal("http://elsewhere:1234", Env.Read("PERCY_CLI_API"));
+            Assert.Null(Env.Read("PERCY_NOTHING_SETS_THIS"));
+        }
+
+        [Fact]
         public void ResetClearsThePerRunState()
         {
             Env.PercyBuildId = "b";
             Env.PercyBuildUrl = "u";
             Env.SessionType = "automate";
             Env.ToscaVersion = "24";
+            Env.Supply("PERCY_LOGLEVEL", "debug");
 
             Env.Reset();
 
@@ -106,6 +160,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.Null(Env.PercyBuildUrl);
             Assert.Null(Env.SessionType);
             Assert.Null(Env.ToscaVersion);
+            Assert.False(Env.Debug());
         }
     }
 

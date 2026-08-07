@@ -13,7 +13,7 @@ namespace AppPercyTosca.Core.Tests
 
         private static readonly string[] ManagedEnvVars =
         {
-            "PERCY_LOGLEVEL", "PERCY_CLI_API", "PERCY_TMP_DIR", "AA_DOMAIN",
+            "PERCY_LOGLEVEL", "PERCY_CLI_API", "PERCY_TMP_DIR", "AA_DOMAIN", "PERCY_LOG_FILE",
             "FORCE_FULL_PAGE", "PERCY_DISABLE_REMOTE_UPLOADS", "PERCY_ENABLE_DEV"
         };
 

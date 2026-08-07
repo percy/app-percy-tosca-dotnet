@@ -190,5 +190,49 @@ namespace AppPercyTosca.Core.Tests
 
             Assert.Empty(read.Distinct().Except(ToscaOptions.KnownParameters));
         }
+
+        [Fact]
+        public void KnownParametersListsEveryEnvironmentParameter()
+        {
+            // Same reason as above: an unlisted row is undocumented, and the Readme is generated from
+            // this list.
+            Assert.Empty(ToscaOptions.EnvironmentParameters
+                .Select(entry => entry.Parameter)
+                .Except(ToscaOptions.KnownParameters));
+        }
+
+        [Fact]
+        public void ApplyEnvironmentPutsEveryParameterInForce()
+        {
+            ToscaOptions.ApplyEnvironment(Reader(
+                ("LogLevel", "debug"),
+                ("LogFile", "/tmp/percy-from-tosca.txt"),
+                ("CliApi", "http://elsewhere:1234"),
+                ("TmpDir", "/tmp/percy-tiles"),
+                ("ForceFullPage", "true"),
+                ("DisableRemoteUploads", "true"),
+                ("EnablePercyDev", "true"),
+                ("AutomateDomain", "my-hub.internal")));
+
+            Assert.True(Env.Debug());
+            Assert.Equal("/tmp/percy-from-tosca.txt", Env.LogFile());
+            Assert.Equal("http://elsewhere:1234", Env.CliApi());
+            Assert.Equal("/tmp/percy-tiles", Env.TempDir());
+            Assert.True(Env.ForceFullPage());
+            Assert.True(Env.DisableRemoteUploads());
+            Assert.True(Env.EnablePercyDev());
+            Assert.Equal("my-hub.internal", Env.AutomateDomain());
+        }
+
+        [Fact]
+        public void ApplyEnvironmentClearsARowThatIsNoLongerOnTheSheet()
+        {
+            ToscaOptions.ApplyEnvironment(Reader(("LogLevel", "debug")));
+            Assert.True(Env.Debug());
+
+            // The next step's sheet has no LogLevel row; the previous step's value must not outlive it.
+            ToscaOptions.ApplyEnvironment(Reader());
+            Assert.False(Env.Debug());
+        }
     }
 }

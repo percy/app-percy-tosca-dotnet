@@ -159,18 +159,37 @@ separate the four numbers:
 | `SessionId` | The Appium session id. Use `{B[PercyAppiumSessionId]}` to pass a buffer written by the *Get Appium Session Id* module |
 | `SessionIdBuffer` | Buffer for the SDK to read itself instead (default `PercyAppiumSessionId`) |
 
+### Settings that are otherwise environment variables
+
+Tosca cannot set environment variables for the process it runs in, so each of these has a module
+parameter that does the same job. A parameter wins over the variable of the same meaning.
+
+| Parameter | Variable it stands in for | Effect |
+|---|---|---|
+| `LogLevel` | `PERCY_LOGLEVEL` | `debug` for verbose SDK logging |
+| `LogFile` | `PERCY_LOG_FILE` | Where the log file copy is written |
+| `CliApi` | `PERCY_CLI_API` | CLI address (default `http://localhost:5338`) |
+| `TmpDir` | `PERCY_TMP_DIR` | Where screenshot tiles are written |
+| `ForceFullPage` | `FORCE_FULL_PAGE` | `true` to force the full-page path |
+| `DisableRemoteUploads` | `PERCY_DISABLE_REMOTE_UPLOADS` | `true` to keep tiles local |
+| `EnablePercyDev` | `PERCY_ENABLE_DEV` | `true` to target the dev project |
+| `AutomateDomain` | `AA_DOMAIN` | Domain fragment marking a host as App Automate |
+
+`PERCY_TOKEN` is not in this table: the CLI reads it, not this SDK, so a parameter for it would be
+silently ignored. It has to be set where the CLI can see it.
+
 ## Troubleshooting
 
-Set `PERCY_LOGLEVEL=debug` as a **system** environment variable and restart Commander. Nearly every
-problem here is a missing test configuration parameter or an unset session id, and each of those
-reports itself by name in the log.
-
-For more detail, set `PERCY_LOGLEVEL=debug` before starting Tosca Commander.
+Add a `LogLevel` row with the value `debug` to the Percy module step. Nearly every problem here is a
+missing test configuration parameter or an unset session id, and each of those reports itself by name
+in the log. (`PERCY_LOGLEVEL=debug` as a **system** environment variable does the same thing, if you
+can set one and restart Commander.)
 
 Log output goes to the Percy CLI (so it appears alongside the rest of the build) and is mirrored to
-**`%TEMP%\percy.txt`**, which is where to look when the CLI itself is what failed. Every line is
-timestamped. Set `PERCY_LOG_FILE` to pin it somewhere else — worth doing, because `%TEMP%` resolves
-per-account and Tosca may not run as you.
+**`%TEMP%\percy.txt`**, which is where to look when the CLI itself is what failed — the CLI forward
+drops lines silently when the CLI stops answering, and the file copy does not. Every line is
+timestamped. Set the `LogFile` parameter (or `PERCY_LOG_FILE`) to pin it somewhere else — worth doing,
+because `%TEMP%` resolves per-account and Tosca may not run as you.
 
 The first line written is an `assembly loaded:` entry, recorded when the CLR loads the extension —
 before Tosca has decided whether to register anything. That makes an empty or missing log file
@@ -192,12 +211,18 @@ a TCP, which is why the flat `percy.*` spellings are the ones to use on Tosca.)
 
 ### Environment variables
 
+Every variable below except `PERCY_TOKEN` also has a module parameter — see
+[Settings that are otherwise environment variables](#settings-that-are-otherwise-environment-variables),
+which is the route to use on Tosca.
+
 | Variable | Effect |
 |---|---|
-| `PERCY_TOKEN` | Your Percy project token (read by the CLI) |
+| `PERCY_TOKEN` | Your Percy project token (read by the CLI; no parameter equivalent) |
 | `PERCY_LOGLEVEL=debug` | Verbose SDK logging |
+| `PERCY_LOG_FILE` | Where the log file copy is written (default `%TEMP%\percy.txt`) |
 | `PERCY_CLI_API` | CLI address (default `http://localhost:5338`) |
 | `PERCY_TMP_DIR` | Where screenshot tiles are written (default the system temp directory) |
+| `FORCE_FULL_PAGE`, `PERCY_DISABLE_REMOTE_UPLOADS`, `PERCY_ENABLE_DEV`, `AA_DOMAIN` | See the parameter table above |
 
 ## Development
 
