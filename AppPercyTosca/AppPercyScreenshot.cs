@@ -41,8 +41,23 @@ namespace AppPercyTosca
             return new PercyClient(http);
         });
 
-        /// <summary>The shared CLI connection, used by <see cref="ToscaLog"/> to forward log lines.</summary>
-        internal static PercyClient CliClient => Client.Value;
+        /// <summary>
+        /// A second connection to the same CLI, used only by <see cref="ToscaLog"/> to forward log
+        /// lines, and given a short timeout of its own.
+        ///
+        /// It cannot share the client above. Every log line is a blocking POST, so on that client's
+        /// ten-minute timeout a CLI that accepts a connection and then stops answering would stall
+        /// each line for ten minutes — and the lines most likely to be written at that moment are the
+        /// ones explaining that Percy is unreachable. A log line is worth a few seconds at most; if it
+        /// does not get through, the file copy in <see cref="ToscaLog"/> is the record that survives.
+        ///
+        /// A separate <see cref="PercyClient"/> costs nothing: PostLog does not healthcheck, so there
+        /// is no memoized state to keep in step with the client above.
+        /// </summary>
+        internal static PercyClient LogClient => Log.Value;
+
+        private static readonly Lazy<PercyClient> Log = new Lazy<PercyClient>(() =>
+            new PercyClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) }));
 
         /// <summary>
         /// Separate from the CLI client: this one talks to the device's automation server, which may be

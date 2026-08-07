@@ -1,14 +1,17 @@
 name: CI
 
+# No `@percy/cli branch` input, and no Node in the job.
+#
+# There used to be both, copied from the other Percy SDKs, which run their suites against a CLI they
+# link from source. This suite does not: every test injects a stub HttpMessageHandler and no test
+# opens a socket, so a linked CLI could not change a single result. Installing one described a
+# guarantee the job was not providing. If an integration test that drives a real CLI is ever added,
+# bring the input and the setup steps back with it.
+
 on:
   push:
   pull_request:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: '@percy/cli branch to test against'
-        required: false
-        default: master
 
 jobs:
   core:
@@ -28,34 +31,6 @@ jobs:
 
       - name: Restore
         run: dotnet restore AppPercyTosca.Core.sln
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - uses: actions-ecosystem/action-regex-match@v2
-        id: regex-match
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        with:
-          text: ${{ github.event.inputs.branch }}
-          regex: '^[a-zA-Z0-9_/\-]+$'
-      - name: Break on invalid branch name
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.regex-match.outputs && steps.regex-match.outputs.match == '' }}
-        run: exit 1
-      - name: Set up @percy/cli from git
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        env:
-          BRANCH: ${{ github.event.inputs.branch }}
-          WORKSPACE: ${{ github.workspace }}
-        run: |
-          cd /tmp
-          git clone --branch "$BRANCH" --depth 1 https://github.com/percy/cli
-          cd cli
-          yarn
-          yarn build
-          yarn global:link
-          echo "$(yarn global bin)" >> "$GITHUB_PATH"
-          export PATH="$(yarn global bin):$PATH"
-          percy --version
 
       - name: Test with 100% line coverage gate
         run: >

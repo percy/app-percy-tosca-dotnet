@@ -648,6 +648,33 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void TheWindowIsAskedForOnceHoweverManyCallersWantPartOfTheAnswer()
+        {
+            // Two callers want different parts of one answer: the metadata layer wants the size, and
+            // iOS's scale factor wants the width. Each used to make its own round trip — two, when the
+            // W3C spelling 404s first — to a hub that may be on another continent.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"width\":1080,\"height\":2400}}");
+            WebDriverSession session = Session(handler);
+
+            Assert.Equal((1080, 2400), session.TryGetWindowSize());
+            Assert.Equal(1080, session.TryGetWindowWidth());
+            Assert.Single(handler.Requests);
+        }
+
+        [Fact]
+        public void AWidthWithNoHeightIsAWidthButNotASize()
+        {
+            // Half an answer is still worth having for the scale factor, which only needs the width.
+            // It is not worth having as a size: a zero height in the tag splits the Percy baseline.
+            WebDriverSession session = Session(new StubHttpMessageHandler()
+                .Default("{\"value\":{\"width\":390}}"));
+
+            Assert.Equal(390, session.TryGetWindowWidth());
+            Assert.Null(session.TryGetWindowSize());
+        }
+
+        [Fact]
         public void AScriptRunsThroughTheW3cExecuteEndpoint()
         {
             StubHttpMessageHandler handler = new StubHttpMessageHandler()

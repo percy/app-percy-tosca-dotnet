@@ -101,7 +101,7 @@ namespace AppPercyTosca
         {
             try
             {
-                AppPercyScreenshot.CliClient.PostLog(message, level);
+                AppPercyScreenshot.LogClient.PostLog(message, level);
             }
             catch (Exception)
             {

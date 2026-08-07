@@ -12,8 +12,7 @@ namespace AppPercyTosca
     /// general timidity: <c>MainConfiguration</c> and <c>Buffers</c> are documented by behaviour but
     /// their namespaces and exact member shapes are not published, and they differ across Tosca
     /// releases. Binding to a guess at compile time turns a wrong guess into "does not build on the
-    /// customer's machine"; binding late turns it into a logged warning and a fall back to the Percy
-    /// module's own parameters.
+    /// customer's machine"; binding late turns it into a logged warning and a degraded snapshot.
     /// </summary>
     internal class ToscaEnvironment : IToscaEnvironment
     {
@@ -87,9 +86,10 @@ namespace AppPercyTosca
                 candidate => Reflect.Member(candidate, ParameterMapNames) != null);
             if (configuration == null)
             {
-                Utils.Log("Could not reach Tosca's test configuration parameters. Device details " +
-                    "must come from the Percy module's DeviceName, OsName and OsVersion parameters.",
-                    "warn");
+                Utils.Log("Could not reach Tosca's test configuration parameters, so the AppiumServer " +
+                    "address is not available and the device session cannot be reached. Device " +
+                    "details are read from that session, so the snapshot will be tagged with " +
+                    "nothing identifying the device.", "warn");
                 return parameters;
             }
 

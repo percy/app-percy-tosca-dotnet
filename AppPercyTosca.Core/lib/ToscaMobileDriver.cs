@@ -316,8 +316,10 @@ namespace AppPercyTosca.Core
             if (capabilities.Count == 0)
             {
                 Utils.Log("No device details are available: Tosca reported no test configuration " +
-                    "parameters and the session reported no capabilities. Set DeviceName, OsName, " +
-                    "OsVersion, ScreenWidth and ScreenHeight on the Percy module.", "warn");
+                    "parameters and the session reported no capabilities. They are read from the " +
+                    "device session, so this snapshot will be tagged with nothing identifying the " +
+                    "device. Check that the SessionId parameter carries the Appium session id and " +
+                    "that the AppiumServer test configuration parameter points at your hub.", "warn");
             }
             return capabilities;
         }
@@ -399,9 +401,11 @@ namespace AppPercyTosca.Core
             (int StatusBar, int NavigationBar)? bars = session.TryGetSystemBars();
             if (bars == null)
             {
-                Utils.Log("The session reported no viewport or system bars, so the status and " +
-                    "navigation bars cannot be cropped. Set StatusBarHeight and NavBarHeight on the " +
-                    "Percy module, or expect the status bar clock to differ between runs.", "warn");
+                Utils.Log("The session reported neither a viewport rect nor system bars, so the " +
+                    "status and navigation bars cannot be cropped and the clock in the status bar " +
+                    "will differ between runs. The bar heights are read from the session; there is " +
+                    "no parameter to supply them. Run with PERCY_LOGLEVEL=debug to see what the " +
+                    "session refused.", "warn");
                 return;
             }
 

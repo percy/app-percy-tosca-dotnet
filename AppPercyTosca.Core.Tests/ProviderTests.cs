@@ -246,7 +246,10 @@ namespace AppPercyTosca.Core.Tests
 
             provider.Screenshot("home", new ScreenshotOptions());
 
-            Assert.True(Logged("ScreenWidth and ScreenHeight"));
+            // Reports the tag it actually sent and what to check, rather than naming parameters
+            // that were removed once device details became session-only.
+            Assert.True(Logged("tagged 0x0"));
+            Assert.True(Logged("read from the device session"));
         }
 
         [Fact]

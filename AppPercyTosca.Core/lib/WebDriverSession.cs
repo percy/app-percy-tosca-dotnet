@@ -118,22 +118,13 @@ namespace AppPercyTosca.Core
             return parsed == null ? null : Capabilities.AsDictionary(parsed.Value);
         }
 
-        /// <summary>The window's width and height, or null.</summary>
+        /// <summary>The window's width and height, or null unless the session reports both.</summary>
         public (int Width, int Height)? TryGetWindowSize()
         {
-            // W3C moved this to /window/rect; the older spelling is tried second.
-            foreach (string path in new[] { "window/rect", "window/current/size" })
-            {
-                JsonElement? value = Json.Property(
-                    Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}/{path}", "window size")),
-                    "value");
-                if (value == null) continue;
-
-                int? width = Capabilities.ToInt(Json.PropertyAsString(value, "width"));
-                int? height = Capabilities.ToInt(Json.PropertyAsString(value, "height"));
-                if (width > 0 && height > 0) return (width.Value, height.Value);
-            }
-            return null;
+            (int? Width, int? Height) window = Window();
+            return window.Width > 0 && window.Height > 0
+                ? (window.Width!.Value, window.Height!.Value)
+                : null;
         }
 
         /// <summary>
@@ -153,18 +144,44 @@ namespace AppPercyTosca.Core
         /// </summary>
         public int? TryGetWindowWidth()
         {
+            int? width = Window().Width;
+            return width > 0 ? width : null;
+        }
+
+        private (int? Width, int? Height)? _window;
+
+        /// <summary>
+        /// Asks the session for its window, once.
+        ///
+        /// Memoized because two callers want different parts of the same answer — the metadata layer
+        /// wants the full size, iOS's scale factor wants only the width — and each was making its own
+        /// round trip to a possibly-remote hub, twice over when the first endpoint spelling 404s. The
+        /// window does not change within a snapshot, so asking twice bought nothing but latency.
+        ///
+        /// Width and height are kept separately rather than as a size, because a server that answers
+        /// with a width and no height still has something worth having for the scale factor. Deciding
+        /// what counts as a usable answer is left to the two callers above.
+        /// </summary>
+        private (int? Width, int? Height) Window()
+        {
+            if (_window != null) return _window.Value;
+
             // W3C moved this to /window/rect; the older spelling is tried second.
             foreach (string path in new[] { "window/rect", "window/current/size" })
             {
                 JsonElement? value = Json.Property(
                     Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}/{path}", "window size")),
                     "value");
-                int? width = Capabilities.ToInt(
-                    value == null ? null : Json.ToObject(value.Value) is Dictionary<string, object?> d
-                        && d.TryGetValue("width", out object? w) ? w : null);
-                if (width > 0) return width;
+                if (value == null) continue;
+
+                int? width = Capabilities.ToInt(Json.PropertyAsString(value, "width"));
+                int? height = Capabilities.ToInt(Json.PropertyAsString(value, "height"));
+
+                // Either dimension on its own is an answer; a reply with neither is the server saying
+                // it has no window to report, so the other spelling is still worth a try.
+                if (width > 0 || height > 0) return (_window = (width, height)).Value;
             }
-            return null;
+            return (_window = (null, null)).Value;
         }
 
         /// <summary>

@@ -84,14 +84,16 @@ namespace AppPercyTosca.Core
             int height = DeviceScreenHeight();
 
             // Percy groups and diffs comparisons by this tag, so a zero dimension is a corrupt
-            // baseline key rather than a cosmetic gap — and on Tosca it is the likely case, since a
-            // mobile session reports no screen size unless a test configuration parameter carries
-            // one. Say so once, naming the parameters that fix it.
+            // baseline key rather than a cosmetic gap. There is no parameter to set instead — the
+            // screen size comes from the session or not at all — so this points at the two reasons
+            // the session is not answering, which are the only things anyone can act on.
             if (width <= 0 || height <= 0)
             {
                 Utils.Log("Could not determine the device screen size, so this snapshot is tagged " +
-                    $"{width}x{height} and will not group with correctly-tagged ones. Set " +
-                    "ScreenWidth and ScreenHeight (in pixels) on the Percy module.", "warn");
+                    $"{width}x{height} and will not group with correctly-tagged ones. The size is " +
+                    "read from the device session: check that the SessionId parameter carries the " +
+                    "Appium session id and that AppiumServer points at your hub. Run with " +
+                    "PERCY_LOGLEVEL=debug to see what the session did answer.", "warn");
             }
 
             return new Dictionary<string, object?>

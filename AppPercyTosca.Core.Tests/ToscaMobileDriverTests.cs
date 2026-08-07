@@ -335,8 +335,10 @@ namespace AppPercyTosca.Core.Tests
 
             _ = Build(tosca, deviceHttp: device).Capabilities;
 
-            Assert.True(Logged("status bar clock to differ between runs"));
-            Assert.True(Logged("StatusBarHeight and NavBarHeight"));
+            Assert.True(Logged("clock in the status bar will differ between runs"));
+            // Names no parameter to set: there is none, and an earlier version of this message sent
+            // people looking for a StatusBarHeight row that does not exist.
+            Assert.True(Logged("no parameter to supply them"));
         }
 
         [Fact]
@@ -498,14 +500,17 @@ namespace AppPercyTosca.Core.Tests
 
 
         [Fact]
-        public void ASessionWithNoParametersAtAllSaysWhatToSetInstead()
+        public void ASessionWithNoParametersAtAllSaysWhatToCheck()
         {
             ToscaMobileDriver driver = Build(new StubToscaEnvironment());
 
             Assert.Empty(driver.Capabilities);
             Assert.Null(driver.Host);
             Assert.Null(driver.PlatformName);
-            Assert.True(Logged("Set DeviceName, OsName, OsVersion, ScreenWidth and ScreenHeight"));
+            // The two things that are actually actionable. Device details have no module parameters
+            // to fall back on — they come from the session — so pointing at one would be a dead end.
+            Assert.True(Logged("SessionId parameter carries the Appium session id"));
+            Assert.True(Logged("AppiumServer test configuration parameter"));
         }
 
         [Fact]
