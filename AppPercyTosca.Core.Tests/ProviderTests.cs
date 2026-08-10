@@ -117,31 +117,6 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheCaptureCommandCarriesTheFullPageBudget()
-        {
-            // The regression this guards: the capture used to inherit whatever timeout the shared
-            // HttpClient carried, which was two minutes — under half the slowest measured iOS capture.
-            StubMobileDriver driver = AutomateDriver();
-            (AppAutomate provider, _) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions { FullPage = true, ScreenLengths = 4 });
-
-            Assert.Contains(CaptureBudget.FullPage, driver.ScriptTimeouts);
-        }
-
-        [Fact]
-        public void ASinglePageCaptureIsNotGivenTheLongBudget()
-        {
-            StubMobileDriver driver = AutomateDriver();
-            (AppAutomate provider, _) = Build(driver);
-
-            provider.Screenshot("home", new ScreenshotOptions());
-
-            Assert.DoesNotContain(CaptureBudget.FullPage, driver.ScriptTimeouts);
-            Assert.Contains(CaptureBudget.SinglePage, driver.ScriptTimeouts);
-        }
-
-        [Fact]
         public void CustomRegionsArePassedThroughUnscaled()
         {
             // Declared in device pixels already, so scaling would double-apply.

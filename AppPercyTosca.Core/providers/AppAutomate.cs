@@ -223,10 +223,7 @@ namespace AppPercyTosca.Core
                     ["iosOptimizedFullpage"] = options.IosOptimizedFullpage,
                     ["FORCE_FULL_PAGE"] = Env.ForceFullPage()
                 }
-            },
-            // Sized to the capture, not to the SDK's other traffic: this one request does not return
-            // until the hub has captured and stitched every tile.
-            CaptureBudget.For(options));
+            });
 
             string? payloadText = result?.GetRawText();
 
@@ -251,8 +248,7 @@ namespace AppPercyTosca.Core
                 : payload.Value.GetRawText();
         }
 
-        private JsonElement? ExecuteBrowserstackCommand(
-            Dictionary<string, object?> arguments, TimeSpan? timeout = null)
+        private JsonElement? ExecuteBrowserstackCommand(Dictionary<string, object?> arguments)
         {
             string command = "browserstack_executor: " + PercyPayload.PayloadParser(
                 new Dictionary<string, object?>
@@ -265,7 +261,7 @@ namespace AppPercyTosca.Core
             // it a refusal surfaces downstream with nothing to say what was asked or what came back.
             Utils.Log($"browserstack_executor -> {Truncate(command)}", "debug");
 
-            string? response = Driver.ExecuteScript(command, timeout);
+            string? response = Driver.ExecuteScript(command);
 
             Utils.Log($"browserstack_executor <- {Truncate(response)}", "debug");
             return Json.TryParse(response);

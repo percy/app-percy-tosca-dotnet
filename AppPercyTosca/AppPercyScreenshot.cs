@@ -43,14 +43,8 @@ namespace AppPercyTosca
             new PercyClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) }));
 
         /// The device's automation server, which may be a remote hub serving a large screen.
-        ///
-        /// The timeout here is only a backstop. HttpClient.Timeout caps every request through this
-        /// client, so a value below the longest capture would silently override the per-request budgets
-        /// in CaptureBudget — which is exactly how iOS full page came to fail at two minutes. Each
-        /// request sets its own deadline; this one exists so that a future call site added without one
-        /// cannot hang forever.
         private static readonly Lazy<HttpClient> DeviceHttp = new Lazy<HttpClient>(() =>
-            new HttpClient { Timeout = CaptureBudget.FullPage + TimeSpan.FromMinutes(1) });
+            new HttpClient { Timeout = TimeSpan.FromMinutes(2) });
 
         public AppPercyScreenshot(Tricentis.Automation.Creation.Validator validator) : base(validator)
         {

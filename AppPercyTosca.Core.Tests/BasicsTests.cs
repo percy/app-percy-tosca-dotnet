@@ -164,35 +164,6 @@ namespace AppPercyTosca.Core.Tests
         }
     }
 
-    public class CaptureBudgetTests
-    {
-        [Fact]
-        public void AFullPageCaptureGetsTheLongBudget()
-        {
-            // Two minutes was the value that abandoned every iOS full page mid-capture; a measured run
-            // took 5m07s, so this must be comfortably above that.
-            Assert.Equal(TimeSpan.FromSeconds(500),
-                CaptureBudget.For(new ScreenshotOptions { FullPage = true }));
-        }
-
-        [Fact]
-        public void ASinglePageCaptureGetsTheShortBudget()
-        {
-            Assert.Equal(TimeSpan.FromSeconds(150),
-                CaptureBudget.For(new ScreenshotOptions()));
-        }
-
-        [Fact]
-        public void TheBudgetDoesNotDependOnScreenLengths()
-        {
-            // Deliberately flat: the earlier attempt scaled with screenLengths, which made the timeout
-            // depend on a number the sheet may not carry at all.
-            Assert.Equal(
-                CaptureBudget.For(new ScreenshotOptions { FullPage = true }),
-                CaptureBudget.For(new ScreenshotOptions { FullPage = true, ScreenLengths = 12 }));
-        }
-    }
-
     public class UtilsTests : CoreTestBase
     {
         [Theory]

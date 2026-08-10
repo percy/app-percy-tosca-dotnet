@@ -39,9 +39,6 @@ namespace AppPercyTosca.Core.Tests
 
         public List<string> ExecutedScripts { get; } = new List<string>();
 
-        /// The budget each script was given, so a test can assert the capture asked for the long one.
-        public List<TimeSpan?> ScriptTimeouts { get; } = new List<TimeSpan?>();
-
         /// Set to make the corresponding member throw, standing in for a session that
         /// cannot serve it.
         public Exception? ScreenshotError { get; set; }
@@ -59,10 +56,9 @@ namespace AppPercyTosca.Core.Tests
             return Screenshot;
         }
 
-        public string? ExecuteScript(string script, TimeSpan? timeout = null)
+        public string? ExecuteScript(string script)
         {
             ExecutedScripts.Add(script);
-            ScriptTimeouts.Add(timeout);
             if (ScriptError != null) throw ScriptError;
             foreach ((string match, string? reply) in ScriptReplies)
             {
