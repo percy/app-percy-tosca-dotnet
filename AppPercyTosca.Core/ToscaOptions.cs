@@ -2,35 +2,30 @@ using System.Globalization;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Turns Tosca module parameters into typed options. Every one arrives as a string or not at all,
     /// so the coercion lives here — in the Core, so it can be tested without Tosca.
     ///
     /// Lenient on purpose: a malformed value logs and falls back to the default, since a typo in one
     /// optional parameter should not stop the snapshot the rest of the row describes.
-    /// </summary>
     public static class ToscaOptions
     {
-        /// <summary>
         /// The module's parameter manifest, in Readme order, including the ones the shim reads itself.
         /// A test asserts Build never reads a name missing from it.
-        /// </summary>
         public static readonly string[] KnownParameters =
         {
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
-            "IosOptimizedFullpage", "CustomIgnoreRegions", "CustomConsiderRegions",
-            "Labels", "SessionId", "SessionIdBuffer",
+            "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
+            "CustomIgnoreRegions", "CustomConsiderRegions",
+            "Labels", "SessionId",
             "LogLevel", "LogFile", "CliApi", "TmpDir",
             "ForceFullPage", "DisableRemoteUploads", "EnablePercyDev", "AutomateDomain"
         };
 
-        /// <summary>
         /// Module parameters that stand in for environment variables, and the variable each one sets.
         ///
         /// Tosca cannot set environment variables for the process it runs in, so without these rows the
         /// whole set is unreachable from a test sheet. <c>PERCY_TOKEN</c> is deliberately absent: the
         /// CLI reads it, not this SDK, so a value here would be silently ignored.
-        /// </summary>
         public static readonly (string Parameter, string Variable)[] EnvironmentParameters =
         {
             ("LogLevel", "PERCY_LOGLEVEL"),
@@ -43,17 +38,15 @@ namespace AppPercyTosca.Core
             ("AutomateDomain", "AA_DOMAIN")
         };
 
-        /// <summary>Reads a parameter by name, or null when the row is absent or blank.</summary>
+        /// Reads a parameter by name, or null when the row is absent or blank.
         public delegate string? ParameterReader(string name);
 
-        /// <summary>
         /// Applies the environment-variable parameters for one step. Must run before the step's first
         /// log line, since <c>LogLevel</c> and <c>LogFile</c> decide whether and where it is recorded.
         ///
         /// An absent row clears rather than keeps: a parameter deleted from the sheet should stop
         /// applying, and leaving the previous step's value in place on a shared static would make one
         /// step's LogLevel outlive the row that asked for it.
-        /// </summary>
         public static void ApplyEnvironment(ParameterReader read)
         {
             foreach ((string parameter, string variable) in EnvironmentParameters)
@@ -62,7 +55,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Assembles the options for one step.</summary>
+        /// Assembles the options for one step.
         public static ScreenshotOptions Build(ParameterReader read)
         {
             ScreenshotOptions options = new ScreenshotOptions
@@ -70,6 +63,9 @@ namespace AppPercyTosca.Core
                 Labels = Trimmed(read("Labels")),
 
                 ScreenLengths = ParseInt(read("ScreenLengths"), "ScreenLengths"),
+                TopScrollviewOffset = ParseInt(read("TopScrollviewOffset"), "TopScrollviewOffset") ?? 0,
+                BottomScrollviewOffset =
+                    ParseInt(read("BottomScrollviewOffset"), "BottomScrollviewOffset") ?? 0,
 
                 FullScreen = ParseBool(read("FullScreen"), "FullScreen") ?? false,
                 FullPage = ParseBool(read("FullPage"), "FullPage") ?? false,
@@ -82,7 +78,7 @@ namespace AppPercyTosca.Core
             return options;
         }
 
-        /// <summary>An unparseable value is reported: treating "1O80" as unset explains nothing.</summary>
+        /// An unparseable value is reported: treating "1O80" as unset explains nothing.
         public static int? ParseInt(string? value, string? parameterName = null)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
@@ -96,7 +92,7 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>Accepts True/False, 1/0 and Yes/No, case-insensitively.</summary>
+        /// Accepts True/False, 1/0 and Yes/No, case-insensitively.
         public static bool? ParseBool(string? value, string? parameterName = null)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
@@ -119,10 +115,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// Newlines separate when present, otherwise semicolons. Never commas: an XPath predicate such
         /// as <c>//*[contains(@id,'x')]</c> contains one, and splitting there breaks the locator.
-        /// </summary>
         public static List<string> ParseLocatorList(string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return new List<string>();
@@ -137,10 +131,8 @@ namespace AppPercyTosca.Core
                 .ToList();
         }
 
-        /// <summary>
         /// Regions written <c>top,bottom,left,right</c>, one per entry: <c>"0,100,0,200; 300,400,0,200"</c>.
         /// Commas separate a region's four numbers; semicolons or newlines separate regions.
-        /// </summary>
         public static List<Region> ParseRegions(string? value, string? parameterName = null)
         {
             List<Region> regions = new List<Region>();

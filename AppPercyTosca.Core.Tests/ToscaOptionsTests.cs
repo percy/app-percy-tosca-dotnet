@@ -19,6 +19,9 @@ namespace AppPercyTosca.Core.Tests
             Assert.False(options.FullScreen);
             Assert.False(options.FullPage);
             Assert.Null(options.ScreenLengths);
+            // Zero, not null: an unset row means "trim nothing", which is what the hub is sent.
+            Assert.Equal(0, options.TopScrollviewOffset);
+            Assert.Equal(0, options.BottomScrollviewOffset);
             Assert.Empty(options.CustomIgnoreRegions);
         }
 
@@ -30,9 +33,13 @@ namespace AppPercyTosca.Core.Tests
                 ("FullScreen", "true"),
                 ("FullPage", "yes"),
                 ("IosOptimizedFullpage", "1"),
+                ("TopScrollviewOffset", "10"),
+                ("BottomScrollviewOffset", "20"),
                 ("Labels", "smoke")));
 
             Assert.Equal(4, options.ScreenLengths);
+            Assert.Equal(10, options.TopScrollviewOffset);
+            Assert.Equal(20, options.BottomScrollviewOffset);
             Assert.True(options.FullScreen);
             Assert.True(options.FullPage);
             Assert.True(options.IosOptimizedFullpage);

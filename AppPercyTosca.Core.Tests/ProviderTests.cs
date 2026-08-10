@@ -49,10 +49,8 @@ namespace AppPercyTosca.Core.Tests
         }
     }
 
-    /// <summary>
     /// The parts of the provider that are not the executor: the device tag, region resolution, and the
     /// locally-written tile used when remote uploads are off.
-    /// </summary>
     public class AppAutomateLocalCaptureTests : CoreTestBase
     {
         private const string Accepted =
@@ -222,7 +220,7 @@ namespace AppPercyTosca.Core.Tests
             "{\"success\":true,\"result\":\"[{\\\"sha\\\":\\\"abc123-1\\\"," +
             "\\\"header_height\\\":10,\\\"footer_height\\\":20}]\"}";
 
-        /// <summary>Captures one snapshot and reports the screenshotType the hub was asked for.</summary>
+        /// Captures one snapshot and reports the screenshotType the hub was asked for.
         private static string RequestedScreenshotType(ScreenshotOptions options)
         {
             StubMobileDriver driver = CapturingDriver();
@@ -421,15 +419,18 @@ namespace AppPercyTosca.Core.Tests
             {
                 FullPage = true,
                 ScreenLengths = 3,
+                TopScrollviewOffset = 10,
+                BottomScrollviewOffset = 20,
                 IosOptimizedFullpage = true
             });
 
             string request = driver.ExecutedScripts.First(s => s.Contains("\"state\":\"screenshot\""));
             Assert.Contains("\"numOfTiles\":3", request);
             Assert.Contains("\"iosOptimizedFullpage\":true", request);
-            // The hub chooses the scrollable view and the offsets itself.
+            Assert.Contains("\"topScrollviewOffset\":10", request);
+            Assert.Contains("\"bottomScrollviewOffset\":20", request);
+            // The hub still chooses the scrollable view itself.
             Assert.DoesNotContain("scollableXpath", request);
-            Assert.DoesNotContain("ScrollviewOffset", request);
             Assert.Contains("\"deviceHeight\":2340", request);
             Assert.Contains("\"scaleFactor\":1", request);
             Assert.Contains("\"projectId\":\"percy-prod\"", request);
@@ -552,7 +553,7 @@ namespace AppPercyTosca.Core.Tests
             Assert.True(Logged("isDisableRemoteUpload"));
         }
 
-        /// <summary>A driver wired to answer begin and screenshot, for tests that only read the request.</summary>
+        /// A driver wired to answer begin and screenshot, for tests that only read the request.
         private static StubMobileDriver CapturingDriver()
         {
             StubMobileDriver driver = AutomateDriver();

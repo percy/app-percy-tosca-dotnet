@@ -2,27 +2,25 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// The one capture path: BrowserStack App Automate. The hub's <c>browserstack_executor</c> takes
     /// the screenshots and uploads them itself, so tiles arrive as content hashes, no image data
     /// passes through Tosca, and full-page capture is possible.
     ///
     /// One local path remains, under <c>PERCY_DISABLE_REMOTE_UPLOADS</c>, as in percy-appium-dotnet:
     /// with uploads off there is no other way to get the image out.
-    /// </summary>
     public class AppAutomate
     {
         protected readonly IMobileDriver Driver;
         protected readonly PercyClient Client;
         protected readonly Cache<string, object?> SessionCache;
 
-        /// <summary>The App Automate session URL, shown next to the Percy comparison.</summary>
+        /// The App Automate session URL, shown next to the Percy comparison.
         private string? _debugUrl;
 
-        /// <summary>Resolved per snapshot, before anything reads it.</summary>
+        /// Resolved per snapshot, before anything reads it.
         protected Metadata Metadata { get; private set; } = null!;
 
-        /// <summary>Cleared on the first refusal, so begin/end stop re-issuing what the hub will not serve.</summary>
+        /// Cleared on the first refusal, so begin/end stop re-issuing what the hub will not serve.
         private bool _markedPercySession = true;
 
         public AppAutomate(IMobileDriver driver, PercyClient client, Cache<string, object?> sessionCache)
@@ -32,10 +30,8 @@ namespace AppPercyTosca.Core
             SessionCache = sessionCache;
         }
 
-        /// <summary>
         /// Whether this session looks like App Automate. Only reported, not acted on: a session that
         /// is not gets a clear warning instead of an obscure failure on its first executor command.
-        /// </summary>
         public static bool Supports(IMobileDriver driver)
         {
             string? host = driver.Host;
@@ -77,7 +73,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Resolves the device facts, gathers regions, captures, and posts the comparison.</summary>
+        /// Resolves the device facts, gathers regions, captures, and posts the comparison.
         private JsonElement? Capture(string name, ScreenshotOptions options)
         {
             Metadata = MetadataResolver.Resolve(Driver, SessionCache);
@@ -100,10 +96,8 @@ namespace AppPercyTosca.Core
 
         private void SetDebugUrl(string? debugUrl) => _debugUrl = debugUrl;
 
-        /// <summary>
         /// Asks the hub to capture and returns the tile descriptors it uploaded, or writes one tile
         /// locally when remote uploads are off.
-        /// </summary>
         public List<Tile> CaptureTiles(ScreenshotOptions options)
         {
             if (Env.DisableRemoteUploads())
@@ -141,7 +135,7 @@ namespace AppPercyTosca.Core
             return tiles;
         }
 
-        /// <summary>Session URL on the App Automate dashboard, shown next to the Percy comparison.</summary>
+        /// Session URL on the App Automate dashboard, shown next to the Percy comparison.
         public string? GetDebugUrl(JsonElement? result)
         {
             string? buildHash = Json.PropertyAsString(result, "buildHash");
@@ -150,10 +144,8 @@ namespace AppPercyTosca.Core
             return $"https://app-automate.browserstack.com/dashboard/v2/builds/{buildHash}/sessions/{sessionHash}";
         }
 
-        /// <summary>
         /// Links the App Automate session to the Percy build. Best-effort: a hub that will not take
         /// the marker should not stop the capture.
-        /// </summary>
         public JsonElement? ExecutePercyScreenshotBegin(string name)
         {
             if (!_markedPercySession) return null;
@@ -177,10 +169,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// Writes the pass/fail status into the App Automate session log, which for a failed
         /// screenshot is often the last surviving record — so a failure here is logged, not swallowed.
-        /// </summary>
         public JsonElement? ExecutePercyScreenshotEnd(
             string name, string? percyScreenshotUrl, string? error)
         {
@@ -206,9 +196,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// Issues the actual capture command and returns the raw tile array as a JSON string.
-        /// </summary>
         public string ExecutePercyScreenshot(ScreenshotOptions options)
         {
             string screenshotType = "fullpage";
@@ -228,8 +216,10 @@ namespace AppPercyTosca.Core
                 {
                     ["deviceHeight"] = Metadata.DeviceScreenHeight(),
                     ["numOfTiles"] = options.ScreenLengths,
-                    // No scrollable-element or offset options: the hub picks the view itself, and
-                    // nothing here could validate a value typed into a test sheet.
+                    ["topScrollviewOffset"] = options.TopScrollviewOffset,
+                    ["bottomScrollviewOffset"] = options.BottomScrollviewOffset,
+                    // No scrollable-element options: the hub picks the view itself, and nothing here
+                    // could validate an XPath typed into a test sheet.
                     ["iosOptimizedFullpage"] = options.IosOptimizedFullpage,
                     ["FORCE_FULL_PAGE"] = Env.ForceFullPage()
                 }
@@ -277,7 +267,7 @@ namespace AppPercyTosca.Core
             return Json.TryParse(response);
         }
 
-        /// <summary>Caps a logged payload: a fullpage response is a tile array, not a log line.</summary>
+        /// Caps a logged payload: a fullpage response is a tile array, not a log line.
         private static string Truncate(string? text)
         {
             if (string.IsNullOrWhiteSpace(text)) return "(nothing)";
@@ -285,7 +275,7 @@ namespace AppPercyTosca.Core
             return redacted.Length <= 500 ? redacted : redacted.Substring(0, 500) + "…";
         }
 
-        /// <summary>Only reached under PERCY_DISABLE_REMOTE_UPLOADS; otherwise the hub uploads for us.</summary>
+        /// Only reached under PERCY_DISABLE_REMOTE_UPLOADS; otherwise the hub uploads for us.
         private List<Tile> LocalTile(ScreenshotOptions options)
         {
             string localFilePath = WriteTile(Driver.GetScreenshotBase64());
@@ -296,10 +286,8 @@ namespace AppPercyTosca.Core
             };
         }
 
-        /// <summary>
         /// Writes the PNG the CLI reads by path, so the file deliberately outlives this call and is
         /// left to the OS temp sweep — the same contract the other App Percy SDKs use.
-        /// </summary>
         private static string WriteTile(string base64)
         {
             if (string.IsNullOrWhiteSpace(base64))
@@ -316,13 +304,11 @@ namespace AppPercyTosca.Core
             return path;
         }
 
-        /// <summary>
         /// Turns every declared region into the payload shape, validated against the screen.
         ///
         /// Pixel coordinates only. Locator-based regions are not accepted as parameters, because the
         /// Tosca mobile engine cannot be queried for elements from an extension — a locator row could
         /// never have resolved to anything.
-        /// </summary>
         public List<Dictionary<string, object?>> FindRegions(List<Region> customRegions)
         {
             List<Dictionary<string, object?>> regions = new List<Dictionary<string, object?>>();
