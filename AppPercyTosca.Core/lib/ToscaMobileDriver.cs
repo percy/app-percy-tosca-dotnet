@@ -106,7 +106,8 @@ namespace AppPercyTosca.Core
 
         /// Tosca cannot pass a raw Appium command through, but the hub accepts one over the same HTTP
         /// route the screenshot uses — which is what makes App Automate's own capture reachable.
-        public string? ExecuteScript(string script) => Session()?.ExecuteScript(script);
+        public string? ExecuteScript(string script, TimeSpan? timeout = null) =>
+            Session()?.ExecuteScript(script, timeout);
 
         public string GetScreenshotBase64()
         {

@@ -140,7 +140,9 @@ namespace AppPercyTosca.Core
         {
             try
             {
-                Task<HttpResponseMessage> request = _http.GetAsync(url);
+                using CancellationTokenSource cancel =
+                    new CancellationTokenSource(CaptureBudget.SinglePage);
+                Task<HttpResponseMessage> request = _http.GetAsync(url, cancel.Token);
                 request.Wait();
                 HttpResponseMessage response = request.Result;
 
@@ -167,7 +169,7 @@ namespace AppPercyTosca.Core
         /// percyScreenshot commands, and therefore what makes App Automate's own capture reachable.
         ///
         /// Both spellings are tried — W3C moved execute to /execute/sync — since it is the hub's choice.
-        public string? ExecuteScript(string script)
+        public string? ExecuteScript(string script, TimeSpan? timeout = null)
         {
             string body = PercyPayload.PayloadParser(new Dictionary<string, object?>
             {
@@ -177,7 +179,7 @@ namespace AppPercyTosca.Core
 
             foreach (string path in new[] { "execute/sync", "execute" })
             {
-                (string? Value, bool WorthTryingAnother) result = Post(path, body);
+                (string? Value, bool WorthTryingAnother) result = Post(path, body, timeout);
                 if (result.Value != null) return result.Value;
                 if (!result.WorthTryingAnother) return null;
             }
@@ -186,13 +188,17 @@ namespace AppPercyTosca.Core
 
         /// POSTs to one execute endpoint. A 404 means this hub lacks the route, so the other spelling
         /// is worth trying; any other failure is about the script and would repeat.
-        private (string? Value, bool WorthTryingAnother) Post(string path, string body)
+        private (string? Value, bool WorthTryingAnother) Post(string path, string body, TimeSpan? timeout)
         {
             string url = $"{_serverUrl}/session/{_sessionId}/{path}";
             try
             {
                 using StringContent content = new StringContent(body, Encoding.UTF8, "application/json");
-                Task<HttpResponseMessage> request = _http.PostAsync(url, content);
+                // Per request, not on the HttpClient: the client is shared across steps and a full-page
+                // capture needs minutes where a metadata read needs seconds.
+                using CancellationTokenSource cancel =
+                    new CancellationTokenSource(timeout ?? CaptureBudget.SinglePage);
+                Task<HttpResponseMessage> request = _http.PostAsync(url, content, cancel.Token);
                 request.Wait();
                 HttpResponseMessage response = request.Result;
 
@@ -253,7 +259,9 @@ namespace AppPercyTosca.Core
         {
             try
             {
-                Task<HttpResponseMessage> request = _http.GetAsync(Endpoint);
+                using CancellationTokenSource cancel =
+                    new CancellationTokenSource(CaptureBudget.SinglePage);
+                Task<HttpResponseMessage> request = _http.GetAsync(Endpoint, cancel.Token);
                 request.Wait();
                 HttpResponseMessage response = request.Result;
 

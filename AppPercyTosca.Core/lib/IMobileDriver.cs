@@ -26,7 +26,11 @@ namespace AppPercyTosca.Core
 
         /// Runs a raw automation script, or null when the session will not run it. Carries the
         /// <c>browserstack_executor:</c> commands and iOS <c>mobile: viewportRect</c>.
-        string? ExecuteScript(string script);
+        ///
+        /// <paramref name="timeout"/> is how long this particular script may take. A full-page capture
+        /// runs for minutes while a metadata read runs for seconds, and the difference cannot live on a
+        /// shared HttpClient — see <see cref="CaptureBudget"/>.
+        string? ExecuteScript(string script, TimeSpan? timeout = null);
 
         /// The logical window width; on iOS, the real width over this is the scale factor.
         int WindowWidth { get; }
