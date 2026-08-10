@@ -43,8 +43,17 @@ namespace AppPercyTosca
             new PercyClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) }));
 
         /// The device's automation server, which may be a remote hub serving a large screen.
+        ///
+        /// Five minutes because the full-page executor is a single request that does not return until the
+        /// hub has captured and stitched every tile. On iOS each tile costs hundreds of accessibility-tree
+        /// round trips to a real device — measured at 3m36s for three tiles — so the previous two minutes
+        /// abandoned every iOS full page mid-capture, and the swallowed timeout left the build reporting
+        /// no snapshot at all.
+        ///
+        /// Single-page and metadata calls share this client and finish in seconds; the only cost to them
+        /// is that a request which will never answer now takes five minutes to give up rather than two.
         private static readonly Lazy<HttpClient> DeviceHttp = new Lazy<HttpClient>(() =>
-            new HttpClient { Timeout = TimeSpan.FromMinutes(2) });
+            new HttpClient { Timeout = TimeSpan.FromMinutes(5) });
 
         public AppPercyScreenshot(Tricentis.Automation.Creation.Validator validator) : base(validator)
         {
