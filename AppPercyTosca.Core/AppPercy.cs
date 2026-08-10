@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>Takes one screenshot of the device and posts it to the CLI.</summary>
+    /// Takes one screenshot of the device and posts it to the CLI.
     public class AppPercy
     {
         private readonly IMobileDriver _driver;
@@ -19,13 +19,11 @@ namespace AppPercyTosca.Core
             _isPercyEnabled = client.Healthcheck();
         }
 
-        /// <summary>
         /// The CLI's whole response, or null when Percy is off, disabled, or the capture failed with
         /// errors being ignored. Throws only under percy.ignoreErrors=false.
         ///
         /// The whole response, not its `data` member: a successful reply is `{success, link}` and often
         /// carries no `data`, so treating that as proof of success reports working snapshots as lost.
-        /// </summary>
         public JsonElement? Screenshot(string name, ScreenshotOptions options)
         {
             if (!_isPercyEnabled || !_percyOptions.PercyEnabled()) return null;
@@ -57,7 +55,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Drops this session's cached capability and metadata reads.</summary>
+        /// Drops this session's cached capability and metadata reads.
         public void ClearSessionCache() => _sessionCache.Clear();
     }
 }

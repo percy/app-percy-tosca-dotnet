@@ -1,9 +1,9 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>Picks the platform-specific metadata implementation for a session.</summary>
+    /// Picks the platform-specific metadata implementation for a session.
     public static class MetadataResolver
     {
-        /// <summary>Resolves by the platform the session reports.</summary>
+        /// Resolves by the platform the session reports.
         public static Metadata Resolve(IMobileDriver driver, Cache<string, object?> cache)
         {
             string platform = (driver.PlatformName ?? "").Trim();

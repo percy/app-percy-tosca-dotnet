@@ -92,13 +92,12 @@ buffer to Percy as a parameter value:
 | `SessionId` | `{B[PercyAppiumSessionId]}` |
 
 Tosca resolves the `{B[...]}` reference before the step runs, so the SDK receives the id as a plain
-string. Prefer this: it uses documented Tosca behaviour rather than reading Tosca's buffer store, and
-it takes precedence over `SessionIdBuffer`.
+string — documented Tosca behaviour, rather than this SDK reaching into Tosca's buffer store.
 
-(`SessionIdBuffer` names a buffer for the SDK to read itself, if you would rather not add a `SessionId`
-row. It works, but it reaches into Tosca internals whose shape is not published.)
-
-Without one of the two, capture cannot reach the device and the step says so.
+If the `SessionId` row is left off, the SDK falls back to reading the `PercyAppiumSessionId` buffer
+itself. That works, but it reflects into Tosca internals whose shape is not published, so name the
+buffer `PercyAppiumSessionId` and prefer the row. Without either, capture cannot reach the device and
+the step says so.
 
 ## Parameters
 
@@ -130,6 +129,8 @@ device falls back to the session's viewport.
 | `FullScreen` | `true` if the app is in full-screen mode |
 | `FullPage` | `true` to capture the whole scrollable page |
 | `ScreenLengths` | Number of screens to capture for a full page |
+| `TopScrollviewOffset` | Pixels to trim from the top of each full-page tile before stitching |
+| `BottomScrollviewOffset` | Pixels to trim from the bottom of each full-page tile |
 | `IosOptimizedFullpage` | The optimised iOS full-page algorithm |
 
 ### Regions
@@ -157,7 +158,6 @@ one region, commas separate the four numbers:
 | Parameter | Description |
 |---|---|
 | `SessionId` | The Appium session id. Use `{B[PercyAppiumSessionId]}` to pass a buffer written by the *Get Appium Session Id* module |
-| `SessionIdBuffer` | Buffer for the SDK to read itself instead (default `PercyAppiumSessionId`) |
 
 ### Settings that are otherwise environment variables
 

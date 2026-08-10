@@ -1,10 +1,8 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// The device facts Percy tags a comparison with, from the session and the static device table
     /// only. No step parameter can declare them: the session knows which device was allocated, and a
     /// stale or mistyped override splits a baseline in a way that looks like a real visual change.
-    /// </summary>
     public abstract class Metadata
     {
         protected readonly IMobileDriver Driver;
@@ -38,16 +36,14 @@ namespace AppPercyTosca.Core
         public abstract int NavBarHeight();
         public abstract int ScaleFactor();
 
-        /// <summary>The screen size as the platform reports it, before orientation is considered.</summary>
+        /// The screen size as the platform reports it, before orientation is considered.
         protected abstract int MeasuredScreenWidth();
 
         protected abstract int MeasuredScreenHeight();
 
-        /// <summary>
         /// The screen size in the orientation the device is actually in. A platform reports its
         /// physical screen — 1080x2400 whichever way up the phone is held — but the image Percy diffs
         /// is 2400x1080 in landscape, and a tag that disagrees with the image splits the baseline.
-        /// </summary>
         public int DeviceScreenWidth() =>
             IsLandscape && MeasuredScreenWidth() < MeasuredScreenHeight()
                 ? MeasuredScreenHeight()
@@ -58,15 +54,13 @@ namespace AppPercyTosca.Core
                 ? MeasuredScreenWidth()
                 : MeasuredScreenHeight();
 
-        /// <summary>Swapped only when the report is portrait-shaped, so a platform that already accounts
-        /// for rotation does not get its correct answer reversed.</summary>
+        /// Swapped only when the report is portrait-shaped, so a platform that already accounts
+        /// for rotation does not get its correct answer reversed.
         private bool IsLandscape =>
             Orientation().Equals("landscape", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>
         /// Identifies which device and screen a comparison belongs to. Percy groups by it, so anything
         /// here that varies run to run splits one baseline into several.
-        /// </summary>
         public Dictionary<string, object?> GetTag()
         {
             int width = DeviceScreenWidth();

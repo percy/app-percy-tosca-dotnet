@@ -3,11 +3,9 @@ using Xunit;
 
 namespace AppPercyTosca.Core.Tests
 {
-    /// <summary>
     /// Objects shaped like the Tricentis singletons the shim reaches by reflection — a
     /// configuration holder whose real map is a private field, and a nested wrapper — so the
     /// late-binding rules can be pinned down without Tosca installed.
-    /// </summary>
     public static class FakeToscaTypes
     {
         public class ConfigurationParameter
@@ -15,7 +13,7 @@ namespace AppPercyTosca.Core.Tests
             public string? Value { get; set; }
         }
 
-        /// <summary>Mirrors a Tricentis singleton: an Instance property holding the real object.</summary>
+        /// Mirrors a Tricentis singleton: an Instance property holding the real object.
         public class MainConfiguration
         {
             public static MainConfiguration Instance { get; } = new MainConfiguration();
@@ -176,7 +174,7 @@ namespace AppPercyTosca.Core.Tests
 
             public Middle Inner => _inner;
 
-            /// <summary>The same link reachable as a method, to prove both spellings are tried.</summary>
+            /// The same link reachable as a method, to prove both spellings are tried.
             public Middle GetInner() => _inner;
 
             internal class Middle
@@ -185,10 +183,8 @@ namespace AppPercyTosca.Core.Tests
             }
         }
 
-        /// <summary>
         /// Shaped like the failure mode above: the preferred name exists but throws for the argument
         /// given, and the usable member is a later candidate.
-        /// </summary>
         private class WrongOverloadFirst
         {
             public string GetBuffer(object key) =>

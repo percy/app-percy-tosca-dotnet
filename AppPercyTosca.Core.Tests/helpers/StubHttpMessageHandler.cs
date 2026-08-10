@@ -2,10 +2,8 @@ using System.Net;
 
 namespace AppPercyTosca.Core.Tests
 {
-    /// <summary>
     /// Serves canned responses per endpoint so the CLI client can be exercised without a running
     /// Percy CLI, and records what was sent so tests can assert on the request bodies.
-    /// </summary>
     public class StubHttpMessageHandler : HttpMessageHandler
     {
         public class Reply
@@ -21,12 +19,12 @@ namespace AppPercyTosca.Core.Tests
             new Dictionary<string, Queue<Reply>>();
         private Reply _fallback = new Reply();
 
-        /// <summary>Set to simulate a transport failure rather than an HTTP error status.</summary>
+        /// Set to simulate a transport failure rather than an HTTP error status.
         public Exception? Throw { get; set; }
 
         public List<Recorded> Requests { get; } = new List<Recorded>();
 
-        /// <summary>Queues a reply for requests whose path ends with <paramref name="endpoint"/>.</summary>
+        /// Queues a reply for requests whose path ends with <paramref name="endpoint"/>.
         public StubHttpMessageHandler On(string endpoint, string body,
             HttpStatusCode status = HttpStatusCode.OK, string? coreVersion = "1.27.0")
         {
@@ -39,7 +37,7 @@ namespace AppPercyTosca.Core.Tests
             return this;
         }
 
-        /// <summary>Reply used for any endpoint with nothing queued.</summary>
+        /// Reply used for any endpoint with nothing queued.
         public StubHttpMessageHandler Default(string body,
             HttpStatusCode status = HttpStatusCode.OK, string? coreVersion = "1.27.0")
         {

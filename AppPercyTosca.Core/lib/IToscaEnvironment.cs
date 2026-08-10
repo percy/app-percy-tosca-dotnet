@@ -1,6 +1,5 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Everything this SDK needs from Tosca, expressed without any Tricentis type.
     ///
     /// It is this small because there is no driver to borrow: Mobile Engine 3.0 runs out of process,
@@ -10,22 +9,17 @@ namespace AppPercyTosca.Core
     ///
     /// The shim implements this over the Tricentis APIs; tests implement it directly, which is what
     /// keeps <see cref="ToscaMobileDriver"/> verifiable with no Tosca installed.
-    /// </summary>
     public interface IToscaEnvironment
     {
-        /// <summary>
         /// A test configuration parameter by name, or null. This is where the mobile engine's
         /// connection details live, <c>AppiumServer</c> above all.
-        /// </summary>
         string? TestConfigurationParameter(string name);
 
-        /// <summary>Every TCP for the run, carried through as capabilities the session did not report.</summary>
+        /// Every TCP for the run, carried through as capabilities the session did not report.
         IReadOnlyDictionary<string, string?> TestConfigurationParameters();
 
-        /// <summary>
         /// A Tosca buffer by name, or null. How the Appium session id reaches the extension when the
         /// step does not pass it: the <c>Get Appium Session Id</c> module writes it to one.
-        /// </summary>
         string? Buffer(string name);
     }
 }

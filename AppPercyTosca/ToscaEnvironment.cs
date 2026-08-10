@@ -3,7 +3,6 @@ using AppPercyTosca.Core;
 
 namespace AppPercyTosca
 {
-    /// <summary>
     /// <see cref="IToscaEnvironment"/> over the real Tricentis APIs: test configuration parameters and
     /// buffers, nothing else.
     ///
@@ -11,7 +10,6 @@ namespace AppPercyTosca
     /// <c>Buffers</c> are documented by behaviour, but their namespaces and member shapes are not
     /// published and differ across releases. Binding at compile time turns a wrong guess into "does
     /// not build on the customer's machine"; binding late turns it into a logged warning.
-    /// </summary>
     internal class ToscaEnvironment : IToscaEnvironment
     {
         // Members are probed under several names because these types' shapes are not published.
@@ -24,7 +22,7 @@ namespace AppPercyTosca
         private static readonly string[] GetBufferNames = { "GetBuffer", "GetBufferValue", "Get" };
         private static readonly string[] ValueNames = { "Value", "ValueAsString", "UnresolvedValue" };
 
-        /// <summary>Memoized per step: the map costs a reflective walk and one snapshot reads it several times.</summary>
+        /// Memoized per step: the map costs a reflective walk and one snapshot reads it several times.
         private IReadOnlyDictionary<string, string?>? _parameters;
 
         public string? TestConfigurationParameter(string name)
@@ -62,7 +60,7 @@ namespace AppPercyTosca
             return value is string text ? text : Reflect.Member(value, ValueNames)?.ToString();
         }
 
-        /// <summary>Values arrive as plain strings or wrapped in a parameter object; both are unwrapped.</summary>
+        /// Values arrive as plain strings or wrapped in a parameter object; both are unwrapped.
         private IReadOnlyDictionary<string, string?> ReadParameters()
         {
             Dictionary<string, string?> parameters = new Dictionary<string, string?>();
@@ -97,7 +95,6 @@ namespace AppPercyTosca
             return parameters;
         }
 
-        /// <summary>
         /// Finds a Tricentis singleton by type name across the loaded assemblies and returns its
         /// <c>Instance</c>, if <paramref name="isUsable"/> accepts it. Searching rather than naming an
         /// assembly, because these types have moved between releases.
@@ -106,7 +103,6 @@ namespace AppPercyTosca
         /// rather than nondeterministic assembly load order. And each candidate is checked for the
         /// member wanted before being accepted: more than one Tricentis type is named Configuration
         /// with a static Instance, and the wrong one yields a snapshot with no device details.
-        /// </summary>
         private static object? SingletonInstance(string[] typeNames, Func<object, bool> isUsable)
         {
             List<Type> candidateTypes = TricentisTypes();
@@ -149,7 +145,6 @@ namespace AppPercyTosca
         private static List<Type>? _tricentisTypes;
         private static int _typesFromAssemblyCount = -1;
 
-        /// <summary>
         /// Every type in the loaded Tricentis assemblies, cached — thousands of types, on the path of
         /// every snapshot — but invalidated whenever the loaded-assembly count changes, which is the
         /// part that matters. Tosca loads engine assemblies on demand, so caching a miss for the life
@@ -157,7 +152,6 @@ namespace AppPercyTosca
         /// appearing to fix it.
         ///
         /// The count suffices: assemblies are never unloaded, so any rise is a reason to look again.
-        /// </summary>
         private static List<Type> TricentisTypes()
         {
             System.Reflection.Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();

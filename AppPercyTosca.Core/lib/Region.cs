@@ -1,9 +1,7 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// A rectangle in device pixels, used for the custom ignore/consider regions a Tosca module
     /// can declare as "top,bottom,left,right".
-    /// </summary>
     public class Region
     {
         private int _top;
@@ -61,9 +59,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// True when the region is non-degenerate and fits inside a screen of the given size.
-        /// </summary>
         public bool IsValid(int height, int width)
         {
             if (_top >= _bottom || _left >= _right) return false;
@@ -72,7 +68,7 @@ namespace AppPercyTosca.Core
         }
     }
 
-    /// <summary>Named alias kept so callers can express intent at the call site.</summary>
+    /// Named alias kept so callers can express intent at the call site.
     public class IgnoreRegion : Region
     {
         public IgnoreRegion(int top, int bottom, int left, int right) : base(top, bottom, left, right)

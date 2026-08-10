@@ -1,10 +1,8 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// One captured screen handed to the CLI. Either <see cref="LocalFilePath"/> (the tile was
     /// written to disk locally) or <see cref="Sha"/> (App Automate already uploaded it and
     /// returned a content hash) is set — never both.
-    /// </summary>
     public class Tile
     {
         public string? LocalFilePath { get; }
@@ -33,10 +31,8 @@ namespace AppPercyTosca.Core
             Sha = sha;
         }
 
-        /// <summary>
         /// Shapes the tile the way the CLI's /percy/comparison endpoint expects. The key names
         /// are the wire contract and are deliberately not camel-cased consistently ("fullscreen").
-        /// </summary>
         public Dictionary<string, object?> ToPayload() => new Dictionary<string, object?>
         {
             ["filepath"] = LocalFilePath,

@@ -1,9 +1,7 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Android device facts. An Appium Android session reports its full screen size in
     /// `deviceScreenSize` and its usable area in `viewportRect`; the bars are the difference.
-    /// </summary>
     public class AndroidMetadata : Metadata
     {
         private readonly Cache<string, object?> _cache;
@@ -63,7 +61,7 @@ namespace AppPercyTosca.Core
 
         public override int ScaleFactor() => 1;
 
-        /// <summary>Parses the `deviceScreenSize` capability ("1080x1920"), or null.</summary>
+        /// Parses the `deviceScreenSize` capability ("1080x1920"), or null.
         private (int Width, int Height)? ScreenSize()
         {
             string? size = Driver.Capabilities.GetString("deviceScreenSize");

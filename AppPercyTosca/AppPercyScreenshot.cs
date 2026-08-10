@@ -9,7 +9,6 @@ using Tricentis.Automation.Engines.SpecialExecutionTasks.Attributes;
 
 namespace AppPercyTosca
 {
-    /// <summary>
     /// Takes one App Percy screenshot of the mobile device under test.
     ///
     /// This class and its two neighbours are the only code that touches Tosca; everything with a
@@ -18,14 +17,11 @@ namespace AppPercyTosca
     ///
     /// No <c>[SupportedTechnical]</c>: that tags an adapter with a technical, and a special execution
     /// task is never handed one.
-    /// </summary>
     [SpecialExecutionTaskName("AppPercyScreenshot")]
     public class AppPercyScreenshot : SpecialExecutionTask
     {
-        /// <summary>
         /// One CLI connection per Commander process, with a memoized healthcheck — otherwise a sheet
         /// with fifty steps performs fifty healthchecks.
-        /// </summary>
         private static readonly Lazy<PercyClient> Client = new Lazy<PercyClient>(() =>
         {
             HttpClient http = new HttpClient
@@ -36,19 +32,17 @@ namespace AppPercyTosca
             return new PercyClient(http);
         });
 
-        /// <summary>
         /// A second connection for log forwarding, on a short timeout. It cannot share the client
         /// above: every log line is a blocking POST, so a CLI that accepts a connection then stops
         /// answering would stall each line for ten minutes — and those lines are usually the ones
         /// reporting that Percy is unreachable. The file copy in <see cref="ToscaLog"/> is the record
         /// that survives if five seconds is not enough.
-        /// </summary>
         internal static PercyClient LogClient => Log.Value;
 
         private static readonly Lazy<PercyClient> Log = new Lazy<PercyClient>(() =>
             new PercyClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) }));
 
-        /// <summary>The device's automation server, which may be a remote hub serving a large screen.</summary>
+        /// The device's automation server, which may be a remote hub serving a large screen.
         private static readonly Lazy<HttpClient> DeviceHttp = new Lazy<HttpClient>(() =>
             new HttpClient { Timeout = TimeSpan.FromMinutes(2) });
 
@@ -59,10 +53,8 @@ namespace AppPercyTosca
             Env.ToscaVersion ??= DetectToscaVersion();
         }
 
-        /// <summary>
         /// Reported to Percy as environmentInfo. Read off the loaded assembly because no API returns
         /// it, and a wrong answer here is cosmetic.
-        /// </summary>
         private static string? DetectToscaVersion()
         {
             try
@@ -104,9 +96,8 @@ namespace AppPercyTosca
                 ToscaEnvironment tosca = new ToscaEnvironment();
                 ToscaMobileDriver driver = new ToscaMobileDriver(
                     tosca,
-                    Parameter(testAction, "SessionIdBuffer"),
                     SessionKey(testAction),
-                    Parameter(testAction, "SessionId"),
+                    read("SessionId"),
                     (server, sessionId) => new WebDriverSession(DeviceHttp.Value, server, sessionId));
 
                 // Passes whether or not a snapshot was recorded, but never claims one that was not:
@@ -122,7 +113,7 @@ namespace AppPercyTosca
             }
         }
 
-        /// <summary>Returns what the step should report; every outcome but a throw leaves it passing.</summary>
+        /// Returns what the step should report; every outcome but a throw leaves it passing.
         private static string Screenshot(
             ToscaMobileDriver driver,
             string snapshotName,
@@ -157,17 +148,13 @@ namespace AppPercyTosca
         private static AppPercy AppPercyFor(ToscaMobileDriver driver) =>
             new AppPercy(driver, Client.Value);
 
-        /// <summary>
         /// Cache key for when no session id is available. Stable within a step and deliberately not
         /// across them, since a stale entry would report the previous device's dimensions.
-        /// </summary>
         private static string SessionKey(ISpecialExecutionTaskTestAction testAction) =>
             "tosca-" + testAction.GetHashCode();
 
-        /// <summary>
         /// Reads one module parameter, or null when absent or blank. The <c>true</c> marks it optional,
         /// which is what lets a step carry only the rows it needs.
-        /// </summary>
         private static string? Parameter(ISpecialExecutionTaskTestAction testAction, string name)
         {
             try

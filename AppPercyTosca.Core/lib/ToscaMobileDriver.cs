@@ -3,27 +3,22 @@ using Caps = AppPercyTosca.Core.Capabilities;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// A device session built from the only two things Tosca exposes: the hub address and the Appium
     /// session id. Everything else is plain WebDriver over HTTP and touches no Tricentis API.
     ///
     /// Querying for elements is the exception, so element-based regions are unavailable.
-    /// </summary>
     public class ToscaMobileDriver : IMobileDriver
     {
-        /// <summary>TCP holding the hub URL, e.g. https://hub-cloud.browserstack.com/wd/hub.</summary>
+        /// TCP holding the hub URL, e.g. https://hub-cloud.browserstack.com/wd/hub.
         public const string AppiumServerTcp = "AppiumServer";
 
-        /// <summary>
-        /// Buffer the `Get Appium Session Id` module is expected to have written to. The user names
-        /// that buffer, so the Percy module can override this.
-        /// </summary>
+        /// Buffer the `Get Appium Session Id` module is expected to have written to, read only when no
+        /// SessionId was given. Not overridable: a SessionId row carrying {B[whatever]} covers a buffer
+        /// under any other name, and Tosca resolves that reference itself.
         public const string DefaultSessionIdBuffer = "PercyAppiumSessionId";
 
-        /// <summary>
         /// TCP names mapped to capability names. Several spellings each, because the engine's TCP set
         /// differs between connection types.
-        /// </summary>
         private static readonly (string Capability, string[] Tcps)[] CapabilityMap =
         {
             ("deviceName", new[] { "DeviceName", "Device", "MobileDeviceName" }),
@@ -37,7 +32,6 @@ namespace AppPercyTosca.Core
 
         private readonly IToscaEnvironment _tosca;
         private readonly Func<string, string, WebDriverSession>? _webDriver;
-        private readonly string? _sessionIdBuffer;
         private readonly string? _explicitSessionId;
         private Dictionary<string, object?>? _capabilities;
         private readonly string _fallbackSessionId;
@@ -48,45 +42,39 @@ namespace AppPercyTosca.Core
         /// </param>
         public ToscaMobileDriver(
             IToscaEnvironment tosca,
-            string? sessionIdBuffer = null,
             string? fallbackSessionId = null,
             string? explicitSessionId = null,
             Func<string, string, WebDriverSession>? webDriver = null)
         {
             _tosca = tosca ?? throw new ArgumentNullException(nameof(tosca));
             _webDriver = webDriver;
-            _sessionIdBuffer = sessionIdBuffer;
             _explicitSessionId = string.IsNullOrWhiteSpace(explicitSessionId)
                 ? null
                 : explicitSessionId.Trim();
             _fallbackSessionId = fallbackSessionId ?? "tosca-session";
         }
 
-        /// <summary>
         /// The session id, or a placeholder that keeps the per-session caches working but is not a
         /// session anything can be asked about — see <see cref="HasRealSessionId"/>.
         ///
         /// An id given on the module is preferred: Tosca resolves a <c>{B[...]}</c> reference in a
         /// parameter value before handing it over, which beats reflecting into its buffer store.
-        /// </summary>
         public string SessionId
         {
             get
             {
                 if (_explicitSessionId != null) return _explicitSessionId;
 
-                string? buffered = _tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer);
+                string? buffered = _tosca.Buffer(DefaultSessionIdBuffer);
                 return string.IsNullOrWhiteSpace(buffered) ? _fallbackSessionId : buffered.Trim();
             }
         }
 
-        /// <summary>
         /// Whether a real session id was found. A placeholder would 404 against
         /// <c>/session/{id}/screenshot</c> and say nothing about the buffer being unset.
-        /// </summary>
         public bool HasRealSessionId =>
             _explicitSessionId != null
-            || !string.IsNullOrWhiteSpace(_tosca.Buffer(_sessionIdBuffer ?? DefaultSessionIdBuffer));
+            || !string.IsNullOrWhiteSpace(_tosca.Buffer(DefaultSessionIdBuffer));
 
         public string? Host
         {
@@ -105,23 +93,19 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Built on first use: the best source is the session, which needs Host resolved.</summary>
+        /// Built on first use: the best source is the session, which needs Host resolved.
         public IReadOnlyDictionary<string, object?> Capabilities => _capabilities ??= BuildCapabilities();
 
-        /// <summary>Asked of the session when no parameter carries one: a test can rotate the device.</summary>
+        /// Asked of the session when no parameter carries one: a test can rotate the device.
         public string? Orientation =>
             Capabilities.GetString("orientation") ?? Session()?.TryGetOrientation();
 
-        /// <summary>
         /// Used only by iOS's scale factor. Zero degrades that factor to 1, which is correct whenever
         /// the real and logical widths match.
-        /// </summary>
         public int WindowWidth => Session()?.TryGetWindowWidth() ?? 0;
 
-        /// <summary>
         /// Tosca cannot pass a raw Appium command through, but the hub accepts one over the same HTTP
         /// route the screenshot uses — which is what makes App Automate's own capture reachable.
-        /// </summary>
         public string? ExecuteScript(string script) => Session()?.ExecuteScript(script);
 
         public string GetScreenshotBase64()
@@ -148,10 +132,8 @@ namespace AppPercyTosca.Core
         private WebDriverSession? _session;
         private bool _sessionResolved;
 
-        /// <summary>
         /// The session client, once. Screenshots and scripts both go through it, so the reasons it is
         /// unavailable are reported here rather than at each call site.
-        /// </summary>
         private WebDriverSession? Session()
         {
             if (_sessionResolved) return _session;
@@ -171,21 +153,19 @@ namespace AppPercyTosca.Core
                 Utils.Log("The Appium session id is not available, so the device session cannot be " +
                     "reached. The most direct fix: add the 'Get Appium Session Id' standard module " +
                     "before this step, then set the Percy module's SessionId parameter to " +
-                    $"{{B[{_sessionIdBuffer ?? DefaultSessionIdBuffer}]}} so Tosca hands the id over.");
+                    $"{{B[{DefaultSessionIdBuffer}]}} so Tosca hands the id over.");
                 return null;
             }
 
             return _session = _webDriver(server, SessionId);
         }
 
-        /// <summary>
         /// Assembles the capability bag, weakest source first: test configuration parameters, then the
         /// session's own capabilities. The session wins because it describes the device that was
         /// allocated, where a parameter describes what was asked for.
         ///
         /// Every TCP is carried through under its own name as well as the mapped one, so a detail this
         /// SDK does not interpret is still visible.
-        /// </summary>
         private Dictionary<string, object?> BuildCapabilities()
         {
             Dictionary<string, object?> capabilities = new Dictionary<string, object?>();
@@ -225,11 +205,9 @@ namespace AppPercyTosca.Core
             return capabilities;
         }
 
-        /// <summary>
         /// BrowserStack reports the UDID as the top-level <c>deviceName</c> ("19171FDF6000AM") and the
         /// readable name under <c>desired</c>. Percy groups by the tag's device name, so a UDID would
         /// give every device a baseline named after a serial number.
-        /// </summary>
         private static void PreferTheFriendlyDeviceName(
             Dictionary<string, object?> capabilities, IReadOnlyDictionary<string, object?> reported)
         {
@@ -246,13 +224,11 @@ namespace AppPercyTosca.Core
                 $"'{current}', which is the device identifier.", "debug");
         }
 
-        /// <summary>
         /// Asks the session for the device facts, under the same capability names the other App Percy
         /// SDKs read off their driver, so the metadata layer needs no Tosca-specific path.
         ///
         /// Several probes because no one endpoint answers all of it, and each is independent: one
         /// refusing costs its own detail only.
-        /// </summary>
         private void FillDeviceFactsFromSession(Dictionary<string, object?> capabilities)
         {
             WebDriverSession? session = Session();
@@ -321,7 +297,7 @@ namespace AppPercyTosca.Core
                 $"{bars.Value.NavigationBar}px, from the session's system bars.", "debug");
         }
 
-        /// <summary>Case-insensitive: TCP names vary across connection types (OSVersion/OsVersion).</summary>
+        /// Case-insensitive: TCP names vary across connection types (OSVersion/OsVersion).
         private static string? Lookup(IReadOnlyDictionary<string, string?> tcps, string name)
         {
             if (tcps.TryGetValue(name, out string? exact)) return exact;

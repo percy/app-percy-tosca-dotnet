@@ -2,23 +2,19 @@ using System.Reflection;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Late-bound member access, used by the shim to reach Tosca's configuration and buffer
     /// singletons: their shapes are not a documented contract and differ across releases, so
     /// compiling against them is not safe.
     ///
     /// Every lookup takes candidate names and returns null on a miss rather than throwing, so one
     /// renamed member degrades a single field instead of the whole snapshot.
-    /// </summary>
     public static class Reflect
     {
         private const BindingFlags Instance =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        /// <summary>
         /// Reads the first readable property or field matching one of <paramref name="names"/>,
         /// searching the whole type hierarchy. Returns null when none is found or the read threw.
-        /// </summary>
         public static object? Member(object? target, params string[] names)
         {
             if (target == null) return null;
@@ -42,10 +38,8 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>
         /// Invokes the first method matching one of <paramref name="names"/> whose parameter count
         /// matches <paramref name="args"/>. Returns null when none is found or the call threw.
-        /// </summary>
         public static object? Call(object? target, string[] names, params object?[] args)
         {
             if (target == null) return null;
@@ -64,7 +58,7 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>Every property and field name on the object, for the diagnostic dump.</summary>
+        /// Every property and field name on the object, for the diagnostic dump.
         public static IEnumerable<string> MemberNames(object? target)
         {
             Type? type = target?.GetType();
@@ -124,10 +118,8 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>
         /// Any failure becomes null plus a debug line: a Tricentis singleton can throw when the
         /// automation context is not initialised, and that must not become a failed snapshot.
-        /// </summary>
         private static object? Read(Func<object?> read, object target, string name)
         {
             try

@@ -1,9 +1,7 @@
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Reads the `percyOptions` capability bag, which is how a Tosca mobile configuration can turn
     /// Percy off or make it fail loudly without editing the test sheets.
-    /// </summary>
     public class PercyOptions
     {
         private readonly IMobileDriver _driver;
@@ -17,10 +15,8 @@ namespace AppPercyTosca.Core
             _sessionId = driver.SessionId;
         }
 
-        /// <summary>
         /// Whether Percy is enabled for this session. Nothing declared means enabled — Percy is
         /// opt-out here, so a session with no percyOptions still takes snapshots.
-        /// </summary>
         public bool PercyEnabled()
         {
             IReadOnlyDictionary<string, object?>? w3c = GetPercyOptions();
@@ -41,11 +37,9 @@ namespace AppPercyTosca.Core
             return true;
         }
 
-        /// <summary>
         /// Whether a failed snapshot should fail the Tosca step. Default is to swallow: a visual
         /// check that cannot run is not a functional regression, and failing the step would stop
         /// the rest of the sheet.
-        /// </summary>
         public bool IgnoreErrors()
         {
             IReadOnlyDictionary<string, object?>? w3c = GetPercyOptions();

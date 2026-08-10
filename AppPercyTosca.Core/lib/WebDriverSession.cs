@@ -3,23 +3,19 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Talks to the automation server directly over plain HTTP, using only the session id and the
     /// server address. Standard WebDriver, no Tricentis API, and fully testable — the
     /// <see cref="HttpClient"/> is injected.
-    /// </summary>
     public class WebDriverSession
     {
-        /// <summary>
         /// A Tosca step can hand over before the thing it steered is ready. Kept low because each
         /// attempt is a real round trip to a possibly-remote hub.
-        /// </summary>
         public const int Attempts = 3;
 
-        /// <summary>Gap between attempts.</summary>
+        /// Gap between attempts.
         public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(1);
 
-        /// <summary>Replaceable so tests do not actually wait.</summary>
+        /// Replaceable so tests do not actually wait.
         internal static Action<TimeSpan> Sleep { get; set; } = duration => Thread.Sleep(duration);
 
         private readonly HttpClient _http;
@@ -33,14 +29,12 @@ namespace AppPercyTosca.Core
             _sessionId = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
         }
 
-        /// <summary>The screenshot endpoint, exposed for diagnostics with any credentials removed.</summary>
+        /// The screenshot endpoint, exposed for diagnostics with any credentials removed.
         public string Endpoint => $"{_serverUrl}/session/{_sessionId}/screenshot";
 
-        /// <summary>
         /// Where the device facts come from: Tosca sets no parameters for screen size, orientation or
         /// OS version, and the hub knows all of it because it allocated the device. The keys match what
         /// the other App Percy SDKs read off their driver, so the metadata layer needs no special case.
-        /// </summary>
         public IReadOnlyDictionary<string, object?>? TryGetCapabilities()
         {
             JsonElement? parsed = Json.TryParse(Get($"{_serverUrl}/session/{_sessionId}", "capabilities"));
@@ -62,10 +56,8 @@ namespace AppPercyTosca.Core
             return capabilities.Count == 0 ? null : capabilities;
         }
 
-        /// <summary>
         /// Bar heights, or null. Without them nothing is cropped and the status bar clock makes every
         /// run differ. The other SDKs read the same numbers off a <c>viewportRect</c> capability.
-        /// </summary>
         public (int StatusBar, int NavigationBar)? TryGetSystemBars()
         {
             JsonElement? value = Json.Property(Json.TryParse(
@@ -83,7 +75,7 @@ namespace AppPercyTosca.Core
         private static int? HeightOf(JsonElement? bars, string name) =>
             Capabilities.ToInt(Json.PropertyAsString(Json.Property(bars, name), "height"));
 
-        /// <summary>The usable area stated directly, rather than derived by subtracting the bars.</summary>
+        /// The usable area stated directly, rather than derived by subtracting the bars.
         public IReadOnlyDictionary<string, object?>? TryGetViewportRect()
         {
             string? result = ExecuteScript("mobile: viewportRect");
@@ -91,7 +83,7 @@ namespace AppPercyTosca.Core
             return parsed == null ? null : Capabilities.AsDictionary(parsed.Value);
         }
 
-        /// <summary>The window's width and height, or null unless the session reports both.</summary>
+        /// The window's width and height, or null unless the session reports both.
         public (int Width, int Height)? TryGetWindowSize()
         {
             (int? Width, int? Height) window = Window();
@@ -100,7 +92,7 @@ namespace AppPercyTosca.Core
                 : null;
         }
 
-        /// <summary>Asked separately from the capabilities: a test can rotate the device mid-run.</summary>
+        /// Asked separately from the capabilities: a test can rotate the device mid-run.
         public string? TryGetOrientation()
         {
             string? body = Get($"{_serverUrl}/session/{_sessionId}/orientation", "orientation");
@@ -108,7 +100,7 @@ namespace AppPercyTosca.Core
             return value?.ValueKind == JsonValueKind.String ? value.Value.GetString() : null;
         }
 
-        /// <summary>Only iOS uses this, for the scale factor between the logical and real screen.</summary>
+        /// Only iOS uses this, for the scale factor between the logical and real screen.
         public int? TryGetWindowWidth()
         {
             int? width = Window().Width;
@@ -117,13 +109,11 @@ namespace AppPercyTosca.Core
 
         private (int? Width, int? Height)? _window;
 
-        /// <summary>
         /// Asks the session for its window, once. Two callers want different parts of the same answer
         /// and it cannot change within a snapshot, so a second round trip buys only latency.
         ///
         /// Width and height are kept separately: a width with no height is still worth having for the
         /// scale factor, so what counts as usable is left to each caller.
-        /// </summary>
         private (int? Width, int? Height) Window()
         {
             if (_window != null) return _window.Value;
@@ -145,7 +135,7 @@ namespace AppPercyTosca.Core
             return (_window = (null, null)).Value;
         }
 
-        /// <summary>Failure is a logged null: a session that will not answer degrades the tag, not the run.</summary>
+        /// Failure is a logged null: a session that will not answer degrades the tag, not the run.
         private string? Get(string url, string what)
         {
             try
@@ -173,12 +163,10 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// Runs a script in the session. This is what carries the <c>browserstack_executor:</c>
         /// percyScreenshot commands, and therefore what makes App Automate's own capture reachable.
         ///
         /// Both spellings are tried — W3C moved execute to /execute/sync — since it is the hub's choice.
-        /// </summary>
         public string? ExecuteScript(string script)
         {
             string body = PercyPayload.PayloadParser(new Dictionary<string, object?>
@@ -196,10 +184,8 @@ namespace AppPercyTosca.Core
             return null;
         }
 
-        /// <summary>
         /// POSTs to one execute endpoint. A 404 means this hub lacks the route, so the other spelling
         /// is worth trying; any other failure is about the script and would repeat.
-        /// </summary>
         private (string? Value, bool WorthTryingAnother) Post(string path, string body)
         {
             string url = $"{_serverUrl}/session/{_sessionId}/{path}";
@@ -244,10 +230,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// The current screen as base64 PNG, or null. The reason is always logged: a 404 (session gone)
         /// and a 500 (device unreachable) need very different responses from whoever is reading.
-        /// </summary>
         public string? TryGetScreenshotBase64()
         {
             for (int attempt = 1; ; attempt++)
@@ -263,10 +247,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// One attempt, and whether retrying could help: a 4xx will stay wrong, while a transport
         /// failure or a 5xx is the "not ready yet" case worth another look.
-        /// </summary>
         private (string? Image, bool WorthRetrying) AttemptScreenshot()
         {
             try
@@ -306,10 +288,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>
         /// Accepts either protocol's shape — W3C's <c>{"value": ...}</c> and the JSON wire protocol's
         /// <c>{"status": 0, "value": ...}</c> — since which one a session speaks is the server's choice.
-        /// </summary>
         internal static string? ExtractValue(string? body)
         {
             JsonElement? parsed = Json.TryParse(body);

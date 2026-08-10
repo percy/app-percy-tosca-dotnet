@@ -2,11 +2,9 @@ using AppPercyTosca.Core;
 
 namespace AppPercyTosca.Core.Tests
 {
-    /// <summary>
     /// Resets the Core's process-wide state around each test and captures log output so tests can
     /// assert on what the SDK told the user, not just on return values — most of the fallback
     /// behaviour here is only observable through a log line.
-    /// </summary>
     public abstract class CoreTestBase : IDisposable
     {
         protected readonly List<(string Message, string Level)> Logs = new List<(string, string)>();
@@ -36,7 +34,7 @@ namespace AppPercyTosca.Core.Tests
         protected void SetEnv(string name, string? value) =>
             Environment.SetEnvironmentVariable(name, value);
 
-        /// <summary>True when any captured log line contains <paramref name="fragment"/>.</summary>
+        /// True when any captured log line contains <paramref name="fragment"/>.
         protected bool Logged(string fragment) =>
             Logs.Any(entry => entry.Message.Contains(fragment, StringComparison.OrdinalIgnoreCase));
 

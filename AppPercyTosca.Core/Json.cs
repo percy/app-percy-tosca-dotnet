@@ -2,13 +2,11 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Helpers for the CLI's JSON. System.Text.Json only, no Newtonsoft: the DLL Tosca loads must not
     /// carry a third-party dependency that could clash with one already in Commander.
-    /// </summary>
     public static class Json
     {
-        /// <summary>Parses into a <see cref="JsonElement"/>, or null when empty or not valid JSON.</summary>
+        /// Parses into a <see cref="JsonElement"/>, or null when empty or not valid JSON.
         public static JsonElement? TryParse(string? content)
         {
             if (string.IsNullOrWhiteSpace(content)) return null;
@@ -24,14 +22,14 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>A property, or null when absent or the element is not an object.</summary>
+        /// A property, or null when absent or the element is not an object.
         public static JsonElement? Property(JsonElement? element, string name)
         {
             if (element == null || element.Value.ValueKind != JsonValueKind.Object) return null;
             return element.Value.TryGetProperty(name, out JsonElement value) ? value : null;
         }
 
-        /// <summary>Numbers and booleans render rather than reject, so an unquoted `build.id` works.</summary>
+        /// Numbers and booleans render rather than reject, so an unquoted `build.id` works.
         public static string? PropertyAsString(JsonElement? element, string name)
         {
             JsonElement? value = Property(element, name);
@@ -44,7 +42,7 @@ namespace AppPercyTosca.Core
             };
         }
 
-        /// <summary>For the CLI's `success` flag, which some endpoints stringify.</summary>
+        /// For the CLI's `success` flag, which some endpoints stringify.
         public static bool IsTrue(JsonElement? element, string name)
         {
             JsonElement? value = Property(element, name);
@@ -58,7 +56,7 @@ namespace AppPercyTosca.Core
             };
         }
 
-        /// <summary>Converts to plain CLR objects: object to dictionary, array to list, primitives as-is.</summary>
+        /// Converts to plain CLR objects: object to dictionary, array to list, primitives as-is.
         public static object? ToObject(JsonElement element)
         {
             switch (element.ValueKind)

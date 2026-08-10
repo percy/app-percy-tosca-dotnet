@@ -3,7 +3,7 @@ using Xunit;
 
 namespace AppPercyTosca.Core.Tests
 {
-    /// <summary>In-memory stand-in for what Tosca provides: parameters and buffers.</summary>
+    /// In-memory stand-in for what Tosca provides: parameters and buffers.
     public class StubToscaEnvironment : IToscaEnvironment
     {
         public Dictionary<string, string?> Tcps { get; } = new Dictionary<string, string?>();
@@ -17,7 +17,7 @@ namespace AppPercyTosca.Core.Tests
         public string? Buffer(string name) =>
             Buffers.TryGetValue(name, out string? value) ? value : null;
 
-        /// <summary>An App Automate mobile session with the TCPs Tosca sets for one.</summary>
+        /// An App Automate mobile session with the TCPs Tosca sets for one.
         public static StubToscaEnvironment AppAutomate()
         {
             StubToscaEnvironment tosca = new StubToscaEnvironment();
@@ -33,16 +33,16 @@ namespace AppPercyTosca.Core.Tests
     public class ToscaMobileDriverTests : CoreTestBase
     {
         private static ToscaMobileDriver Build(
-            StubToscaEnvironment tosca, ScreenshotOptions? options = null, string? buffer = null,
+            StubToscaEnvironment tosca,
             StubHttpMessageHandler? deviceHttp = null,
             string? sessionId = null) =>
-            new ToscaMobileDriver(tosca, buffer, null, sessionId,
+            new ToscaMobileDriver(tosca, null, sessionId,
                 deviceHttp == null
                     ? null
                     : (server, sessionId) =>
                         new WebDriverSession(deviceHttp.Client(), server, sessionId));
 
-        /// <summary>A device session that answers the WebDriver screenshot endpoint.</summary>
+        /// A device session that answers the WebDriver screenshot endpoint.
         private static StubHttpMessageHandler DeviceServing(string base64) =>
             new StubHttpMessageHandler().Default("{\"value\":\"" + base64 + "\"}");
 
@@ -129,15 +129,6 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheSessionIdBufferNameIsOverridable()
-        {
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            tosca.Buffers["MyOwnBuffer"] = "session-xyz";
-
-            Assert.Equal("session-xyz", Build(tosca, buffer: "MyOwnBuffer").SessionId);
-        }
-
-        [Fact]
         public void TheSessionIdIsTrimmed()
         {
             // A buffer written by a Tosca module commonly carries surrounding whitespace, and the
@@ -171,8 +162,9 @@ namespace AppPercyTosca.Core.Tests
         {
             StubToscaEnvironment tosca = new StubToscaEnvironment();
 
-            Assert.Equal("step-7",
-                new ToscaMobileDriver(tosca, null, "step-7").SessionId);
+            // Positional: fallbackSessionId, not explicitSessionId — the point is the placeholder used
+            // when neither a SessionId row nor the buffer produced an id.
+            Assert.Equal("step-7", new ToscaMobileDriver(tosca, "step-7").SessionId);
         }
 
         [Fact]
@@ -196,11 +188,9 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("/session/s-1", device.Requests[0].Url);
         }
 
-        /// <summary>
         /// A real BrowserStack App Automate reply, credentials removed. Kept verbatim because the shape
         /// is the thing under test: an earlier version required the map to arrive under a particular
         /// envelope and silently produced an empty tag against exactly this payload.
-        /// </summary>
         private const string RealSessionCapabilities =
             "{\"value\":{\"platform\":\"LINUX\",\"webStorageEnabled\":false,\"takesScreenshot\":true,\"javascriptEnabled\":true,\"networkConnectionEnabled\":true,\"warnings\":{},\"desired\":{\"platformName\":\"Android\",\"deviceName\":\"Google Pixel 6\",\"automationName\":\"UIAutomator2\",\"udid\":\"19171FDF6000AM\",\"appPackage\":\"org.wikipedia.alpha\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\"},\"platformName\":\"Android\",\"deviceName\":\"19171FDF6000AM\",\"udid\":\"19171FDF6000AM\",\"automationName\":\"UIAutomator2\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\",\"deviceApiLevel\":31,\"platformVersion\":\"12\",\"deviceScreenSize\":\"1080x2400\",\"deviceScreenDensity\":420,\"deviceModel\":\"Pixel 6\",\"deviceManufacturer\":\"Google\",\"pixelRatio\":2.625,\"statBarHeight\":124,\"viewportRect\":{\"left\":0,\"top\":124,\"width\":1080,\"height\":2116},\"lastScrollData\":null}}";
 

@@ -2,13 +2,11 @@ using System.Text.RegularExpressions;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Logging and credential redaction. Commander has no console, so output goes through a sink the
     /// shim installs; the default writes to stdout for tests and tools.
-    /// </summary>
     public static class Utils
     {
-        /// <summary>Replaced by the shim; null restores the stdout default.</summary>
+        /// Replaced by the shim; null restores the stdout default.
         public static Action<string, string>? LogSink { get; set; }
 
         // Hub URLs carry credentials as userinfo (https://user:key@hub-cloud.browserstack.com/wd/hub)

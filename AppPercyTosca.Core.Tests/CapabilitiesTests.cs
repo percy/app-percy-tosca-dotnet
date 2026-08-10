@@ -180,10 +180,8 @@ namespace AppPercyTosca.Core.Tests
             Assert.Same(source, Capabilities.AsDictionary(source));
         }
 
-        /// <summary>
         /// Implements <see cref="IDictionary{TKey, TValue}"/> but deliberately not
         /// <see cref="IReadOnlyDictionary{TKey, TValue}"/>, which no BCL dictionary does.
-        /// </summary>
         private class GenericOnlyMap : IDictionary<string, object?>
         {
             private readonly Dictionary<string, object?> _inner = new Dictionary<string, object?>();

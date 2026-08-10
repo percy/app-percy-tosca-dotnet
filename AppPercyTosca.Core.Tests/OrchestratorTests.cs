@@ -96,11 +96,9 @@ namespace AppPercyTosca.Core.Tests
         private const string Healthy =
             "{\"success\":true,\"build\":{\"id\":\"b\",\"url\":\"https://percy.io/b\"}}";
 
-        /// <summary>
         /// These cover AppPercy's orchestration — healthcheck, enablement, error handling — not the
         /// executor. Remote uploads are switched off so capture takes the local-tile path and the
         /// driver does not need to answer browserstack_executor commands to make the point.
-        /// </summary>
         private (AppPercy Percy, StubHttpMessageHandler Handler) Build(
             StubMobileDriver driver, string? comparisonBody = null)
         {

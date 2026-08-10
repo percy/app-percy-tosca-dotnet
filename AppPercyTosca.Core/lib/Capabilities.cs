@@ -2,10 +2,8 @@ using System.Globalization;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// Typed reads over a capability bag. The same key arrives as a string on one session and a number
     /// or nested map on another, so these coerce rather than reject, and return null on a real miss.
-    /// </summary>
     public static class Capabilities
     {
         public static object? Raw(this IReadOnlyDictionary<string, object?> caps, string key)
@@ -35,23 +33,21 @@ namespace AppPercyTosca.Core
             return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
-        /// <summary>Accepts the numeric and string spellings both protocols produce.</summary>
+        /// Accepts the numeric and string spellings both protocols produce.
         public static int? GetInt(this IReadOnlyDictionary<string, object?> caps, string key)
         {
             return ToInt(caps.Raw(key));
         }
 
-        /// <summary>A nested capability object (viewportRect, bstack:options, ...), or null.</summary>
+        /// A nested capability object (viewportRect, bstack:options, ...), or null.
         public static IReadOnlyDictionary<string, object?>? GetMap(
             this IReadOnlyDictionary<string, object?> caps, string key)
         {
             return AsDictionary(caps.Raw(key));
         }
 
-        /// <summary>
         /// Doubles truncate; strings parse with invariant culture, so a device reporting "1080" does
         /// not depend on the workstation's locale.
-        /// </summary>
         public static int? ToInt(object? value)
         {
             switch (value)
@@ -83,7 +79,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Only an explicit false counts: Percy defaults to enabled when nothing is declared.</summary>
+        /// Only an explicit false counts: Percy defaults to enabled when nothing is declared.
         public static bool IsFalse(object? value)
         {
             if (value == null) return false;
@@ -92,7 +88,7 @@ namespace AppPercyTosca.Core
             return false;
         }
 
-        /// <summary>Normalizes a dictionary, a concrete string-keyed map, or a parsed JsonElement.</summary>
+        /// Normalizes a dictionary, a concrete string-keyed map, or a parsed JsonElement.
         public static IReadOnlyDictionary<string, object?>? AsDictionary(object? value)
         {
             switch (value)

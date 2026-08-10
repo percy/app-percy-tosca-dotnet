@@ -2,11 +2,9 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// The static device dimension table shipped with the SDK (pixelRatio, statusBarHeight,
     /// screenWidth, screenHeight), keyed by lower-cased device name. iOS sessions do not report
     /// their screen size, so for those this table is the primary source rather than a fallback.
-    /// </summary>
     public static class DeviceRegistry
     {
         internal const string ResourceName = "AppPercyTosca.Core.resources.devices.json";
@@ -14,14 +12,12 @@ namespace AppPercyTosca.Core
         private static JsonElement? _devices;
         private static readonly object Lock = new object();
 
-        /// <summary>
         /// Opens the embedded table. Replaceable so tests can reach the missing- and broken-resource
         /// fallbacks, which otherwise need a broken assembly to trigger.
-        /// </summary>
         internal static Func<Stream?> ResourceLoader { get; set; } = () =>
             typeof(DeviceRegistry).Assembly.GetManifestResourceStream(ResourceName);
 
-        /// <summary>One dimension, or 0 — the caller's signal to fall back to a session-derived value.</summary>
+        /// One dimension, or 0 — the caller's signal to fall back to a session-derived value.
         public static int Value(string key, string? deviceName)
         {
             if (string.IsNullOrWhiteSpace(deviceName)) return 0;
@@ -64,7 +60,7 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// <summary>Test seam: drops the memoized table and restores the real resource loader.</summary>
+        /// Test seam: drops the memoized table and restores the real resource loader.
         internal static void Reset()
         {
             lock (Lock)

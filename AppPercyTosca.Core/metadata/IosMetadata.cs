@@ -2,12 +2,10 @@ using System.Text.Json;
 
 namespace AppPercyTosca.Core
 {
-    /// <summary>
     /// iOS device facts. An iOS session does not report its physical screen size, so dimensions
     /// come from the static device table first and are only derived from the viewport as a
     /// fallback. The viewport itself is not a capability on iOS either — it takes a
     /// `mobile: viewportRect` script call.
-    /// </summary>
     public class IosMetadata : Metadata
     {
         private readonly Cache<string, object?> _cache;
@@ -55,7 +53,7 @@ namespace AppPercyTosca.Core
             return statusBar * (pixelRatio == 0 ? 1 : pixelRatio);
         }
 
-        /// <summary>iOS has no navigation bar to trim.</summary>
+        /// iOS has no navigation bar to trim.
         public override int NavBarHeight() => 0;
 
         public override int ScaleFactor()
@@ -93,11 +91,9 @@ namespace AppPercyTosca.Core
             return _cache.Get(key) as IReadOnlyDictionary<string, object?>;
         }
 
-        /// <summary>
         /// Asks the session for the viewport. Cached even when it fails (as null), so a session
         /// that cannot serve `mobile: viewportRect` — which Tosca's Mobile engine may not — is
         /// asked once per session rather than once per snapshot.
-        /// </summary>
         private IReadOnlyDictionary<string, object?>? FetchViewportRect()
         {
             try
