@@ -20,8 +20,8 @@ which matters because Tosca's internals change between releases while the WebDri
 The hub takes the screenshots and uploads them itself, so no image data passes through Tosca. Both
 single-page and full-page capture are supported.
 
-Tosca will not pass a raw Appium command through, but the session accepts one directly — which is why
-full page works here, contrary to what earlier versions of this SDK concluded.
+Tosca will not pass a raw Appium command through, but the session accepts one directly — which is what
+makes full page possible here.
 
 ## Requirements
 

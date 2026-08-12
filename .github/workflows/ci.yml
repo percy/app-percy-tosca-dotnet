@@ -4,11 +4,10 @@ name: CI
 # ran every check twice on every PR commit — two identical results, and neither one is the one the
 # branch protection rule watches. Pushes to main still run, so a direct commit or a merge is covered.
 #
-# No `@percy/cli branch` input, and no Node in the job. There used to be both, copied from the other
-# Percy SDKs, which run their suites against a CLI they link from source. This suite does not: every
-# test injects a stub HttpMessageHandler and no test opens a socket, so a linked CLI could not change
-# a single result. Installing one described a guarantee the job was not providing. If an integration
-# test that drives a real CLI is ever added, bring the input and the setup steps back with it.
+# No Node, and no `@percy/cli branch` input. This suite never reaches a CLI: every test injects a stub
+# HttpMessageHandler and none opens a socket, so a linked CLI cannot change a single result — installing
+# one would describe a guarantee the job does not provide. Add both only alongside an integration test
+# that drives a real CLI.
 
 on:
   push:

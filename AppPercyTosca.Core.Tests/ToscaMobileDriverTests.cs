@@ -189,8 +189,8 @@ namespace AppPercyTosca.Core.Tests
         }
 
         /// A real BrowserStack App Automate reply, credentials removed. Kept verbatim because the shape
-        /// is the thing under test: an earlier version required the map to arrive under a particular
-        /// envelope and silently produced an empty tag against exactly this payload.
+        /// is the thing under test: capabilities arrive both at the top level and nested under
+        /// `desired`, and reading only one envelope yields an empty tag against exactly this payload.
         private const string RealSessionCapabilities =
             "{\"value\":{\"platform\":\"LINUX\",\"webStorageEnabled\":false,\"takesScreenshot\":true,\"javascriptEnabled\":true,\"networkConnectionEnabled\":true,\"warnings\":{},\"desired\":{\"platformName\":\"Android\",\"deviceName\":\"Google Pixel 6\",\"automationName\":\"UIAutomator2\",\"udid\":\"19171FDF6000AM\",\"appPackage\":\"org.wikipedia.alpha\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\"},\"platformName\":\"Android\",\"deviceName\":\"19171FDF6000AM\",\"udid\":\"19171FDF6000AM\",\"automationName\":\"UIAutomator2\",\"os_version\":\"12.0\",\"device\":\"google pixel 6\",\"deviceApiLevel\":31,\"platformVersion\":\"12\",\"deviceScreenSize\":\"1080x2400\",\"deviceScreenDensity\":420,\"deviceModel\":\"Pixel 6\",\"deviceManufacturer\":\"Google\",\"pixelRatio\":2.625,\"statBarHeight\":124,\"viewportRect\":{\"left\":0,\"top\":124,\"width\":1080,\"height\":2116},\"lastScrollData\":null}}";
 
@@ -313,8 +313,8 @@ namespace AppPercyTosca.Core.Tests
             _ = Build(tosca, deviceHttp: device).Capabilities;
 
             Assert.True(Logged("clock in the status bar will differ between runs"));
-            // Names no parameter to set: there is none, and an earlier version of this message sent
-            // people looking for a StatusBarHeight row that does not exist.
+            // The message must not name a parameter to set, because there is none — pointing at a
+            // StatusBarHeight row that does not exist sends people looking for it.
             Assert.True(Logged("no parameter to supply them"));
         }
 
@@ -536,9 +536,9 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void TheScreenIsCapturedFromTheDeviceSessionWhenItCanBeReached()
         {
-            // The only capture route. Tosca's own screenshot task used to be a fallback here; it
-            // depended on a task name that differs between releases and bought nothing once the
-            // session turned out to be reachable directly.
+            // The only capture route. Delegating to Tosca's own screenshot task is not a fallback:
+            // it depends on a task name that differs between releases, and the session is reachable
+            // directly anyway.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             StubHttpMessageHandler device = DeviceServing(StubMobileDriver.ValidPngBase64);
 

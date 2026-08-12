@@ -37,10 +37,10 @@ namespace Tricentis.Automation.AutomationInstructions.TestActions
         object? Value { get; }
     }
 
-    // The real interface has ~35 members (all of ITestAction plus a dozen result-reporting
-    // overloads). Only what the shim calls is stubbed — which is now the point: the shim must never
-    // *implement* this interface. An earlier version did, and building against the real Tosca
-    // produced 34 CS0535 "does not implement" errors. Keep it that way: consume, never implement.
+    // Only what the shim calls is stubbed, and that is the point: the shim must consume this interface,
+    // never implement it. The real one has ~35 members — all of ITestAction plus a dozen
+    // result-reporting overloads — so implementing it means 34 CS0535 errors against the real Tosca,
+    // which no runner can catch.
     public interface ISpecialExecutionTaskTestAction
     {
         IInputValue? GetParameterAsInputValue(string name, bool optional);
