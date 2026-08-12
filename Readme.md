@@ -1,7 +1,7 @@
 # AppPercyTosca
 
 App Percy visual testing for Tricentis Tosca mobile tests. Produces a distributable assembly
-(`AppPercyTosca_v8.dll`) that adds an `AppPercyScreenshot` special execution task to Tosca, for taking
+(`AppPercyTosca.dll`) that adds an `AppPercyScreenshot` special execution task to Tosca, for taking
 App Percy screenshots of the mobile app under test.
 
 Built for **.NET 8 / Tosca Commander 24**. For web (HTML) tests, use
@@ -50,7 +50,7 @@ failing obscurely.
 
 Then register the extension:
 
-1. Copy `AppPercyTosca_v8.dll` from the [releases](../../releases) into
+1. Copy `AppPercyTosca.dll` from the [releases](../../releases) into
    `C:\Program Files (x86)\TRICENTIS\Tosca Testsuite\Percy`
 2. Add that path in Tosca Commander → Project settings → TBox → Extension loading → Extensions
 3. Restart Tosca Commander
@@ -69,10 +69,9 @@ than a typo. The minimum viable module is two rows:
 | `SnapshotName` | e.g. `Home` | Required; must be unique per snapshot |
 | `SessionId` | `{B[PercyAppiumSessionId]}` | Required; the buffer the *Get Appium Session Id* module wrote |
 
-> **Not yet shipped:** the web SDK ([percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet))
-> ships a `PercySnapshot.tsu` subset so you can import a correct module instead of building one. The
-> equivalent for this SDK is not in the repo yet — see `Release.md`. Until it is, build the module by
-> hand from the table above.
+Or skip the typing: **`AppPercyScreenshot.tsu`** ships with each release. Import that subset and you get
+a module with the engine, task name and rows already correct — which removes the whole class of problem
+above, since a mistyped task name is indistinguishable from a broken install.
 
 ### Required: the Appium session id
 

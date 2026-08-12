@@ -12,10 +12,11 @@ uploads whatever is committed, so the build has to happen before the tag.
    DLL:
    ```
    dotnet build AppPercyTosca.sln -c Release
-   cp ./AppPercyTosca/bin/Release/net8.0/AppPercyTosca.dll ./AppPercyTosca_v8.dll
+   cp ./AppPercyTosca/bin/Release/net8.0/AppPercyTosca.dll ./AppPercyTosca.dll
    ```
-   The Core is compiled into that assembly, so `AppPercyTosca_v8.dll` is the whole extension — there
-   is no second DLL to ship.
+   The committed asset keeps the assembly's own name, so there is no rename to remember and nothing
+   for the release workflow and the Readme to disagree about. The Core is compiled into that assembly,
+   so `AppPercyTosca.dll` is the whole extension — there is no second DLL to ship.
 3. Sanity-check it in Tosca: drop it in the extension folder, restart Commander, and run a
    AppPercyScreenshot step against a real device, with `PERCY_LOGLEVEL=debug` set. CI cannot cover this
    step, and it is the one that catches a Tricentis signature having changed.
