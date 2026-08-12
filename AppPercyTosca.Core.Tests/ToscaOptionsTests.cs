@@ -189,8 +189,8 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void KnownParametersListsEveryParameterTheBuildersRead()
         {
-            // The Readme declares the module's parameter rows from this, so a parameter added to
-            // Build() without being listed here would be undocumented and effectively unreachable.
+            // A parameter Build() reads without being listed here is unreachable: the manifest is what
+            // the module's rows are built from.
             List<string> read = new List<string>();
             ToscaOptions.Build(name => { read.Add(name); return null; });
 
@@ -200,8 +200,7 @@ namespace AppPercyTosca.Core.Tests
         [Fact]
         public void KnownParametersListsEveryEnvironmentParameter()
         {
-            // Same reason as above: an unlisted row is undocumented, and the Readme is generated from
-            // this list.
+            // An environment parameter missing from the manifest is unreachable, documented or not.
             Assert.Empty(ToscaOptions.EnvironmentParameters
                 .Select(entry => entry.Parameter)
                 .Except(ToscaOptions.KnownParameters));

@@ -9,8 +9,13 @@ namespace AppPercyTosca.Core
     /// optional parameter should not stop the snapshot the rest of the row describes.
     public static class ToscaOptions
     {
-        /// The module's parameter manifest, in Readme order, including the ones the shim reads itself.
-        /// A test asserts Build never reads a name missing from it.
+        /// Every parameter name the module accepts, including the ones the shim reads itself. A test
+        /// asserts Build never reads a name missing from it.
+        ///
+        /// Not the same set as the Readme documents. The diagnostic and internal-testing switches below
+        /// work but are deliberately undocumented — the other App Percy SDKs expose them as
+        /// undocumented environment variables, and publishing them here would turn an internal switch
+        /// into supported configuration.
         public static readonly string[] KnownParameters =
         {
             "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",

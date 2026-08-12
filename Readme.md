@@ -17,25 +17,18 @@ Everything goes through the session's own HTTP endpoints, using two facts: the s
 `AppiumServer` test configuration parameter, and the Appium session id. No Tricentis API is involved,
 which matters because Tosca's internals change between releases while the WebDriver protocol does not.
 
-| Capture | How |
-|---|---|
-| **Single page** | The hub's `percyScreenshot` executor command captures and uploads; tiles come back as content hashes |
-| **Full page** | The same command with `screenshotType: fullpage` — the hub scrolls, captures N tiles and returns their overlap heights for Percy to stitch |
+The hub takes the screenshots and uploads them itself, so no image data passes through Tosca. Both
+single-page and full-page capture are supported.
 
-Both are issued as `browserstack_executor:` scripts over `POST /session/{id}/execute/sync`. Tosca will
-not pass a raw Appium command through, but the hub accepts one directly — so full page works here, which
-earlier versions of this SDK wrongly concluded was impossible.
-
-With `PERCY_DISABLE_REMOTE_UPLOADS=true` a single tile is captured over
-`GET /session/{id}/screenshot` and uploaded instead. Full page is unavailable that way, exactly as in
-percy-appium-dotnet.
+Tosca will not pass a raw Appium command through, but the session accepts one directly — which is why
+full page works here, contrary to what earlier versions of this SDK concluded.
 
 ## Requirements
 
 - Tosca Commander 24, with Mobile Engine 3.0 installed and its mobile server running
 - A session on **BrowserStack App Automate** — `AppiumServer` pointing at a BrowserStack hub
 - The **Appium session id**, passed to the module (see below)
-- `@percy/cli` **1.27.0 or newer** (`/percy/comparison` landed there)
+- `@percy/cli` **1.27.0 or newer**
 - Node 14+ for the CLI
 
 ## Setup
@@ -159,24 +152,23 @@ one region, commas separate the four numbers:
 |---|---|
 | `SessionId` | The Appium session id. Use `{B[PercyAppiumSessionId]}` to pass a buffer written by the *Get Appium Session Id* module |
 
-### Settings that are otherwise environment variables
+### Logging
 
-Tosca cannot set environment variables for the process it runs in, so each of these has a module
-parameter that does the same job. A parameter wins over the variable of the same meaning.
+Tosca cannot set environment variables for the process it runs in, so these have module parameters that
+do the same job. A parameter wins over the variable of the same meaning.
 
 | Parameter | Variable it stands in for | Effect |
 |---|---|---|
 | `LogLevel` | `PERCY_LOGLEVEL` | `debug` for verbose SDK logging |
 | `LogFile` | `PERCY_LOG_FILE` | Where the log file copy is written |
-| `CliApi` | `PERCY_CLI_API` | CLI address (default `http://localhost:5338`) |
-| `TmpDir` | `PERCY_TMP_DIR` | Where screenshot tiles are written |
-| `ForceFullPage` | `FORCE_FULL_PAGE` | `true` to force the full-page path |
-| `DisableRemoteUploads` | `PERCY_DISABLE_REMOTE_UPLOADS` | `true` to keep tiles local |
-| `EnablePercyDev` | `PERCY_ENABLE_DEV` | `true` to target the dev project |
-| `AutomateDomain` | `AA_DOMAIN` | Domain fragment marking a host as App Automate |
 
-`PERCY_TOKEN` is not in this table: the CLI reads it, not this SDK, so a parameter for it would be
-silently ignored. It has to be set where the CLI can see it.
+`PERCY_TOKEN` has no parameter: the CLI reads it, not this SDK, so a value here would be silently
+ignored. It has to be set where the CLI can see it.
+
+The same mechanism backs a handful of switches this SDK reads for diagnosis and internal testing, which
+are **not supported configuration** and are deliberately not documented individually — if you have been
+asked to set one, you will have been told which. Support may ask for `LogLevel`; nothing else here is
+something a test sheet should be choosing.
 
 ## Troubleshooting
 
@@ -211,18 +203,14 @@ a TCP, which is why the flat `percy.*` spellings are the ones to use on Tosca.)
 
 ### Environment variables
 
-Every variable below except `PERCY_TOKEN` also has a module parameter — see
-[Settings that are otherwise environment variables](#settings-that-are-otherwise-environment-variables),
-which is the route to use on Tosca.
+On Tosca, prefer the module parameters — see [Logging](#logging) — since Tosca cannot set environment
+variables for the process it runs in.
 
 | Variable | Effect |
 |---|---|
-| `PERCY_TOKEN` | Your Percy project token (read by the CLI; no parameter equivalent) |
-| `PERCY_LOGLEVEL=debug` | Verbose SDK logging |
-| `PERCY_LOG_FILE` | Where the log file copy is written (default `%TEMP%\percy.txt`) |
-| `PERCY_CLI_API` | CLI address (default `http://localhost:5338`) |
-| `PERCY_TMP_DIR` | Where screenshot tiles are written (default the system temp directory) |
-| `FORCE_FULL_PAGE`, `PERCY_DISABLE_REMOTE_UPLOADS`, `PERCY_ENABLE_DEV`, `AA_DOMAIN` | See the parameter table above |
+| `PERCY_TOKEN` | Your Percy project token. Read by the CLI, not this SDK, so it has no parameter equivalent |
+| `PERCY_LOGLEVEL=debug` | Verbose SDK logging; same as the `LogLevel` parameter |
+| `PERCY_LOG_FILE` | Where the log file copy is written (default `%TEMP%\percy.txt`); same as `LogFile` |
 
 ## Development
 
