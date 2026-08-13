@@ -49,12 +49,13 @@ Then register the extension:
 
 ## The three tasks
 
-The extension provides three special execution tasks. A test case uses all three:
+The extension provides three special execution tasks, and a test case uses all three. All take
+**Engine** → `Percy`; only the **SpecialExecutionTask** differs.
 
-| Task | Where | What it does |
+| SpecialExecutionTask | Where | What it does |
 |---|---|---|
 | `AppPercyStartCli` | once, first | Starts the Percy CLI and waits until it is serving |
-| `AppPercyScreenshot` | any number of times | Takes one snapshot |
+| `AppPercyScreenshot` | any number of times | Takes one screenshot |
 | `AppPercyStopCli` | once, last | Stops the CLI, which finalizes the build, and reports the build link |
 
 Starting and stopping from the sheet means a run no longer depends on someone having typed
@@ -67,6 +68,8 @@ finalizes the build on its own timeout; failing the last step of an otherwise go
 something less true than passing it.
 
 ### Starting the CLI
+
+Create a module with **Engine** → `Percy` and **SpecialExecutionTask** → `AppPercyStartCli`. Rows:
 
 | Row | Value | Notes |
 |---|---|---|
@@ -83,6 +86,11 @@ the environment on a shared workspace.
 Readiness is judged two ways: the CLI printing `Percy has started!`, **and** its healthcheck answering.
 The log line alone would report success to a sheet whose snapshots are all about to be dropped. First
 start on a fresh machine can take a couple of minutes, because the CLI downloads a browser.
+
+### Stopping the CLI
+
+**Engine** → `Percy`, **SpecialExecutionTask** → `AppPercyStopCli`. It needs no rows — `CliCommand` and
+`PercyToken` are accepted if the CLI is not on the PATH Tosca sees.
 
 ### The screenshot module
 
@@ -219,7 +227,7 @@ diagnostic in itself:
 | `percy.txt` | Meaning |
 |---|---|
 | missing, or no `assembly loaded:` line | Tosca never loaded the DLL. Check the extension folder, the registered path, and that Commander was fully restarted — not the code |
-| has `assembly loaded:` but nothing else | The DLL loaded but the task was not registered, or no step ran. Compare the module's `Engine` and `SpecialExecutionTask` values against `Percy` and `AppPercyScreenshot` |
+| has `assembly loaded:` but nothing else | The DLL loaded but the task was not registered, or no step ran. Compare the module's `Engine` and `SpecialExecutionTask` values against `Percy` and one of `AppPercyStartCli` / `AppPercyScreenshot` / `AppPercyStopCli` |
 | has later lines | The extension is running; read on for the actual problem |
 
 A failed snapshot does **not** fail the Tosca step: a visual check that could not run is not a
