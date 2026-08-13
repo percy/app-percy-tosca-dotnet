@@ -22,10 +22,18 @@ namespace AppPercyTosca.Core
             new Regex(@"([?&](?:access[_-]?key|auth[_-]?token|token|password|secret)=)[^&\s""']+",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        // A Percy project token, which the CLI tasks now handle: app_ for App projects, auto_ for
+        // Automate. Passed to the child process through its environment rather than its arguments, so
+        // this is defence in depth against one reaching a log by another route — an exception message
+        // quoting a command line, say.
+        private static readonly Regex PercyToken =
+            new Regex(@"\b(app|auto)_[0-9a-f]{32,}\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         public static string RedactCredentials(string? message)
         {
             if (string.IsNullOrEmpty(message)) return message ?? "";
             message = UrlUserInfo.Replace(message, "$1://***@");
+            message = PercyToken.Replace(message, "$1_***");
             return CredentialQuery.Replace(message, "$1***");
         }
 

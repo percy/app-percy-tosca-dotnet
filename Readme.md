@@ -1,8 +1,9 @@
 # AppPercyTosca
 
 App Percy visual testing for Tricentis Tosca mobile tests. Produces a distributable assembly
-(`AppPercyTosca.dll`) that adds an `AppPercyScreenshot` special execution task to Tosca, for taking
-App Percy screenshots of the mobile app under test.
+(`AppPercyTosca.dll`) that adds three special execution tasks to Tosca — `AppPercyStartCli`,
+`AppPercyScreenshot` and `AppPercyStopCli` — for running a Percy build and taking App Percy screenshots
+of the mobile app under test, without leaving Tosca.
 
 Built for **.NET 8 / Tosca Commander 24**. For web (HTML) tests, use
 [percy-tosca-dotnet](https://github.com/percy/percy-tosca-dotnet) instead — this repository is the
@@ -33,20 +34,11 @@ makes full page possible here.
 
 ## Setup
 
-Install and start the Percy CLI:
+Install the Percy CLI:
 
 ```sh-session
-$ npm install --save-dev @percy/cli
+$ npm install --global @percy/cli
 ```
-
-```sh-session
-$ set PERCY_TOKEN=<your App project token>
-$ percy app:exec:start
-```
-
-Use an **App** project's token and `app:exec:start`. A token starting with `auto_` is an Automate
-project token and selects a mode this SDK does not support — the step reports that plainly rather than
-failing obscurely.
 
 Then register the extension:
 
@@ -55,7 +47,44 @@ Then register the extension:
 2. Add that path in Tosca Commander → Project settings → TBox → Extension loading → Extensions
 3. Restart Tosca Commander
 
-### The module
+## The three tasks
+
+The extension provides three special execution tasks. A test case uses all three:
+
+| Task | Where | What it does |
+|---|---|---|
+| `AppPercyStartCli` | once, first | Starts the Percy CLI and waits until it is serving |
+| `AppPercyScreenshot` | any number of times | Takes one snapshot |
+| `AppPercyStopCli` | once, last | Stops the CLI, which finalizes the build, and reports the build link |
+
+Starting and stopping from the sheet means a run no longer depends on someone having typed
+`percy app:exec:start` in a terminal first. That mattered more than it sounds: forgetting is not a loud
+failure — snapshots are swallowed, every step passes, and the build comes out empty.
+
+`AppPercyStartCli` **fails the step** if the CLI does not come up, for the same reason. `AppPercyStopCli`
+passes even if it cannot stop cleanly, since by then the snapshots are already uploaded and Percy
+finalizes the build on its own timeout; failing the last step of an otherwise good run would say
+something less true than passing it.
+
+### Starting the CLI
+
+| Row | Value | Notes |
+|---|---|---|
+| `PercyToken` | your **App** project token | Or leave it off and set `PERCY_TOKEN` in the environment |
+| `CliCommand` | e.g. `C:\Users\you\AppData\Roaming\npm\percy` | Optional. Only needed when `percy` is not on the PATH Tosca sees |
+
+Use an **App** project's token. One starting with `auto_` is an Automate project token and selects a mode
+this SDK does not support — the step reports that plainly rather than failing obscurely.
+
+The token is passed to the CLI through its environment, never on its command line, and is redacted if it
+ever reaches a log by another route. It is still a secret in a test asset, so prefer an encrypted TCP or
+the environment on a shared workspace.
+
+Readiness is judged two ways: the CLI printing `Percy has started!`, **and** its healthcheck answering.
+The log line alone would report success to a sheet whose snapshots are all about to be dropped. First
+start on a fresh machine can take a couple of minutes, because the CLI downloads a browser.
+
+### The screenshot module
 
 Create a module with **Engine** → `Percy` and **SpecialExecutionTask** → `AppPercyScreenshot`, then add
 each parameter you want as a row with **Parameter** → `True`.
@@ -161,8 +190,9 @@ do the same job. A parameter wins over the variable of the same meaning.
 | `LogLevel` | `PERCY_LOGLEVEL` | `debug` for verbose SDK logging |
 | `LogFile` | `PERCY_LOG_FILE` | Where the log file copy is written |
 
-`PERCY_TOKEN` has no parameter: the CLI reads it, not this SDK, so a value here would be silently
-ignored. It has to be set where the CLI can see it.
+`PERCY_TOKEN` is handled by `AppPercyStartCli`'s `PercyToken` row instead — see
+[Starting the CLI](#starting-the-cli). It reaches the CLI through the child process's environment, so it
+belongs on that task rather than on a snapshot.
 
 The same mechanism backs a handful of switches this SDK reads for diagnosis and internal testing, which
 are **not supported configuration** and are deliberately not documented individually — if you have been
@@ -207,7 +237,7 @@ variables for the process it runs in.
 
 | Variable | Effect |
 |---|---|
-| `PERCY_TOKEN` | Your Percy project token. Read by the CLI, not this SDK, so it has no parameter equivalent |
+| `PERCY_TOKEN` | Your Percy project token. Read by the CLI; `AppPercyStartCli` forwards its `PercyToken` row here |
 | `PERCY_LOGLEVEL=debug` | Verbose SDK logging; same as the `LogLevel` parameter |
 | `PERCY_LOG_FILE` | Where the log file copy is written (default `%TEMP%\percy.txt`); same as `LogFile` |
 

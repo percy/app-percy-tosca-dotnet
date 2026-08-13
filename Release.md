@@ -17,12 +17,17 @@ uploads whatever is committed, so the build has to happen before the tag.
    The committed asset keeps the assembly's own name, so there is no rename to remember and nothing
    for the release workflow and the Readme to disagree about. The Core is compiled into that assembly,
    so `AppPercyTosca.dll` is the whole extension — there is no second DLL to ship.
-3. Sanity-check it in Tosca: drop it in the extension folder, restart Commander, and run a
-   AppPercyScreenshot step against a real device, with `PERCY_LOGLEVEL=debug` set. CI cannot cover this
-   step, and it is the one that catches a Tricentis signature having changed.
-4. **Export the module as a Tosca subset** and commit it as `AppPercyScreenshot.tsu` in the repository
-   root, the way the web SDK ships `PercySnapshot.tsu`. Do this from the module you just verified in
-   step 3, so what ships is a configuration known to work.
+3. Sanity-check it in Tosca: drop it in the extension folder, restart Commander, and run a test case
+   that starts the CLI, takes a screenshot against a real device and stops the CLI, with a `LogLevel`
+   row of `debug`. CI cannot cover this step, and it is the one that catches a Tricentis signature
+   having changed. `AppPercyStartCli` is also the only place a real `percy` process is ever launched, so
+   it is unverified until here.
+4. **Export the modules as a Tosca subset** and commit it as `AppPercyScreenshot.tsu` in the repository
+   root, the way the web SDK ships `PercySnapshot.tsu`. Do this from the modules you just verified in
+   step 3, so what ships is a configuration known to work. All three tasks belong in it —
+   `AppPercyStartCli`, `AppPercyScreenshot` and `AppPercyStopCli` — since a sheet needs all three and a
+   subset carrying only one leaves the other two to be typed by hand, which is the failure mode the
+   subset exists to remove.
 
    This matters more than it looks. Every module row is typed by hand today, and a mistyped task name
    or engine reports as `The SpecialExecutionTask 'x' was not found for engine 'y'` — indistinguishable

@@ -75,6 +75,12 @@ namespace AppPercyTosca.Core
             return (_enabled = RunHealthcheck()).Value;
         }
 
+        /// Discards the memoized answer, for when something has just changed the CLI's state rather than
+        /// merely observed it — starting one. Without this the memo would keep reporting the CLI absent
+        /// for up to <see cref="HealthcheckTtl"/> after it came up, and the step that started it would be
+        /// the one told it had failed.
+        public void ResetHealthcheck() => _enabled = null;
+
         private bool RunHealthcheck()
         {
             try
