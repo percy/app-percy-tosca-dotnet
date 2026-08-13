@@ -1,1 +1,0 @@
-# app-percy-tosca-dotnet

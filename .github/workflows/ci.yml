@@ -1,0 +1,104 @@
+name: CI
+
+# `push` is restricted to main. A branch push and its pull_request would otherwise both fire, which
+# ran every check twice on every PR commit — two identical results, and neither one is the one the
+# branch protection rule watches. Pushes to main still run, so a direct commit or a merge is covered.
+#
+# No Node, and no `@percy/cli branch` input. This suite never reaches a CLI: every test injects a stub
+# HttpMessageHandler and none opens a socket, so a linked CLI cannot change a single result — installing
+# one would describe a guarantee the job does not provide. Add both only alongside an integration test
+# that drives a real CLI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    # AppPercyTosca.sln is deliberately not built here: it references the Tricentis assemblies, which
+    # only exist on a machine with Tosca Testsuite installed. The shim's *sources* are still compiled,
+    # by AppPercyTosca.ShimCheck (part of the Core solution) against stubs for those types — see that
+    # project's csproj for what that does and does not prove.
+    name: Core unit tests + 100% line coverage gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # v5, not v4: v4 runs on Node 20, which GitHub has deprecated and now force-runs on Node 24
+      # while annotating every job with a warning.
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore AppPercyTosca.Core.sln
+
+      - name: Test with 100% line coverage gate
+        run: >
+          dotnet test AppPercyTosca.Core.sln
+          --no-restore
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+          /p:Include="[AppPercyTosca.Core]*"
+          /p:ThresholdType=line
+          /p:Threshold=100
+
+  lint:
+    # Separate job, not a step on `core`: a formatting complaint and a failing test are different
+    # problems, and reading which one happened off the job name beats scrolling a combined log.
+    #
+    # Runs over AppPercyTosca.Core.sln, which covers the shim's sources too — ShimCheck compiles
+    # ..\AppPercyTosca\*.cs, so the only Tricentis-touching code is linted here despite never being
+    # buildable on a runner.
+    #
+    # Rules come from .editorconfig rather than the SDK's defaults, so an SDK upgrade cannot start
+    # failing this over a preference nobody chose.
+    name: Format and analyzers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # v5, not v4: v4 runs on Node 20, which GitHub has deprecated and now force-runs on Node 24
+      # while annotating every job with a warning.
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore AppPercyTosca.Core.sln
+
+      # --verify-no-changes fails rather than rewriting: CI reports, the author fixes. Run
+      # `dotnet format AppPercyTosca.Core.sln` locally to apply everything this would have changed.
+      - name: Check formatting and analyzer diagnostics
+        run: dotnet format AppPercyTosca.Core.sln --no-restore --verify-no-changes --verbosity diagnostic
+
+      # Blank-line runs, which `dotnet format` does not catch. .editorconfig asks for at most one
+      # (csharp_style_allow_multiple_blank_lines_experimental), but IDE2000 neither reports nor fixes
+      # on the .NET 8 SDK — IDEs honour it, the formatter does not. So the check is done here, where
+      # it is thirty lines of awk that cannot silently stop working.
+      #
+      # It matters because these are deletion scars: remove a member and its surrounding blank lines
+      # stay, and they pile up until a reader cannot tell a deliberate separation from residue. There
+      # are no multi-line string literals in this repo, so a purely textual check is safe.
+      - name: Check for runs of blank lines
+        run: |
+          found=0
+          while IFS= read -r file; do
+            awk -v F="$file" '
+              /^[[:space:]]*$/ { blanks++; next }
+              { if (blanks >= 2) print F ":" NR - blanks ": " blanks " blank lines in a row"
+                if (blanks >= 1 && $0 ~ /^[[:space:]]*\}[[:space:]]*$/) print F ":" NR - blanks ": blank line before a closing brace"
+                blanks = 0 }
+              END { if (blanks >= 1) print F ":" NR - blanks + 1 ": " blanks " blank line(s) at end of file" }
+            ' "$file"
+          done < <(git ls-files '*.cs') > "$RUNNER_TEMP/blank-lines.txt"
+          if [ -s "$RUNNER_TEMP/blank-lines.txt" ]; then
+            echo "::error::Blank-line runs found. Collapse each to one blank line, or none before a closing brace."
+            cat "$RUNNER_TEMP/blank-lines.txt"
+            found=1
+          fi
+          exit $found

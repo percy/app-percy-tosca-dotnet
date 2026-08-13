@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Compile-checks the Tosca shim on a machine with no Tosca installed.
+
+       AppPercyTosca.csproj references ~145 Tricentis assemblies that only exist alongside a Tosca
+       Testsuite installation, so CI cannot build it and neither can a developer on macOS or Linux.
+       Without this project the shim's source would be entirely unverified until someone opened it in
+       Visual Studio on a Tosca machine — and a typo there is a broken release, not a failed build.
+
+       So: the same shim sources are compiled here against hand-written stand-ins for the handful of
+       Tricentis types they touch (TricentisStubs.cs), whose signatures are copied from the ones the
+       HTML SDK (percy/percy-tosca-dotnet) compiles against on Tosca Commander 24.
+
+       This proves the shim is valid C# against those signatures. It does NOT prove the signatures
+       match a given Tosca release — if Tricentis changes one, this project keeps passing and the real
+       build fails. Keep the stubs in step with what AppPercyTosca.csproj actually builds against.
+
+       Nothing here ships. The output assembly is not the extension. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>AppPercyTosca.ShimCheck</AssemblyName>
+    <RootNamespace>AppPercyTosca</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <IsPackable>false</IsPackable>
+    <!-- The shim is small enough that any warning in it is worth reading, and this is the only
+         place one would ever be seen. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- The sources are listed explicitly below rather than globbed from this directory. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TricentisStubs.cs" />
+    <Compile Include="..\AppPercyTosca\*.cs" />
+    <Compile Include="..\AppPercyTosca.Core\**\*.cs"
+             Exclude="..\AppPercyTosca.Core\bin\**;..\AppPercyTosca.Core\obj\**" />
+    <EmbeddedResource Include="..\AppPercyTosca.Core\resources\devices.json"
+                      LogicalName="AppPercyTosca.Core.resources.devices.json" />
+  </ItemGroup>
+
+</Project>

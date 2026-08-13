@@ -1,0 +1,25 @@
+name: Upload DLL
+on:
+  release:
+    types: [published]
+jobs:
+  build:
+    name: Upload DLL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Both assets are built and exported by hand — a runner has no Tricentis assemblies to build
+      # against and no Commander to export a subset from. See Release.md. Fail loudly rather than
+      # publishing a release that is missing one of them.
+      - name: Check the assets were committed
+        run: |
+          test -f ./AppPercyTosca.dll
+          test -f ./AppPercyScreenshot.tsu
+      - name: Upload assets
+        uses: softprops/action-gh-release@62c96d0c4e8a889135c1f3a25910db8dbe0e85f7
+        with:
+          files: |
+            ./AppPercyTosca.dll
+            ./AppPercyScreenshot.tsu
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
