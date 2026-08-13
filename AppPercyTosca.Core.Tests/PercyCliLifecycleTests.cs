@@ -106,12 +106,37 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void EveryCliLineIsLoggedSoAFailedStartExplainsItself()
+        public void AFailedStartRepeatsWhatTheCliSaidWithoutNeedingDebugLogging()
         {
+            // The whole output at info: it is the only explanation there is, and a user who has to
+            // re-run with LogLevel=debug to see it has already lost the run.
             PercyCliLifecycle.Start(
                 new StubCliLauncher(new StubCliProcess("[percy] Missing PERCY_TOKEN")), Down());
 
+            Assert.True(Logged("The Percy CLI said:"));
             Assert.True(Logged("percy: [percy] Missing PERCY_TOKEN"));
+            Assert.DoesNotContain("debug", Logs.Where(l => l.Message.Contains("Missing PERCY_TOKEN"))
+                .Select(l => l.Level));
+        }
+
+        [Fact]
+        public void ACliThatPrintsNothingAtAllSaysWhereToLookInstead()
+        {
+            PercyCliLifecycle.Start(new StubCliLauncher(new StubCliProcess()), Down());
+
+            Assert.True(Logged("printed nothing before giving up"));
+            Assert.True(Logged("CliCommand"));
+        }
+
+        [Fact]
+        public void ASuccessfulStartDoesNotNarrateItself()
+        {
+            // Every line at info would make a working start noisy for no benefit; the failure path is
+            // where the transcript earns its place.
+            PercyCliLifecycle.Start(
+                new StubCliLauncher(new StubCliProcess("[percy] Percy has started!")), ComesUp());
+
+            Assert.False(Logged("The Percy CLI said:"));
         }
 
         [Fact]

@@ -44,9 +44,10 @@ namespace AppPercyTosca.Core
             }
 
             ICliProcess process = launcher.Start("app:exec:start");
+            List<string> transcript = new List<string>();
             try
             {
-                if (WaitForReady(process))
+                if (WaitForReady(process, transcript))
                 {
                     // The log line said so; the healthcheck proves it. Env.PercyBuildId and
                     // PercyBuildUrl are populated as a side effect, which is what lets a later Stop
@@ -63,6 +64,7 @@ namespace AppPercyTosca.Core
                         "warn");
                 }
 
+                ReportFailedStart(transcript);
                 process.Kill();
                 return "Percy CLI did not start; see the log";
             }
@@ -74,9 +76,8 @@ namespace AppPercyTosca.Core
             }
         }
 
-        /// Reads until the CLI says it is ready, gives up, or dies. Every line is logged: when a start
-        /// fails, the CLI's own output is the only explanation there is.
-        private static bool WaitForReady(ICliProcess process)
+        /// Reads until the CLI says it is ready, gives up, or dies, keeping what it printed.
+        private static bool WaitForReady(ICliProcess process, List<string> transcript)
         {
             DateTime deadline = Clock() + StartTimeout;
 
@@ -96,6 +97,9 @@ namespace AppPercyTosca.Core
                     return false;
                 }
 
+                transcript.Add(line);
+                // Live at debug so a slow start can be watched; ReportFailedStart repeats it at info if
+                // it turns out to matter, because a successful start should not narrate itself.
                 Utils.Log($"percy: {line}", "debug");
                 if (line.Contains(ReadyLine, StringComparison.OrdinalIgnoreCase)) return true;
             }
@@ -103,6 +107,22 @@ namespace AppPercyTosca.Core
             Utils.Log($"The Percy CLI did not report \"{ReadyLine}\" within " +
                 $"{StartTimeout.TotalSeconds:0}s.", "warn");
             return false;
+        }
+
+        /// What the CLI printed, at info rather than debug: on a failed start this is the only
+        /// explanation there is, and a user who must re-run with LogLevel=debug to see it has already
+        /// lost the run.
+        private static void ReportFailedStart(List<string> transcript)
+        {
+            if (transcript.Count == 0)
+            {
+                Utils.Log("The Percy CLI printed nothing before giving up. Check that @percy/cli is " +
+                    "installed and, if it is not on the PATH Tosca sees, that CliCommand points at it.");
+                return;
+            }
+
+            Utils.Log("The Percy CLI said:");
+            foreach (string line in transcript) Utils.Log($"  percy: {line}");
         }
 
         /// Stops the CLI and reports the build it finalized. The link is what a Tosca step should carry:
