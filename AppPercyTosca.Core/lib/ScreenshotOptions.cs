@@ -2,7 +2,7 @@ namespace AppPercyTosca.Core
 {
     /// Everything a single AppPercyScreenshot step can be told to do. Built from Tosca module
     /// parameters by <see cref="ToscaOptions.Build"/>; the defaults here are what a step with only a
-    /// SnapshotName gets.
+    /// ScreenshotName gets.
     ///
     /// Deliberately carries no device details — name, OS, screen size, bar heights, orientation. Those
     /// are read from the session, which knows the device that was actually allocated; a module

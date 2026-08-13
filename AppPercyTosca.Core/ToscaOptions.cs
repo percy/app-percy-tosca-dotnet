@@ -18,10 +18,11 @@ namespace AppPercyTosca.Core
         /// into supported configuration.
         public static readonly string[] KnownParameters =
         {
-            "SnapshotName", "FullScreen", "FullPage", "ScreenLengths",
+            "ScreenshotName", "FullScreen", "FullPage", "ScreenLengths",
             "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
             "CustomIgnoreRegions", "CustomConsiderRegions",
             "Labels", "SessionId",
+            "CliCommand", "PercyToken",
             "LogLevel", "LogFile", "CliApi", "TmpDir",
             "ForceFullPage", "DisableRemoteUploads", "EnablePercyDev", "AutomateDomain"
         };

@@ -83,19 +83,19 @@ namespace AppPercyTosca
         {
             ToscaOptions.ParameterReader read = name => Parameter(testAction, name);
 
-            // Before the first log line, and before the SnapshotName check that can log and return:
+            // Before the first log line, and before the name check that can log and return:
             // LogLevel and LogFile decide whether and where any of it is recorded. Tosca cannot set
             // environment variables for its own process, so these rows are the only way in.
             ToscaOptions.ApplyEnvironment(read);
 
-            string? snapshotName = read("SnapshotName");
-            if (string.IsNullOrWhiteSpace(snapshotName))
+            string? screenshotName = read("ScreenshotName");
+            if (string.IsNullOrWhiteSpace(screenshotName))
             {
-                Utils.Log("SnapshotName cannot be empty!");
-                return new UnknownFailedActionResult("SnapshotName cannot be empty!");
+                Utils.Log("ScreenshotName cannot be empty!");
+                return new UnknownFailedActionResult("ScreenshotName cannot be empty!");
             }
 
-            Utils.Log($"Starting Percy screenshot, {snapshotName}");
+            Utils.Log($"Starting Percy screenshot, {screenshotName}");
 
             try
             {
@@ -111,13 +111,13 @@ namespace AppPercyTosca
 
                 // Passes whether or not a snapshot was recorded, but never claims one that was not:
                 // see SnapshotOutcome.
-                return new PassedActionResult(Screenshot(driver, snapshotName!, options));
+                return new PassedActionResult(Screenshot(driver, screenshotName!, options));
             }
             catch (Exception e)
             {
                 // Only reached under percy.ignoreErrors=false; the Core swallows everything else.
                 string message = Utils.RedactCredentials(e.Message);
-                Utils.Log($"Percy snapshot {snapshotName} failed: {message}");
+                Utils.Log($"Percy snapshot {screenshotName} failed: {message}");
                 return new UnknownFailedActionResult($"Percy snapshot failed: {message}");
             }
         }
@@ -125,7 +125,7 @@ namespace AppPercyTosca
         /// Returns what the step should report; every outcome but a throw leaves it passing.
         private static string Screenshot(
             ToscaMobileDriver driver,
-            string snapshotName,
+            string screenshotName,
             ScreenshotOptions options)
         {
             // Must run before the mode check below: without it the first step of a Commander session
@@ -149,7 +149,7 @@ namespace AppPercyTosca
             }
 
             return SnapshotOutcome.Describe(
-                AppPercyFor(driver).Screenshot(snapshotName, options), snapshotName);
+                AppPercyFor(driver).Screenshot(screenshotName, options), screenshotName);
         }
 
         // A fresh façade per step: the Core's caches are per-session and this driver is per-step, so

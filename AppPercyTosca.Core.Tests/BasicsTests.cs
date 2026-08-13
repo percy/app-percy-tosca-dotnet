@@ -176,6 +176,26 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(expected, Utils.RedactCredentials(input));
         }
 
+        [Theory]
+        [InlineData("token app_0123456789abcdef0123456789abcdef0123 used",
+            "token app_*** used")]
+        [InlineData("PERCY_TOKEN=auto_0123456789ABCDEF0123456789abcdef0123",
+            "PERCY_TOKEN=auto_***")]
+        public void APercyProjectTokenIsRedacted(string input, string expected)
+        {
+            // The CLI tasks handle a token now. It is passed to the child through its environment
+            // rather than its arguments, so this is the second line of defence — an exception quoting
+            // a command line, say.
+            Assert.Equal(expected, Utils.RedactCredentials(input));
+        }
+
+        [Fact]
+        public void SomethingMerelyPrefixedLikeATokenIsLeftAlone()
+        {
+            // Too short to be a token, so redacting it would only obscure a real message.
+            Assert.Equal("app_short", Utils.RedactCredentials("app_short"));
+        }
+
         [Fact]
         public void ALocatorThatLooksLikeAUrlIsLeftAlone()
         {

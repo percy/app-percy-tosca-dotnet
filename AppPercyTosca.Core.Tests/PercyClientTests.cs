@@ -381,5 +381,25 @@ namespace AppPercyTosca.Core.Tests
             Assert.Contains("\"message\":\"hello\"", body);
             Assert.Contains("\"level\":\"warn\"", body);
         }
+
+        [Fact]
+        public void ResettingTheHealthcheckMakesItAskAgainWithinTheTtl()
+        {
+            // What the start task needs: it has just changed the CLI's state rather than observed it,
+            // so the memo saying "absent" would otherwise outlive the CLI coming up.
+            StubHttpMessageHandler handler = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException("connection refused")
+            };
+            PercyClient client = Client(handler);
+            Assert.False(client.Healthcheck());
+
+            handler.Throw = null;
+            handler.Default(HealthyBody);
+            Assert.False(client.Healthcheck());
+
+            client.ResetHealthcheck();
+            Assert.True(client.Healthcheck());
+        }
     }
 }
