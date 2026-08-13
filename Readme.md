@@ -95,7 +95,7 @@ than a typo. The minimum viable module is two rows:
 
 | Row | Value | Notes |
 |---|---|---|
-| `SnapshotName` | e.g. `Home` | Required; must be unique per snapshot |
+| `ScreenshotName` | e.g. `Home` | Required; must be unique per screenshot |
 | `SessionId` | `{B[PercyAppiumSessionId]}` | Required; the buffer the *Get Appium Session Id* module wrote |
 
 Or skip the typing: **`AppPercyScreenshot.tsu`** ships with each release. Import that subset and you get
@@ -122,14 +122,14 @@ the step says so.
 
 ## Parameters
 
-`SnapshotName` and `SessionId` are required. Everything else is optional; a step with just those two
+`ScreenshotName` and `SessionId` are required. Everything else is optional; a step with just those two
 takes a single-screen snapshot of the current screen.
 
 ### Naming
 
 | Parameter | Description |
 |---|---|
-| `SnapshotName` (**required**) | The snapshot name; must be unique to each snapshot |
+| `ScreenshotName` (**required**) | The screenshot's name; must be unique to each screenshot |
 | `Labels` | Comma-separated labels |
 
 ### Device details
