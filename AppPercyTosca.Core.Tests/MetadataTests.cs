@@ -156,6 +156,68 @@ namespace AppPercyTosca.Core.Tests
             Assert.Equal(2340, tag["height"]);
             Assert.Equal("portrait", tag["orientation"]);
         }
+
+        [Fact]
+        public void ADeviceFamilyIsNotADeviceName()
+        {
+            // Measured: BrowserStack reports `device` as "iphone" for every iPhone. Taken as a name it
+            // merges every iOS device into one baseline, which is how three devices came to share a tag.
+            StubMobileDriver driver = StubMobileDriver.Ios();
+            driver.Caps.Remove("deviceName");
+            driver.Caps["device"] = "iphone";
+
+            Assert.Equal("iphone", Build(driver).DeviceName());
+            Assert.True(Logged("did not report a device model"));
+            Assert.True(Logged("baselines merge"));
+        }
+
+        [Fact]
+        public void TheResolvedModelOutranksBothOtherSpellings()
+        {
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps["deviceModel"] = "Pixel 6";
+            driver.Caps["deviceName"] = "1A131FDF6009SA";
+
+            Assert.Equal("Pixel 6", Build(driver).DeviceName());
+        }
+
+        [Fact]
+        public void AUdidIsNeverUsedAsTheName()
+        {
+            // Two reasons: unreadable, and App Automate allocates a different physical device per run,
+            // so a UDID would split the baseline every time.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("device");
+            driver.Caps["deviceName"] = "1A131FDF6009SA";
+
+            Assert.Equal("1A131FDF6009SA", Build(driver).DeviceName());
+            Assert.True(Logged("did not report a device model"));
+        }
+
+        [Theory]
+        [InlineData("iPad Pro 12.9 2021")]
+        [InlineData("Galaxy S22 Ultra")]
+        public void ANameWithSpacesIsAModelHoweverManyDigitsItHas(string name)
+        {
+            // The identifier test keys on the absence of spaces, so a model with a year or a size in it
+            // must not be mistaken for a serial number.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("device");
+            driver.Caps["deviceName"] = name;
+
+            Assert.Equal(name, Build(driver).DeviceName());
+            Assert.False(Logged("did not report a device model"));
+        }
+
+        [Fact]
+        public void WithNothingToGoOnThereIsNoNameAndNoNotice()
+        {
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("device");
+
+            Assert.Null(Build(driver).DeviceName());
+            Assert.False(Logged("did not report a device model"));
+        }
     }
 
     public class AndroidMetadataTests : CoreTestBase
@@ -167,23 +229,6 @@ namespace AppPercyTosca.Core.Tests
         public void TheOsNameIsAndroid()
         {
             Assert.Equal("Android", Build(StubMobileDriver.Android()).OsName());
-        }
-
-        [Fact]
-        public void TheDeviceNameFallsBackFromResolvedToRequested()
-        {
-            StubMobileDriver driver = StubMobileDriver.Android();
-
-            // `device` is what App Automate reports it actually allocated, and outranks the requested
-            // `deviceName` — which BrowserStack sets to the UDID.
-            Assert.Equal("Samsung Galaxy S22", Build(driver).DeviceName());
-
-            driver.Caps.Remove("device");
-            driver.Caps["deviceName"] = "Galaxy S22 Ultra";
-            Assert.Equal("Galaxy S22 Ultra", Build(driver).DeviceName());
-
-            driver.Caps.Remove("deviceName");
-            Assert.Null(Build(driver).DeviceName());
         }
 
         [Fact]
@@ -321,21 +366,6 @@ namespace AppPercyTosca.Core.Tests
         public void TheOsNameIsIos()
         {
             Assert.Equal("iOS", Build(StubMobileDriver.Ios()).OsName());
-        }
-
-        [Fact]
-        public void TheDeviceNameComesFromTheCapability()
-        {
-            StubMobileDriver driver = StubMobileDriver.Ios();
-
-            Assert.Equal("iPhone X", Build(driver).DeviceName());
-
-            driver.Caps.Remove("deviceName");
-            driver.Caps["device"] = "iPhone 13";
-            Assert.Equal("iPhone 13", Build(driver).DeviceName());
-
-            driver.Caps.Remove("device");
-            Assert.Null(Build(driver).DeviceName());
         }
 
         [Fact]

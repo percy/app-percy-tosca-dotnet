@@ -178,10 +178,28 @@ namespace AppPercyTosca.Core
 
             FillDeviceFactsFromSession(capabilities);
 
+            // Whether the session answered at all. It decides whether a test configuration parameter is
+            // allowed to name the device: see the deviceName case below.
+            bool sessionAnswered = capabilities.Count > 0;
+
             foreach ((string capability, string[] names) in CapabilityMap)
             {
                 // The session's answer is never overwritten by the parameter that requested it.
                 if (capabilities.ContainsKey(capability)) continue;
+
+                // deviceName is per-device, and the parameters are read from Tosca's process-wide loaded
+                // configuration — with several test cases in flight the last one loaded wins, so filling
+                // it from there tags every device with one name while the screen size and OS version,
+                // which the session did answer, stay correct per device. Only trust a parameter when the
+                // session said nothing at all, where every field is parameter-derived and at least
+                // consistent with itself.
+                if (capability == "deviceName" && sessionAnswered)
+                {
+                    Utils.Log("The session did not report a device name. Not using the test " +
+                        "configuration parameter for it: that is read per Commander process, not per " +
+                        "test case, so it would name every device the same.", "debug");
+                    continue;
+                }
 
                 foreach (string name in names)
                 {
