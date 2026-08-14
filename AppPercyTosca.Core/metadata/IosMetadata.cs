@@ -22,8 +22,8 @@ namespace AppPercyTosca.Core
 
         public override string? DeviceName()
         {
-            return Driver.Capabilities.GetString("deviceName")
-                ?? Driver.Capabilities.GetString("device");
+            return Driver.Capabilities.GetString("device")
+                ?? Driver.Capabilities.GetString("deviceName");
         }
 
         protected override int MeasuredScreenWidth()
