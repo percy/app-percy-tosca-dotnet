@@ -224,6 +224,36 @@ namespace AppPercyTosca.Core
                 $"'{current}', which is the device identifier.", "debug");
         }
 
+        /// Replaces the requested device name with the one App Automate allocated.
+        ///
+        /// Last, so it outranks both the capability and the `desired` name: those say what was asked
+        /// for, and Tosca asks with a `deviceName` from its process-wide configuration while pinning the
+        /// hardware with `udid`. With several test cases in flight the two disagree and every snapshot is
+        /// tagged with one case's device — Percy then merges baselines that should be compared apart.
+        ///
+        /// Only for App Automate, since it is App Automate being asked.
+        private void NameTheDeviceAppAutomateAllocated(
+            Dictionary<string, object?> capabilities, WebDriverSession session)
+        {
+            string? host = Host;
+            if (string.IsNullOrEmpty(host)
+                || !host.Contains(Env.AutomateDomain(), StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            string? allocated = session.TryGetAllocatedDeviceName();
+            if (string.IsNullOrWhiteSpace(allocated)) return;
+
+            string? requested = capabilities.GetString("deviceName");
+            if (!string.Equals(requested, allocated, StringComparison.OrdinalIgnoreCase))
+            {
+                Utils.Log($"App Automate allocated '{allocated}'; the session was asked for " +
+                    $"'{requested ?? "nothing"}'. Tagging with what it allocated.");
+            }
+            capabilities["deviceName"] = allocated;
+        }
+
         /// Asks the session for the device facts, under the same capability names the other App Percy
         /// SDKs read off their driver, so the metadata layer needs no Tosca-specific path.
         ///
@@ -244,6 +274,8 @@ namespace AppPercyTosca.Core
                 Utils.Log($"Read {reported.Count} capabilities from the device session.", "debug");
                 PreferTheFriendlyDeviceName(capabilities, reported);
             }
+
+            NameTheDeviceAppAutomateAllocated(capabilities, session);
 
             // "WxH" is what Android reports and what iOS falls back to for an unlisted device.
             (int Width, int Height)? window = session.TryGetWindowSize();

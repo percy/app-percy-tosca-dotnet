@@ -47,7 +47,11 @@ namespace AppPercyTosca
             if (_token != null) start.Environment["PERCY_TOKEN"] = _token;
 
             // The CLI reads these too, and on Tosca they can only have come from a module parameter.
-            foreach (string name in new[] { "PERCY_CLI_API", "PERCY_LOGLEVEL" })
+            //
+            // PERCY_BRANCH matters more here than it looks. The CLI names the branch from the git
+            // repository it is started in, and a Tosca machine usually has none — so without a value
+            // every run lands on whatever Percy falls back to, and none of them group into a history.
+            foreach (string name in new[] { "PERCY_CLI_API", "PERCY_LOGLEVEL", "PERCY_BRANCH" })
             {
                 string? supplied = Env.Read(name);
                 if (!string.IsNullOrWhiteSpace(supplied)) start.Environment[name] = supplied;

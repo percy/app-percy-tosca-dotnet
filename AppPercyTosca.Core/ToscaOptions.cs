@@ -22,7 +22,7 @@ namespace AppPercyTosca.Core
             "IosOptimizedFullpage", "TopScrollviewOffset", "BottomScrollviewOffset",
             "CustomIgnoreRegions", "CustomConsiderRegions",
             "Labels", "SessionId",
-            "CliCommand", "PercyToken",
+            "CliCommand", "PercyToken", "Branch",
             "LogLevel", "LogFile", "CliApi", "TmpDir",
             "ForceFullPage", "DisableRemoteUploads", "EnablePercyDev", "AutomateDomain"
         };
@@ -34,6 +34,7 @@ namespace AppPercyTosca.Core
         /// CLI reads it, not this SDK, so a value here would be silently ignored.
         public static readonly (string Parameter, string Variable)[] EnvironmentParameters =
         {
+            ("Branch", "PERCY_BRANCH"),
             ("LogLevel", "PERCY_LOGLEVEL"),
             ("LogFile", "PERCY_LOG_FILE"),
             ("CliApi", "PERCY_CLI_API"),

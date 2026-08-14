@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
@@ -161,6 +162,79 @@ namespace AppPercyTosca.Core
                     Utils.RedactCredentials(e.Message), "debug");
                 return null;
             }
+        }
+
+        /// The device App Automate actually allocated, or null.
+        ///
+        /// The one BrowserStack-specific call in this SDK, and it earns the exception. A `deviceName`
+        /// capability is what the client asked for, not what it got: Tosca pins the device with `udid`
+        /// and sends a `deviceName` from its process-wide configuration, so with several test cases in
+        /// flight the two disagree — on one measured session BrowserStack allocated an iPhone 14 while
+        /// the capability said "iPhone 14 Pro Max". Screen size and OS version are measured from the
+        /// real device, which is why only the name came out wrong, and Percy groups baselines by that
+        /// name, so a wrong one merges devices that should be compared separately.
+        ///
+        /// Nothing in the capability bag can settle it: on iOS there is no `deviceModel`, and `device`
+        /// is the family ("iphone"). The REST API is the only source that names the hardware.
+        ///
+        /// Authenticated with the credentials already in the hub URL's userinfo, so there is nothing new
+        /// to configure. Without them the caller keeps whatever the capability said.
+        public string? TryGetAllocatedDeviceName()
+        {
+            string? credentials = HubCredentials();
+            if (credentials == null)
+            {
+                Utils.Log("The AppiumServer URL carries no credentials, so App Automate cannot be asked " +
+                    "which device it allocated. The session's deviceName is used as-is, which is what it " +
+                    "was asked for rather than what it got.", "debug");
+                return null;
+            }
+
+            try
+            {
+                using HttpRequestMessage request = new HttpRequestMessage(
+                    HttpMethod.Get,
+                    $"https://api-cloud.browserstack.com/app-automate/sessions/{_sessionId}.json");
+                request.Headers.Authorization = new AuthenticationHeaderValue(
+                    "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials)));
+
+                Task<HttpResponseMessage> send = _http.SendAsync(request);
+                send.Wait();
+                using HttpResponseMessage response = send.Result;
+
+                Task<string> body = response.Content.ReadAsStringAsync();
+                body.Wait();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Utils.Log($"App Automate would not say which device it allocated " +
+                        $"({(int)response.StatusCode}): {Truncate(body.Result)}", "debug");
+                    return null;
+                }
+
+                string? device = Json.PropertyAsString(
+                    Json.Property(Json.TryParse(body.Result), "automation_session"), "device");
+                return string.IsNullOrWhiteSpace(device) ? null : device.Trim();
+            }
+            catch (Exception e)
+            {
+                // Warn, not debug: the tag falls back to the name the client asked for, and if that
+                // disagrees with the hardware the baselines merge silently — which is the whole reason
+                // for this call.
+                Utils.Log("Could not ask App Automate which device it allocated, so this snapshot is " +
+                    "tagged with the name the session was asked for: " +
+                    Utils.RedactCredentials(e.Message), "warn");
+                return null;
+            }
+        }
+
+        /// <c>user:key</c> from the hub URL, or null when it carries none.
+        private string? HubCredentials()
+        {
+            if (!Uri.TryCreate(_serverUrl, UriKind.Absolute, out Uri? hub)) return null;
+
+            string credentials = Uri.UnescapeDataString(hub.UserInfo);
+            return credentials.Contains(':', StringComparison.Ordinal) ? credentials : null;
         }
 
         /// Runs a script in the session. This is what carries the <c>browserstack_executor:</c>
