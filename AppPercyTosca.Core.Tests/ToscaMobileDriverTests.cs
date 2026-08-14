@@ -477,6 +477,36 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void ALookupThatCannotBeReachedLeavesTheCapabilityAlone()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler
+            {
+                Throw = new HttpRequestException("no route to host")
+            };
+
+            // Nothing answers, including the capability read, so there is no name at all — but the
+            // failure is a logged null rather than a failed snapshot.
+            Assert.Null(Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+            Assert.True(Logged("Could not ask App Automate which device it allocated"));
+        }
+
+        [Fact]
+        public void AHubUrlThatIsNotAUrlIsNotAskedEither()
+        {
+            // Reaches the credentials parse and fails there: the name is whatever the session said.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            Assert.Equal("iPhone 14 Pro Max",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+            Assert.True(Logged("carries no credentials"));
+        }
+
+        [Fact]
         public void ANonAppAutomateHubIsNotAsked()
         {
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
