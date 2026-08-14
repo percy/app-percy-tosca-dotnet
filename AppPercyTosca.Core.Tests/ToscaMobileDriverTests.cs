@@ -387,6 +387,111 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void TheDeviceAppAutomateAllocatedOutranksTheOneAskedFor()
+        {
+            // The bug. Tosca pins the device with `udid` and sends a `deviceName` from its process-wide
+            // configuration, so with several test cases in flight every snapshot was tagged with one
+            // case's device while the screen size, measured from the real device, stayed correct.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("session-abc.json", "{\"automation_session\":{\"device\":\"iPhone 14\"}}")
+                .Default("{\"value\":{\"platformName\":\"iOS\",\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("iPhone 14", driver.Capabilities.GetString("deviceName"));
+            Assert.True(Logged("App Automate allocated 'iPhone 14'"));
+        }
+
+        [Fact]
+        public void TheLookupIsAuthenticatedWithTheCredentialsAlreadyInTheHubUrl()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("session-abc.json", "{\"automation_session\":{\"device\":\"iPhone 14\"}}")
+                .Default("{\"value\":{}}");
+
+            _ = Build(tosca, deviceHttp: device).Capabilities;
+
+            StubHttpMessageHandler.Recorded lookup =
+                device.Requests.First(r => r.Url.Contains("/app-automate/sessions/"));
+            Assert.Equal(Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes("someone:secretkey")), lookup.AuthParameter);
+        }
+
+        [Fact]
+        public void AnAgreeingNameIsAppliedWithoutSayingAnything()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("session-abc.json", "{\"automation_session\":{\"device\":\"iPhone 14\"}}")
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14\"}}");
+
+            Assert.Equal("iPhone 14", Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+            Assert.False(Logged("App Automate allocated"));
+        }
+
+        [Fact]
+        public void WithNoCredentialsInTheHubUrlTheCapabilityStands()
+        {
+            // Nothing to authenticate with, so the name is whatever was asked for — reported, because
+            // that is the case where devices can still merge.
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("iPhone 14 Pro Max", driver.Capabilities.GetString("deviceName"));
+            Assert.DoesNotContain("/app-automate/sessions/",
+                string.Join(" ", device.Requests.Select(r => r.Url)));
+        }
+
+        [Fact]
+        public void ARefusedLookupLeavesTheCapabilityAlone()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("session-abc.json", "no", System.Net.HttpStatusCode.Unauthorized)
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            Assert.Equal("iPhone 14 Pro Max",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+        }
+
+        [Fact]
+        public void ALookupThatAnswersWithNoDeviceLeavesTheCapabilityAlone()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@hub-cloud.browserstack.com/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .On("session-abc.json", "{\"automation_session\":{}}")
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            Assert.Equal("iPhone 14 Pro Max",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+        }
+
+        [Fact]
+        public void ANonAppAutomateHubIsNotAsked()
+        {
+            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
+            tosca.Tcps["AppiumServer"] = "https://someone:secretkey@appium.internal/wd/hub";
+            StubHttpMessageHandler device = new StubHttpMessageHandler()
+                .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
+
+            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
+
+            Assert.Equal("iPhone 14 Pro Max", driver.Capabilities.GetString("deviceName"));
+            Assert.DoesNotContain("/app-automate/sessions/",
+                string.Join(" ", device.Requests.Select(r => r.Url)));
+        }
+
+        [Fact]
         public void ASessionThatReportsNothingLeavesTheParametersInCharge()
         {
             // Degrades the tag rather than the run: every one of these has a module parameter that can
