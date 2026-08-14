@@ -153,18 +153,10 @@ takes a single-screen snapshot of the current screen.
 
 ### Device details
 
-There are no parameters for these. The OS, version, screen size, bar heights and orientation are read
-from the App Automate session, which measures them on the device that was actually allocated — a module
-parameter could only disagree with it, and a stale or mistyped one silently splits a Percy baseline in a
-way that looks like a real visual change.
-
-The **device name** is asked of App Automate directly, using the credentials already in your
-`AppiumServer` URL. The session's own `deviceName` cannot be trusted for it: Tosca pins the device with a
-`udid` and sends a name from its process-wide configuration, so with several test cases running the name
-and the hardware disagree — one measured session was allocated an iPhone 14 while the capability said
-iPhone 14 Pro Max. Since Percy groups baselines by device name, that merged devices which should have
-been compared apart. If your `AppiumServer` URL carries no credentials the lookup is skipped and the
-capability is used as-is; run with `LogLevel` = `debug` to see which happened.
+There are no parameters for these. The device name, OS, version, screen size, bar heights and
+orientation are read from the App Automate session, which knows the device that was actually
+allocated — a module parameter could only disagree with it, and a stale or mistyped one silently
+splits a Percy baseline in a way that looks like a real visual change.
 
 The one gap worth knowing: the built-in dimension table
 (`AppPercyTosca.Core/resources/devices.json`) covers older iPhones and iPads only, so an unlisted iOS
