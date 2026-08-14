@@ -172,13 +172,26 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void TheResolvedModelOutranksBothOtherSpellings()
+        public void TheModelIsUsedWhenTheOnlyNameIsASerialNumber()
         {
             StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps.Remove("device");
             driver.Caps["deviceModel"] = "Pixel 6";
             driver.Caps["deviceName"] = "1A131FDF6009SA";
 
             Assert.Equal("Pixel 6", Build(driver).DeviceName());
+        }
+
+        [Fact]
+        public void WhatAndroidAlreadyTagsWithIsLeftAlone()
+        {
+            // `device` stays the first choice so no existing Android baseline is renamed: the tidier
+            // `deviceModel` would turn "google pixel 6" into "Pixel 6" and split every one of them.
+            StubMobileDriver driver = StubMobileDriver.Android();
+            driver.Caps["device"] = "google pixel 6";
+            driver.Caps["deviceModel"] = "Pixel 6";
+
+            Assert.Equal("google pixel 6", Build(driver).DeviceName());
         }
 
         [Fact]

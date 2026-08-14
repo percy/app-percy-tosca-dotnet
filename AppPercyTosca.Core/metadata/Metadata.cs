@@ -38,10 +38,13 @@ namespace AppPercyTosca.Core
         /// Reading them in a fixed order per platform is what let a value that cannot identify one
         /// device reach the tag, merging several devices into one baseline.
         ///
-        /// So: most specific first, and skip anything that cannot tell two devices apart.
+        /// So: the order Android already used, with anything that cannot tell two devices apart skipped.
+        /// `device` stays first deliberately — it is what Android has always tagged with ("google pixel
+        /// 6"), and preferring the tidier `deviceModel` ("Pixel 6") would rename every Android tag and
+        /// split every existing baseline.
         public virtual string? DeviceName()
         {
-            foreach (string key in new[] { "deviceModel", "deviceName", "device" })
+            foreach (string key in new[] { "device", "deviceName", "deviceModel" })
             {
                 string? value = Driver.Capabilities.GetString(key)?.Trim();
                 if (string.IsNullOrEmpty(value)) continue;
