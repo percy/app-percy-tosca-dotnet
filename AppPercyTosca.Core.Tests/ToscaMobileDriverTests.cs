@@ -498,6 +498,7 @@ namespace AppPercyTosca.Core.Tests
         {
             // Reaches the credentials parse and fails there. A URL with no scheme is not usable for the
             // capability read either, so the parameter is what is left.
+            SetEnv("PERCY_LOGLEVEL", "debug");
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.Tcps["AppiumServer"] = "hub-cloud.browserstack.com/wd/hub";
             StubHttpMessageHandler device = new StubHttpMessageHandler()

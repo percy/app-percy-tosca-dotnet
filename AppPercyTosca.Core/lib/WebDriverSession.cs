@@ -218,8 +218,12 @@ namespace AppPercyTosca.Core
             }
             catch (Exception e)
             {
-                Utils.Log("Could not ask App Automate which device it allocated: " +
-                    Utils.RedactCredentials(e.Message), "debug");
+                // Warn, not debug: the tag falls back to the name the client asked for, and if that
+                // disagrees with the hardware the baselines merge silently — which is the whole reason
+                // for this call.
+                Utils.Log("Could not ask App Automate which device it allocated, so this snapshot is " +
+                    "tagged with the name the session was asked for: " +
+                    Utils.RedactCredentials(e.Message), "warn");
                 return null;
             }
         }
