@@ -74,6 +74,7 @@ Create a module with **Engine** → `Percy` and **SpecialExecutionTask** → `Ap
 | Row | Value | Notes |
 |---|---|---|
 | `PercyToken` | your **App** project token | Or leave it off and set `PERCY_TOKEN` in the environment |
+| `Branch` | e.g. `release-24` | Optional, but see below — usually worth setting |
 | `CliCommand` | e.g. `C:\Users\you\AppData\Roaming\npm\percy` | Optional. Only needed when `percy` is not on the PATH Tosca sees |
 
 Use an **App** project's token. One starting with `auto_` is an Automate project token and selects a mode
@@ -82,6 +83,16 @@ this SDK does not support — the step reports that plainly rather than failing 
 The token is passed to the CLI through its environment, never on its command line, and is redacted if it
 ever reaches a log by another route. It is still a secret in a test asset, so prefer an encrypted TCP or
 the environment on a shared workspace.
+
+#### Naming the branch
+
+Percy groups builds into a history by branch, and the CLI takes the branch from the git repository it was
+started in. A Tosca machine usually has none — so without a value every run lands on whatever Percy falls
+back to, and no two builds compare against each other. `Branch` sets it.
+
+It belongs on **this** task and nowhere else: the build is created when the CLI starts, so a branch given
+to a screenshot step arrives after the decision has been made. Setting `PERCY_BRANCH` in the environment
+works too, and the row wins over it.
 
 Readiness is judged two ways: the CLI printing `Percy has started!`, **and** its healthcheck answering.
 The log line alone would report success to a sheet whose snapshots are all about to be dropped. First
@@ -246,6 +257,7 @@ variables for the process it runs in.
 | Variable | Effect |
 |---|---|
 | `PERCY_TOKEN` | Your Percy project token. Read by the CLI; `AppPercyStartCli` forwards its `PercyToken` row here |
+| `PERCY_BRANCH` | The branch a build belongs to. Read by the CLI; `AppPercyStartCli` forwards its `Branch` row here |
 | `PERCY_LOGLEVEL=debug` | Verbose SDK logging; same as the `LogLevel` parameter |
 | `PERCY_LOG_FILE` | Where the log file copy is written (default `%TEMP%\percy.txt`); same as `LogFile` |
 

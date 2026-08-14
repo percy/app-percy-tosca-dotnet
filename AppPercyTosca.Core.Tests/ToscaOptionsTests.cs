@@ -187,6 +187,26 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
+        public void ABranchRowOutranksTheEnvironmentLikeTheOthers()
+        {
+            // A Tosca machine usually has no git repository, so this row is often the only thing that
+            // names the branch a build belongs to.
+            SetEnv("PERCY_BRANCH", "from-environment");
+            ToscaOptions.ApplyEnvironment(Reader(("Branch", "from-the-sheet")));
+
+            Assert.Equal("from-the-sheet", Env.Read("PERCY_BRANCH"));
+        }
+
+        [Fact]
+        public void WithNoBranchRowTheEnvironmentStillDecides()
+        {
+            SetEnv("PERCY_BRANCH", "from-environment");
+            ToscaOptions.ApplyEnvironment(Reader());
+
+            Assert.Equal("from-environment", Env.Read("PERCY_BRANCH"));
+        }
+
+        [Fact]
         public void KnownParametersListsEveryParameterTheBuildersRead()
         {
             // A parameter Build() reads without being listed here is unreachable: the manifest is what
@@ -210,6 +230,7 @@ namespace AppPercyTosca.Core.Tests
         public void ApplyEnvironmentPutsEveryParameterInForce()
         {
             ToscaOptions.ApplyEnvironment(Reader(
+                ("Branch", "release-24"),
                 ("LogLevel", "debug"),
                 ("LogFile", "/tmp/percy-from-tosca.txt"),
                 ("CliApi", "http://elsewhere:1234"),
@@ -220,6 +241,8 @@ namespace AppPercyTosca.Core.Tests
                 ("AutomateDomain", "my-hub.internal")));
 
             Assert.True(Env.Debug());
+            // No Env accessor: the CLI reads this one, and the SDK only has to carry it to the child.
+            Assert.Equal("release-24", Env.Read("PERCY_BRANCH"));
             Assert.Equal("/tmp/percy-from-tosca.txt", Env.LogFile());
             Assert.Equal("http://elsewhere:1234", Env.CliApi());
             Assert.Equal("/tmp/percy-tiles", Env.TempDir());
