@@ -486,22 +486,24 @@ namespace AppPercyTosca.Core.Tests
                 Throw = new HttpRequestException("no route to host")
             };
 
-            // Nothing answers, including the capability read, so there is no name at all — but the
-            // failure is a logged null rather than a failed snapshot.
-            Assert.Null(Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
+            // Nothing answers, including the capability read, so the parameter is the only source left
+            // and it stands. The failure is a logged null rather than a failed snapshot.
+            Assert.Equal("Google Pixel 7",
+                Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
             Assert.True(Logged("Could not ask App Automate which device it allocated"));
         }
 
         [Fact]
         public void AHubUrlThatIsNotAUrlIsNotAskedEither()
         {
-            // Reaches the credentials parse and fails there: the name is whatever the session said.
+            // Reaches the credentials parse and fails there. A URL with no scheme is not usable for the
+            // capability read either, so the parameter is what is left.
             StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
             tosca.Tcps["AppiumServer"] = "hub-cloud.browserstack.com/wd/hub";
             StubHttpMessageHandler device = new StubHttpMessageHandler()
                 .Default("{\"value\":{\"deviceName\":\"iPhone 14 Pro Max\"}}");
 
-            Assert.Equal("iPhone 14 Pro Max",
+            Assert.Equal("Google Pixel 7",
                 Build(tosca, deviceHttp: device).Capabilities.GetString("deviceName"));
             Assert.True(Logged("carries no credentials"));
         }
