@@ -16,6 +16,14 @@ namespace AppPercyTosca.Core
 
         public override string OsName() => "Android";
 
+        public override string? DeviceName()
+        {
+            // App Automate reports the resolved device as `device`; a local/desired-caps session
+            // only has the requested `deviceName`.
+            return Driver.Capabilities.GetString("device")
+                ?? Driver.Capabilities.GetString("deviceName");
+        }
+
         protected override int MeasuredScreenWidth()
         {
             return ScreenSize()?.Width ?? ViewportInt("width") ?? 0;

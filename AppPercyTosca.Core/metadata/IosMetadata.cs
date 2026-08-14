@@ -20,6 +20,12 @@ namespace AppPercyTosca.Core
 
         public override string OsName() => "iOS";
 
+        public override string? DeviceName()
+        {
+            return Driver.Capabilities.GetString("deviceName")
+                ?? Driver.Capabilities.GetString("device");
+        }
+
         protected override int MeasuredScreenWidth()
         {
             int fromTable = DeviceRegistry.Value("screenWidth", DeviceName());

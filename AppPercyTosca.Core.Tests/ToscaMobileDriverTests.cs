@@ -387,24 +387,6 @@ namespace AppPercyTosca.Core.Tests
         }
 
         [Fact]
-        public void ASessionThatAnsweredButNamedNoDeviceIsNotNamedByTheParameters()
-        {
-            // The bug this guards. The parameters come from Tosca's process-wide loaded configuration,
-            // so with three test cases in flight the last one loaded would name all three devices, while
-            // the screen size and OS version — which the session did answer — stayed correct per device.
-            StubToscaEnvironment tosca = StubToscaEnvironment.AppAutomate();
-            StubHttpMessageHandler device = new StubHttpMessageHandler()
-                .Default("{\"value\":{\"platformName\":\"iOS\",\"platformVersion\":\"17.3\"," +
-                    "\"deviceScreenSize\":\"1179x2556\"}}");
-
-            ToscaMobileDriver driver = Build(tosca, deviceHttp: device);
-
-            Assert.Null(driver.Capabilities.GetString("deviceName"));
-            Assert.Equal("17.3", driver.Capabilities.GetString("platformVersion"));
-            Assert.Equal("1179x2556", driver.Capabilities.GetString("deviceScreenSize"));
-        }
-
-        [Fact]
         public void ASessionThatReportsNothingLeavesTheParametersInCharge()
         {
             // Degrades the tag rather than the run: every one of these has a module parameter that can

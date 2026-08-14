@@ -176,28 +176,12 @@ namespace AppPercyTosca.Core
                 if (!string.IsNullOrWhiteSpace(tcp.Value)) capabilities[tcp.Key] = tcp.Value;
             }
 
-            // Not a count of `capabilities`: every parameter above is already in it, so its size says
-            // nothing about whether the session answered.
-            bool sessionNamedTheDevice = FillDeviceFactsFromSession(capabilities);
+            FillDeviceFactsFromSession(capabilities);
 
             foreach ((string capability, string[] names) in CapabilityMap)
             {
                 // The session's answer is never overwritten by the parameter that requested it.
                 if (capabilities.ContainsKey(capability)) continue;
-
-                // deviceName is per-device, and the parameters are read from Tosca's process-wide loaded
-                // configuration — with several test cases in flight the last one loaded wins, so filling
-                // it from there tags every device with one name while the screen size and OS version,
-                // which the session did answer, stay correct per device. Only trust a parameter when the
-                // session said nothing at all, where every field is parameter-derived and at least
-                // consistent with itself.
-                if (capability == "deviceName" && sessionNamedTheDevice)
-                {
-                    Utils.Log("The session did not report a device name. Not using the test " +
-                        "configuration parameter for it: that is read per Commander process, not per " +
-                        "test case, so it would name every device the same.", "debug");
-                    continue;
-                }
 
                 foreach (string name in names)
                 {
@@ -245,20 +229,14 @@ namespace AppPercyTosca.Core
         ///
         /// Several probes because no one endpoint answers all of it, and each is independent: one
         /// refusing costs its own detail only.
-        /// Returns whether the session described the device it allocated — which is what decides
-        /// whether a test configuration parameter may name it. It reports its own capabilities as one
-        /// answer, so if it answered at all and still named no device, no parameter can name one either:
-        /// they are read per Commander process rather than per test case.
-        private bool FillDeviceFactsFromSession(Dictionary<string, object?> capabilities)
+        private void FillDeviceFactsFromSession(Dictionary<string, object?> capabilities)
         {
             WebDriverSession? session = Session();
-            if (session == null) return false;
+            if (session == null) return;
 
-            bool answered = false;
             IReadOnlyDictionary<string, object?>? reported = session.TryGetCapabilities();
             if (reported != null)
             {
-                answered = true;
                 foreach (KeyValuePair<string, object?> capability in reported)
                 {
                     if (capability.Value != null) capabilities[capability.Key] = capability.Value;
@@ -276,7 +254,7 @@ namespace AppPercyTosca.Core
                     "from the session window.", "debug");
             }
 
-            if (capabilities.ContainsKey("viewportRect")) return answered;
+            if (capabilities.ContainsKey("viewportRect")) return;
 
             // Preferred: the usable area stated directly.
             IReadOnlyDictionary<string, object?>? viewport = session.TryGetViewportRect();
@@ -284,7 +262,7 @@ namespace AppPercyTosca.Core
             {
                 capabilities["viewportRect"] = viewport;
                 Utils.Log("Read the viewport rect from the session.", "debug");
-                return answered;
+                return;
             }
 
             // Otherwise from the bar heights, the one route that reliably answers on Android.
@@ -296,7 +274,7 @@ namespace AppPercyTosca.Core
                     "will differ between runs. The bar heights are read from the session; there is " +
                     "no parameter to supply them. Run with PERCY_LOGLEVEL=debug to see what the " +
                     "session refused.", "warn");
-                return answered;
+                return;
             }
 
             int? screenHeight = window?.Height
@@ -305,7 +283,7 @@ namespace AppPercyTosca.Core
             {
                 // Worth keeping even alone: the metadata layer reads top from here.
                 capabilities["viewportRect"] = new Dictionary<string, object?> { ["top"] = bars.Value.StatusBar };
-                return answered;
+                return;
             }
 
             capabilities["viewportRect"] = new Dictionary<string, object?>
@@ -317,7 +295,6 @@ namespace AppPercyTosca.Core
             };
             Utils.Log($"Status bar {bars.Value.StatusBar}px, navigation bar " +
                 $"{bars.Value.NavigationBar}px, from the session's system bars.", "debug");
-            return answered;
         }
 
         /// Case-insensitive: TCP names vary across connection types (OSVersion/OsVersion).

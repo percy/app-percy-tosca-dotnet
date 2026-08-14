@@ -30,55 +30,7 @@ namespace AppPercyTosca.Core
                 ?? Driver.Capabilities.GetString("os_version");
         }
 
-        /// The device this snapshot was taken on, which Percy groups baselines by.
-        ///
-        /// One rule for both platforms, because the same capability means different things on each:
-        /// `device` is the resolved model on Android but the device *family* on iOS — "iphone" for every
-        /// iPhone ever allocated — and `deviceName` is the friendly name on iOS but the UDID on Android.
-        /// Reading them in a fixed order per platform is what let a value that cannot identify one
-        /// device reach the tag, merging several devices into one baseline.
-        ///
-        /// So: the order Android already used, with anything that cannot tell two devices apart skipped.
-        /// `device` stays first deliberately — it is what Android has always tagged with ("google pixel
-        /// 6"), and preferring the tidier `deviceModel` ("Pixel 6") would rename every Android tag and
-        /// split every existing baseline.
-        public virtual string? DeviceName()
-        {
-            foreach (string key in new[] { "device", "deviceName", "deviceModel" })
-            {
-                string? value = Driver.Capabilities.GetString(key)?.Trim();
-                if (string.IsNullOrEmpty(value)) continue;
-                if (IsDeviceFamily(value) || IsIdentifier(value)) continue;
-                return value;
-            }
-
-            // Nothing that names a model. Said out loud because the consequence is invisible otherwise:
-            // every device gets one tag and their diffs land on top of each other.
-            string? remaining = Driver.Capabilities.GetString("deviceName")
-                ?? Driver.Capabilities.GetString("device");
-            if (!string.IsNullOrWhiteSpace(remaining))
-            {
-                Utils.Log($"The session did not report a device model, so this snapshot is tagged " +
-                    $"'{remaining}'. If several devices run under that name their baselines merge — the " +
-                    "model is read from the session, so check that SessionId reaches the right one.",
-                    "warn");
-            }
-            return remaining;
-        }
-
-        /// "iphone" / "ipad" name a family, not a device. BrowserStack reports one as `device` on iOS.
-        private static bool IsDeviceFamily(string value) =>
-            value.Equals("iphone", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("ipad", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("android", StringComparison.OrdinalIgnoreCase)
-            || value.Equals("ios", StringComparison.OrdinalIgnoreCase);
-
-        /// A UDID rather than a name — "1A131FDF6009SA", "00008130-000E15C21EA2001C". Unusable as a tag
-        /// for a second reason beyond being unreadable: App Automate allocates a different physical
-        /// device per run, so a UDID would split the baseline every time.
-        private static bool IsIdentifier(string value) =>
-            !value.Contains(' ') && value.Length >= 12 && value.Any(char.IsDigit);
-
+        public abstract string? DeviceName();
         public abstract string OsName();
         public abstract int StatBarHeight();
         public abstract int NavBarHeight();
